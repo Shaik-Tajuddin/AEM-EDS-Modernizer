@@ -149,6 +149,21 @@
                             com.adobe.aem.modernizer.osgi.*
                         </Export-Package>
                         <Import-Package>
+                            !com.adobe.aem.modernizer.*,
+                            !android.*,
+                            !dalvik.*,
+                            !kotlin.*,
+                            !kotlin.jvm.*,
+                            !kotlin.reflect.*,
+                            !org.conscrypt.*,
+                            !org.bouncycastle.*,
+                            !org.openjsse.*,
+                            !sun.security.ssl.*,
+                            !com.microsoft.playwright.*,
+                            !com.sun.net.httpserver.*,
+                            org.slf4j;version="[1.7,2.0)",
+                            javax.annotation.*;resolution:=optional,
+                            javax.annotation.meta.*;resolution:=optional,
                             org.osgi.*;resolution:=optional,
                             org.apache.sling.api.*;resolution:=optional,
                             org.apache.sling.servlets.annotations.*;resolution:=optional,

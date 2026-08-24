@@ -38,7 +38,7 @@
         <sling.servlets.annotations.version>1.2.6</sling.servlets.annotations.version>
         <javax.servlet.version>3.0.1</javax.servlet.version>
         <jcr.version>2.0</jcr.version>
-        <slf4j.version>2.0.13</slf4j.version>
+        <slf4j.version>1.7.36</slf4j.version>
         <jackson.version>2.17.2</jackson.version>
         <okhttp.version>4.12.0</okhttp.version>
         <commons.codec.version>1.16.0</commons.codec.version>
