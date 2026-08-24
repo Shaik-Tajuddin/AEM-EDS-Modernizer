@@ -4,12 +4,16 @@ import com.adobe.aem.modernizer.agents.Orchestrator;
 import com.adobe.aem.modernizer.dashboard.ApiRouter;
 import com.adobe.aem.modernizer.dashboard.StaticDashboard;
 import com.adobe.aem.modernizer.dashboard.servlets.DashboardApi;
+import com.adobe.aem.modernizer.dashboard.servlets.DryRunServlet;
+import com.adobe.aem.modernizer.dashboard.servlets.MigrationServlet;
 import com.adobe.aem.modernizer.dashboard.servlets.ModernizerHomeServlet;
+import com.adobe.aem.modernizer.dashboard.servlets.ProjectServlet;
 import com.adobe.aem.modernizer.mock.MockDataFactory;
 import com.adobe.aem.modernizer.persistence.InMemoryStore;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.BenchmarkSampleRecord;
 import com.adobe.aem.modernizer.persistence.model.JobRecord;
+import com.adobe.aem.modernizer.persistence.model.MigrationPlan;
 import com.adobe.aem.modernizer.persistence.model.ProjectRecord;
 import com.adobe.aem.modernizer.persistence.model.SiteInventory;
 import com.adobe.aem.modernizer.util.JsonUtil;
@@ -172,9 +176,147 @@ class DashboardServletsAndApiTest {
     }
 
     @Test
+    void testProjectServlet() throws Exception {
+        ProjectServlet servlet = new ProjectServlet(store);
+
+        // POST project
+        SlingHttpServletRequest req = Mockito.mock(SlingHttpServletRequest.class);
+        SlingHttpServletResponse resp = Mockito.mock(SlingHttpServletResponse.class);
+        org.apache.sling.api.request.RequestPathInfo pathInfo = Mockito.mock(org.apache.sling.api.request.RequestPathInfo.class);
+        when(req.getRequestPathInfo()).thenReturn(pathInfo);
+
+        ProjectRecord p = new ProjectRecord("proj-custom", "Custom Project", "http://localhost:4502", "/content/custom", "https://github.com/custom/eds");
+        when(req.getReader()).thenReturn(new BufferedReader(new StringReader(JsonUtil.toJson(p))));
+        StringWriter sw = new StringWriter();
+        when(resp.getWriter()).thenReturn(new PrintWriter(sw));
+
+        servlet.doPost(req, resp);
+        assertThat(sw.toString()).contains("proj-custom");
+
+        // POST project without ID or Name
+        when(req.getReader()).thenReturn(new BufferedReader(new StringReader("{}")));
+        StringWriter swEmpty = new StringWriter();
+        when(resp.getWriter()).thenReturn(new PrintWriter(swEmpty));
+        servlet.doPost(req, resp);
+        assertThat(swEmpty.toString()).contains("proj-");
+
+        // GET all projects
+        SlingHttpServletRequest getReq = Mockito.mock(SlingHttpServletRequest.class);
+        SlingHttpServletResponse getResp = Mockito.mock(SlingHttpServletResponse.class);
+        when(getReq.getRequestPathInfo()).thenReturn(pathInfo);
+        when(pathInfo.getSuffix()).thenReturn(null);
+        StringWriter getSw = new StringWriter();
+        when(getResp.getWriter()).thenReturn(new PrintWriter(getSw));
+
+        servlet.doGet(getReq, getResp);
+        assertThat(getSw.toString()).contains("proj-custom");
+
+        // GET project by suffix
+        when(pathInfo.getSuffix()).thenReturn("/proj-custom");
+        StringWriter singleSw = new StringWriter();
+        when(getResp.getWriter()).thenReturn(new PrintWriter(singleSw));
+        servlet.doGet(getReq, getResp);
+        assertThat(singleSw.toString()).contains("Custom Project");
+
+        // GET non-existent project
+        when(pathInfo.getSuffix()).thenReturn("/non-existent");
+        StringWriter notFoundSw = new StringWriter();
+        when(getResp.getWriter()).thenReturn(new PrintWriter(notFoundSw));
+        servlet.doGet(getReq, getResp);
+        assertThat(notFoundSw.toString()).contains("error");
+
+        // DELETE project
+        when(pathInfo.getSuffix()).thenReturn("/proj-custom");
+        servlet.doDelete(getReq, getResp);
+        assertThat(store.getProject("proj-custom")).isEmpty();
+
+        // DELETE without id
+        when(pathInfo.getSuffix()).thenReturn(null);
+        when(getReq.getParameter("id")).thenReturn(null);
+        servlet.doDelete(getReq, getResp);
+
+        // Test null store servlet
+        ProjectServlet emptyServlet = new ProjectServlet();
+        emptyServlet.doGet(getReq, getResp);
+    }
+
+    @Test
+    void testDryRunAndMigrationServlets() throws Exception {
+        DryRunServlet dryRunServlet = new DryRunServlet(store, orchestrator);
+        MigrationServlet migrationServlet = new MigrationServlet(store, orchestrator);
+
+        SlingHttpServletRequest req = Mockito.mock(SlingHttpServletRequest.class);
+        SlingHttpServletResponse resp = Mockito.mock(SlingHttpServletResponse.class);
+        when(req.getParameter("projectId")).thenReturn("wknd-site");
+
+        StringWriter sw1 = new StringWriter();
+        when(resp.getWriter()).thenReturn(new PrintWriter(sw1));
+        dryRunServlet.doPost(req, resp);
+        assertThat(sw1.toString()).contains("DRY_RUN");
+
+        StringWriter sw2 = new StringWriter();
+        when(resp.getWriter()).thenReturn(new PrintWriter(sw2));
+        migrationServlet.doPost(req, resp);
+        assertThat(sw2.toString()).contains("MIGRATE");
+
+        // Null constructors
+        new DryRunServlet().doPost(req, resp);
+        new MigrationServlet().doPost(req, resp);
+    }
+
+    @Test
+    void testModernizerDashboardModel() {
+        com.adobe.aem.modernizer.dashboard.models.ModernizerDashboardModel defaultModel =
+                new com.adobe.aem.modernizer.dashboard.models.ModernizerDashboardModel();
+        assertThat(defaultModel.getActiveProjectId()).isEqualTo("wknd-site");
+
+        com.adobe.aem.modernizer.dashboard.models.ModernizerDashboardModel model =
+                new com.adobe.aem.modernizer.dashboard.models.ModernizerDashboardModel(store, orchestrator);
+
+        assertThat(model.getApiBaseUrl()).contains("/bin/aem-eds-modernizer/api");
+        assertThat(model.getActiveProjectId()).isEqualTo("wknd-site");
+        assertThat(model.getActiveProject()).isNotNull();
+        assertThat(model.isConfigured()).isTrue();
+        assertThat(model.getPagesCount()).isGreaterThanOrEqualTo(0);
+        assertThat(model.getComponentsCount()).isGreaterThanOrEqualTo(0);
+        assertThat(model.getExpectedCost()).isGreaterThanOrEqualTo(0.0);
+        assertThat(model.getExpectedTimeSec()).isGreaterThanOrEqualTo(0.0);
+        assertThat(model.getProjects()).isNotNull();
+        assertThat(model.getRolloutStages()).isNotNull();
+        assertThat(model.getRepairs()).isNotNull();
+        assertThat(model.getBenchmarks()).isNotNull();
+
+        model.setApiBaseUrl("http://localhost:4502/api");
+        assertThat(model.getApiBaseUrl()).isEqualTo("http://localhost:4502/api");
+        model.setActiveProjectId("custom-id");
+        assertThat(model.getActiveProjectId()).isEqualTo("custom-id");
+
+        SiteInventory inv = MockDataFactory.createWkndInventory("/content/wknd", null, 3);
+        model.setInventory(inv);
+        assertThat(model.getInventory()).isNotNull();
+        assertThat(model.getPagesCount()).isGreaterThan(0);
+        assertThat(model.getComponentsCount()).isGreaterThan(0);
+
+        MigrationPlan plan = new MigrationPlan();
+        plan.setProjectId("proj-1");
+        plan.setJobId("job-1");
+        plan.setCostExpected(45.5);
+        plan.setTimeExpectedSec(120L);
+        model.setPlan(plan);
+        assertThat(model.getPlan()).isNotNull();
+        assertThat(model.getExpectedCost()).isEqualTo(45.5);
+        assertThat(model.getExpectedTimeSec()).isEqualTo(120.0);
+
+        ProjectRecord p = new ProjectRecord("p-test", "Test", "http://author", "/content/test", "http://git");
+        model.setActiveProject(p);
+        assertThat(model.getActiveProject()).isEqualTo(p);
+    }
+
+    @Test
     void testStaticDashboardHtml() {
         String html = StaticDashboard.html("http://localhost:4502/bin/aem-eds-modernizer/api");
         assertThat(html).contains("AEM → EDS Modernizer");
         assertThat(html).contains("http://localhost:4502/bin/aem-eds-modernizer/api");
     }
 }
+

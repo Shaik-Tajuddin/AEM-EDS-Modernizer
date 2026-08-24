@@ -3,25 +3,18 @@ package com.adobe.aem.modernizer.dashboard.servlets;
 import com.adobe.aem.modernizer.dashboard.StaticDashboard;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
-import org.apache.sling.api.servlets.HttpConstants;
 import org.apache.sling.api.servlets.SlingSafeMethodsServlet;
 import org.apache.sling.servlets.annotations.SlingServletPaths;
-import org.apache.sling.servlets.annotations.SlingServletResourceTypes;
 import org.osgi.service.component.annotations.Component;
 
 import javax.servlet.Servlet;
 import java.io.IOException;
 
 /**
- * Serves the Modernizer Dashboard SPA directly, bypassing HTL page rendering (Master §5, §6).
+ * Serves the Modernizer Dashboard SPA at direct vanity paths /aem-eds-modernizer (Master §5, §6).
  */
 @Component(service = Servlet.class, immediate = true)
 @SlingServletPaths(value = {"/aem-eds-modernizer", "/aem-eds-modernizer/"})
-@SlingServletResourceTypes(
-        resourceTypes = "aem-eds-modernizer/components/page/home",
-        methods = HttpConstants.METHOD_GET,
-        extensions = "html"
-)
 public class ModernizerHomeServlet extends SlingSafeMethodsServlet {
 
     @Override

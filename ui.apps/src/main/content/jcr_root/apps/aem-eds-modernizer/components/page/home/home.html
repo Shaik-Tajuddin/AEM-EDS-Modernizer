@@ -1,1 +1,265 @@
-<!--/* Modernizer dashboard SPA rendered by ModernizerHomeServlet */-->
+<!doctype html>
+<html lang="en" data-sly-use.model="com.adobe.aem.modernizer.dashboard.models.ModernizerDashboardModel">
+<head>
+  <meta charset="utf-8">
+  <title>AEM → EDS Modernizer</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <base href="${model.apiBaseUrl}/">
+  <link rel="stylesheet" href="/etc.clientlibs/aem-eds-modernizer/clientlibs/clientlib-dashboard.css">
+  <sly data-sly-call="${clientlib.css @ categories='aem-eds-modernizer.dashboard'}" data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+</head>
+<body>
+  <header>
+    <a class="brand" href="#">
+      <svg width="26" height="26" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      <span>AEM → EDS Modernizer</span>
+    </a>
+    <div class="header-center">
+      <label style="font-size:0.8rem; color:var(--text-muted); font-weight:600;">Active Project:</label>
+      <select id="project-select" class="project-selector" onchange="onProjectSelectChange()">
+        <option data-sly-repeat.proj="${model.projects}" value="${proj.id}" selected="${proj.id == model.activeProjectId}">${proj.name || proj.id}</option>
+        <option value="new">+ Create New Project...</option>
+      </select>
+    </div>
+    <div class="header-right">
+      <div id="system-status" class="status-badge">● Ready</div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="actions">
+      <div class="actions-left">
+        <button class="btn btn-outline" onclick="showTab('setup')">⚙️ Project Configuration</button>
+        <button id="btn-dryrun" class="btn btn-primary" onclick="runDryRun()">🔍 Run Dry Run</button>
+        <button id="btn-migrate" class="btn btn-accent" onclick="runMigration()" disabled>🚀 Approve Contract & Migrate</button>
+      </div>
+      <div class="actions-right">
+        <button class="btn btn-outline" onclick="refreshDashboard()">🔄 Refresh</button>
+      </div>
+    </div>
+
+    <!-- Pipeline Stepper -->
+    <div class="pipeline-stepper">
+      <div id="step-connect" class="step-item active">1. CONNECT</div>
+      <div id="step-dryrun" class="step-item">2. DRY RUN</div>
+      <div id="step-analyze" class="step-item">3. DISCOVER & ESTIMATE</div>
+      <div id="step-contract" class="step-item">4. SIGN CONTRACT</div>
+      <div id="step-migrate" class="step-item">5. MIGRATE & AUTHOR</div>
+      <div id="step-verify" class="step-item">6. VERIFY & ROLLOUT</div>
+    </div>
+
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="showTab('overview')">Overview</button>
+      <button class="nav-tab" onclick="showTab('setup')">Project Setup & Details</button>
+      <button class="nav-tab" onclick="showTab('pages')">Pages & Scope</button>
+      <button class="nav-tab" onclick="showTab('components')">Components & Blocks</button>
+      <button class="nav-tab" onclick="showTab('estimate')">Estimate & Cost</button>
+      <button class="nav-tab" onclick="showTab('redirects')">301 Redirects</button>
+      <button class="nav-tab" onclick="showTab('dependencies')">Dependencies Graph</button>
+      <button class="nav-tab" onclick="showTab('rollout')">Rollout Stages</button>
+      <button class="nav-tab" onclick="showTab('repairs')">Self-Repair Log</button>
+      <button class="nav-tab" onclick="showTab('benchmarks')">Benchmarks</button>
+      <button class="nav-tab" onclick="showTab('events')">Live Events Stream</button>
+    </div>
+
+    <!-- Tab: Overview -->
+    <div id="tab-overview" class="tab-content">
+      <div class="grid">
+        <div class="card"><div class="card-title">Total Pages Discovered</div><div class="card-val" id="stat-pages">${model.pagesCount}</div><div class="card-sub" id="stat-eligible">Scope: ${model.activeProject.pageScope || 'All'}</div></div>
+        <div class="card"><div class="card-title">Components Mapped</div><div class="card-val" id="stat-components">${model.componentsCount}</div><div class="card-sub">Edge Delivery block mappings</div></div>
+        <div class="card"><div class="card-title">Expected AI Cost</div><div class="card-val" id="stat-cost">$${model.expectedCost}</div><div class="card-sub" id="stat-requests">Max Budget: $${model.activeProject.maxBudgetUsd}</div></div>
+        <div class="card"><div class="card-title">Estimated Duration</div><div class="card-val" id="stat-time">${model.expectedTimeSec}s</div><div class="card-sub" id="stat-range">Lo: 0s | Hi: 0s</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Real-time Activity Stream</div>
+        <div id="terminal" class="log-terminal">AEM → EDS Modernizer initialized. Connected to ${model.activeProject.aemAuthorUrl}</div>
+      </div>
+    </div>
+
+    <!-- Tab: Project Setup & Details Form -->
+    <div id="tab-setup" class="tab-content" style="display:none;">
+      <div class="card" style="margin-bottom: 20px;">
+        <div class="card-title">Modernizer Project & Connection Configuration</div>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:20px;">
+          Configure your source AEM environment, content scope, Edge Delivery Services Git repository, AI model, and migration safety bounds.
+        </p>
+        <div class="form-grid">
+          <!-- Section 1: AEM Connection -->
+          <div class="form-section">
+            <div class="form-section-title">🌐 AEM Environment & Scope</div>
+            <div class="form-group">
+              <label class="form-label">Project ID</label>
+              <input type="text" id="cfg-id" class="form-control" value="${model.activeProject.id}" placeholder="e.g. wknd-site">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Project Name</label>
+              <input type="text" id="cfg-name" class="form-control" value="${model.activeProject.name}" placeholder="e.g. WKND Site Modernization">
+            </div>
+            <div class="form-group">
+              <label class="form-label">AEM Author URL (Cloud or Local)</label>
+              <input type="text" id="cfg-authorUrl" class="form-control" value="${model.activeProject.aemAuthorUrl}" placeholder="https://author-pXXXXX-eYYYYY.adobeaemcloud.com or http://localhost:4502">
+              <div class="form-hint">Secure OSGi connection via modernizer-service principal</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">AEM Publish URL (Optional)</label>
+              <input type="text" id="cfg-publishUrl" class="form-control" value="${model.activeProject.aemPublishUrl}" placeholder="https://publish-pXXXXX-eYYYYY.adobeaemcloud.com">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Content Root Path</label>
+              <input type="text" id="cfg-contentRoot" class="form-control" value="${model.activeProject.contentRoot}" placeholder="/content/wknd">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Page / Subtree Scope (Optional)</label>
+              <input type="text" id="cfg-pageScope" class="form-control" value="${model.activeProject.pageScope}" placeholder="/content/wknd/us/en or /content/wknd/*">
+            </div>
+          </div>
+
+          <!-- Section 2: Target EDS & Figma -->
+          <div class="form-section">
+            <div class="form-section-title">🚀 Target EDS & Design</div>
+            <div class="form-group">
+              <label class="form-label">EDS Git Repository URL</label>
+              <input type="text" id="cfg-repoUrl" class="form-control" value="${model.activeProject.edsGitRepoUrl}" placeholder="https://github.com/my-org/my-eds-repo">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Target Git Branch</label>
+              <input type="text" id="cfg-branch" class="form-control" value="${model.activeProject.edsBranch}" placeholder="main">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Figma Design File URL (Optional)</label>
+              <input type="text" id="cfg-figmaUrl" class="form-control" value="${model.activeProject.figmaUrl}" placeholder="https://www.figma.com/file/...">
+              <div class="form-hint">Used for visual token extraction & block styling</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Authoring Strategy</label>
+              <select id="cfg-authoringStrategy" class="form-control">
+                <option value="UNIVERSAL_EDITOR">Universal Editor (AEM Author)</option>
+                <option value="DOCUMENT_AUTHORING">Document-based (Google Drive / SharePoint)</option>
+                <option value="HYBRID">Hybrid Multi-Authoring</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Marker Opt-in Property</label>
+              <input type="text" id="cfg-markerProp" class="form-control" value="${model.activeProject.markerProperty}" placeholder="edsModernize">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Marker Expected Value</label>
+              <input type="text" id="cfg-markerVal" class="form-control" value="${model.activeProject.markerValue}" placeholder="true or *">
+            </div>
+          </div>
+
+          <!-- Section 3: AI Engine & Safety Bounds -->
+          <div class="form-section">
+            <div class="form-section-title">🤖 AI Intelligence & Safety Limits</div>
+            <div class="form-group">
+              <label class="form-label">AI Provider Preference</label>
+              <select id="cfg-aiProvider" class="form-control" onchange="onProviderChange()">
+                <option value="anthropic">Anthropic Claude (Recommended)</option>
+                <option value="openai">OpenAI (GPT-4o)</option>
+                <option value="gemini">Google Gemini (1.5 Pro)</option>
+                <option value="ollama">Ollama (Local / Offline)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Target AI Model</label>
+              <input type="text" id="cfg-aiModel" class="form-control" value="${model.activeProject.aiModel}" placeholder="model identifier">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Max AI Budget Limit (USD)</label>
+              <input type="number" id="cfg-maxBudget" class="form-control" value="${model.activeProject.maxBudgetUsd}" step="10">
+              <div class="form-hint">Hard ceiling to prevent unexpected API spending</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Max Self-Repair Attempts (Bounded Loop)</label>
+              <input type="number" id="cfg-maxRepair" class="form-control" value="${model.activeProject.maxRepairAttempts}" min="1" max="10">
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:24px; display:flex; gap:12px; flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="saveProjectConfig()">💾 Save & Connect Project</button>
+          <button class="btn btn-outline" onclick="loadWkndPreset()">⚡ Load WKND Site Preset</button>
+          <button class="btn btn-outline" onclick="clearForm()">✨ Clear Form</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Pages -->
+    <div id="tab-pages" class="tab-content" style="display:none;">
+      <div class="card">
+        <div class="card-title">Discovered Pages & Opt-In Eligibility</div>
+        <table id="table-pages"><thead><tr><th>AEM Content Path</th><th>Page Title</th><th>Template</th><th>Eligibility Status</th></tr></thead><tbody><tr><td colspan="4">Run a Dry Run to discover pages.</td></tr></tbody></table>
+      </div>
+    </div>
+
+    <!-- Tab: Components -->
+    <div id="tab-components" class="tab-content" style="display:none;">
+      <div class="card">
+        <div class="card-title">Component Intelligence & Block Mapping</div>
+        <table id="table-components"><thead><tr><th>AEM Resource Type</th><th>Title</th><th>Group</th><th>Proposed EDS Block</th><th>Capability Classification</th></tr></thead><tbody><tr><td colspan="5">Run a Dry Run to classify components.</td></tr></tbody></table>
+      </div>
+    </div>
+
+    <!-- Tab: Estimate -->
+    <div id="tab-estimate" class="tab-content" style="display:none;">
+      <div class="card">
+        <div class="card-title">Step-by-Step Derivation Trail & Cost Modeling</div>
+        <pre id="estimate-trail" style="font-family:var(--font-mono); font-size:0.85rem; color:#38bdf8; line-height:1.7; background:#060911; padding:18px; border-radius:6px; border:1px solid var(--surface-border);">Run a Dry Run to compute formal mathematical derivation trail.</pre>
+      </div>
+    </div>
+
+    <!-- Tab: Redirects -->
+    <div id="tab-redirects" class="tab-content" style="display:none;">
+      <div class="card">
+        <div class="card-title">301 URL Redirect Map Generator</div>
+        <table id="table-redirects"><thead><tr><th>Source URL</th><th>Target URL</th><th>Status Code</th><th>Conflict Analysis</th></tr></thead><tbody><tr><td colspan="4">No redirects mapped.</td></tr></tbody></table>
+      </div>
+    </div>
+
+    <!-- Tab: Dependencies -->
+    <div id="tab-dependencies" class="tab-content" style="display:none;">
+      <div class="card">
+        <div class="card-title">JCR Dependency Tree & Blast Radius</div>
+        <table id="table-dependencies"><thead><tr><th>Source Node</th><th>Target Node</th><th>Edge Relationship</th><th>Impact Severity</th></tr></thead><tbody><tr><td colspan="4">No dependencies computed.</td></tr></tbody></table>
+      </div>
+    </div>
+
+    <!-- Tab: Rollout -->
+    <div id="tab-rollout" class="tab-content" style="display:none;">
+      <div class="card">
+        <div class="card-title">Staged Progressive Canary Rollout</div>
+        <table id="table-rollout"><thead><tr><th>Stage #</th><th>Stage Name</th><th>Target Traffic %</th><th>Status</th></tr></thead><tbody><tr><td colspan="4">No rollout stages initialized.</td></tr></tbody></table>
+      </div>
+    </div>
+
+    <!-- Tab: Repairs -->
+    <div id="tab-repairs" class="tab-content" style="display:none;">
+      <div class="card">
+        <div class="card-title">Self-Repair Diagnostics & Auto-Fix Log</div>
+        <table id="table-repairs"><thead><tr><th>Target File / Block</th><th>Attempt #</th><th>Issue Category</th><th>Fix Status</th></tr></thead><tbody><tr><td colspan="4">No repair attempts recorded.</td></tr></tbody></table>
+      </div>
+    </div>
+
+    <!-- Tab: Benchmarks -->
+    <div id="tab-benchmarks" class="tab-content" style="display:none;">
+      <div class="card">
+        <div class="card-title">Agent Benchmark Performance Samples</div>
+        <table id="table-benchmarks"><thead><tr><th>Agent</th><th>Operation</th><th>Duration</th><th>Cost (µ$)</th></tr></thead><tbody><tr><td colspan="4">No benchmark samples recorded.</td></tr></tbody></table>
+      </div>
+    </div>
+
+    <!-- Tab: Events -->
+    <div id="tab-events" class="tab-content" style="display:none;">
+      <div class="card">
+        <div class="card-title">Live Event Stream & Audit Log</div>
+        <div id="events-log" class="log-terminal" style="height:450px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="/etc.clientlibs/aem-eds-modernizer/clientlibs/clientlib-dashboard.js"></script>
+  <sly data-sly-call="${clientlib.js @ categories='aem-eds-modernizer.dashboard'}" data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
+</body>
+</html>
