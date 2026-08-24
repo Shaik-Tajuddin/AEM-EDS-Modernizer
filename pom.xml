@@ -17,7 +17,6 @@
         <module>ui.apps</module>
         <module>ui.config</module>
         <module>ui.content</module>
-        <module>dispatcher</module>
         <module>all</module>
     </modules>
 
