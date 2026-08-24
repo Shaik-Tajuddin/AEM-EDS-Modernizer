@@ -88,49 +88,56 @@
                     <name>aem-eds-modernizer.all</name>
                     <packageType>container</packageType>
                     <embeddeds>
+                        <!-- Modernizer Packages -->
                         <embedded>
                             <groupId>com.adobe.aem.modernizer</groupId>
                             <artifactId>aem-eds-modernizer.core</artifactId>
                             <target>/apps/aem-eds-modernizer-packages/application/install</target>
                         </embedded>
                         <embedded>
+                            <groupId>com.adobe.aem.modernizer</groupId>
+                            <artifactId>aem-eds-modernizer.ui.apps</artifactId>
+                            <type>zip</type>
+                            <target>/apps/aem-eds-modernizer-packages/application/install</target>
+                        </embedded>
+                        <embedded>
+                            <groupId>com.adobe.aem.modernizer</groupId>
+                            <artifactId>aem-eds-modernizer.ui.config</artifactId>
+                            <type>zip</type>
+                            <target>/apps/aem-eds-modernizer-packages/application/install</target>
+                        </embedded>
+                        <embedded>
+                            <groupId>com.adobe.aem.modernizer</groupId>
+                            <artifactId>aem-eds-modernizer.ui.content</artifactId>
+                            <type>zip</type>
+                            <target>/apps/aem-eds-modernizer-packages/content/install</target>
+                        </embedded>
+
+                        <!-- WKND Reference Sample Packages -->
+                        <embedded>
                             <groupId>com.adobe.aem.guides</groupId>
                             <artifactId>aem-guides-wknd.core</artifactId>
                             <target>/apps/aem-eds-modernizer-packages/application/install</target>
                         </embedded>
-                    </embeddeds>
-                    <subPackages>
-                        <subPackage>
-                            <groupId>com.adobe.aem.modernizer</groupId>
-                            <artifactId>aem-eds-modernizer.ui.apps</artifactId>
-                            <filter>true</filter>
-                        </subPackage>
-                        <subPackage>
-                            <groupId>com.adobe.aem.modernizer</groupId>
-                            <artifactId>aem-eds-modernizer.ui.config</artifactId>
-                            <filter>true</filter>
-                        </subPackage>
-                        <subPackage>
-                            <groupId>com.adobe.aem.modernizer</groupId>
-                            <artifactId>aem-eds-modernizer.ui.content</artifactId>
-                            <filter>true</filter>
-                        </subPackage>
-                        <subPackage>
+                        <embedded>
                             <groupId>com.adobe.aem.guides</groupId>
                             <artifactId>aem-guides-wknd.ui.apps</artifactId>
-                            <filter>true</filter>
-                        </subPackage>
-                        <subPackage>
+                            <type>zip</type>
+                            <target>/apps/aem-eds-modernizer-packages/application/install</target>
+                        </embedded>
+                        <embedded>
                             <groupId>com.adobe.aem.guides</groupId>
                             <artifactId>aem-guides-wknd.ui.config</artifactId>
-                            <filter>true</filter>
-                        </subPackage>
-                        <subPackage>
+                            <type>zip</type>
+                            <target>/apps/aem-eds-modernizer-packages/application/install</target>
+                        </embedded>
+                        <embedded>
                             <groupId>com.adobe.aem.guides</groupId>
                             <artifactId>aem-guides-wknd.ui.content</artifactId>
-                            <filter>true</filter>
-                        </subPackage>
-                    </subPackages>
+                            <type>zip</type>
+                            <target>/apps/aem-eds-modernizer-packages/content/install</target>
+                        </embedded>
+                    </embeddeds>
                 </configuration>
             </plugin>
         </plugins>
