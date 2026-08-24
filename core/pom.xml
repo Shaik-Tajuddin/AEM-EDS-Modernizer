@@ -159,6 +159,7 @@
                             !org.bouncycastle.*,
                             !org.openjsse.*,
                             !sun.security.ssl.*,
+                            !okio.*,
                             !com.microsoft.playwright.*,
                             !com.sun.net.httpserver.*,
                             org.slf4j;version="[1.7,2.0)",
@@ -171,7 +172,7 @@
                             javax.jcr.*;resolution:=optional,
                             *
                         </Import-Package>
-                        <Embed-Dependency>jackson-databind,jackson-core,jackson-annotations,okhttp,commons-codec;scope=compile|runtime</Embed-Dependency>
+                        <Embed-Dependency>jackson-databind,jackson-core,jackson-annotations,okhttp,okio,okio-jvm,commons-codec;scope=compile|runtime</Embed-Dependency>
                         <Embed-Transitive>true</Embed-Transitive>
                         <_removeheaders>Bnd-LastModified,Created-By,Tool</_removeheaders>
                     </instructions>
