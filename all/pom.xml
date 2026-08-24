@@ -47,6 +47,11 @@
             <version>${project.version}</version>
             <type>zip</type>
         </dependency>
+        <dependency>
+            <groupId>com.adobe.aem.guides</groupId>
+            <artifactId>aem-guides-wknd.all</artifactId>
+            <type>zip</type>
+        </dependency>
     </dependencies>
 
     <build>
@@ -80,6 +85,11 @@
                         <subPackage>
                             <groupId>com.adobe.aem.modernizer</groupId>
                             <artifactId>aem-eds-modernizer.dispatcher</artifactId>
+                            <filter>true</filter>
+                        </subPackage>
+                        <subPackage>
+                            <groupId>com.adobe.aem.guides</groupId>
+                            <artifactId>aem-guides-wknd.all</artifactId>
                             <filter>true</filter>
                         </subPackage>
                     </subPackages>

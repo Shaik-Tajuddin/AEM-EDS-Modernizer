@@ -44,6 +44,7 @@
         <junit.jupiter.version>5.10.2</junit.jupiter.version>
         <mockito.version>5.11.0</mockito.version>
         <assertj.version>3.25.3</assertj.version>
+        <wknd.version>3.2.0</wknd.version>
 
         <!-- Deployment defaults -->
         <aem.host>http://localhost:4502</aem.host>
@@ -152,6 +153,14 @@
                 <groupId>com.adobe.aem.modernizer</groupId>
                 <artifactId>aem-eds-modernizer.core</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+
+            <!-- Sample Site: WKND -->
+            <dependency>
+                <groupId>com.adobe.aem.guides</groupId>
+                <artifactId>aem-guides-wknd.all</artifactId>
+                <version>${wknd.version}</version>
+                <type>zip</type>
             </dependency>
 
             <!-- Testing -->
