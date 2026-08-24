@@ -69,11 +69,7 @@ public class Orchestrator {
     public void invokeIfRegistered(String name, AgentContext ctx) throws ModernizerException {
         Optional<Agent> agentOpt = getAgent(name);
         if (agentOpt.isPresent()) {
-            try {
-                agentOpt.get().execute(ctx);
-            } catch (Exception e) {
-                throw new ModernizerException("Error invoking agent " + name, e);
-            }
+            agentOpt.get().execute(ctx);
         }
     }
 
@@ -126,7 +122,7 @@ public class Orchestrator {
             if (store != null) {
                 store.saveJob(job);
             }
-        } catch (Exception e) {
+        } catch (ModernizerException | RuntimeException e) {
             job.setState(MigrationState.FAILED.name());
             job.setLastError(e.getMessage());
             job.setFinishedAt(System.currentTimeMillis());
@@ -209,7 +205,7 @@ public class Orchestrator {
             if (store != null) {
                 store.saveJob(job);
             }
-        } catch (Exception e) {
+        } catch (ModernizerException | RuntimeException e) {
             job.setState(MigrationState.FAILED.name());
             job.setLastError(e.getMessage());
             job.setFinishedAt(System.currentTimeMillis());
@@ -225,11 +221,7 @@ public class Orchestrator {
     private void invokeAgent(String name, AgentContext ctx) throws ModernizerException {
         Agent agent = agents.get(name.toLowerCase());
         if (agent != null) {
-            try {
-                agent.execute(ctx);
-            } catch (Exception e) {
-                throw new ModernizerException("Error executing agent " + name, e);
-            }
+            agent.execute(ctx);
         } else {
             LOG.warn("Agent '{}' not registered in orchestrator", name);
         }

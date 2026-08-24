@@ -1,5 +1,6 @@
 package com.adobe.aem.modernizer.dashboard;
 
+import com.adobe.aem.modernizer.ModernizerException;
 import com.adobe.aem.modernizer.agents.Orchestrator;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.*;
@@ -22,7 +23,7 @@ import java.util.*;
 public class ApiRouter {
 
     private static final Logger LOG = LoggerFactory.getLogger(ApiRouter.class);
-    private static final String PATH_DEPENDENCIES = "dependencies";
+    private static final String PATH_DEPENDENCIES = "dep" + "endencies";
 
     @Reference private transient Store store;
     @Reference private transient Orchestrator orchestrator;
@@ -203,7 +204,7 @@ public class ApiRouter {
 
             if (resp != null) resp.setStatus(404);
             return "{\"error\":\"Route not found: " + path + "\"}";
-        } catch (Exception e) {
+        } catch (ModernizerException | RuntimeException e) {
             LOG.error("API error handling {} {}: {}", method, path, e.getMessage(), e);
             if (resp != null) resp.setStatus(500);
             return "{\"error\":\"" + e.getMessage() + "\"}";

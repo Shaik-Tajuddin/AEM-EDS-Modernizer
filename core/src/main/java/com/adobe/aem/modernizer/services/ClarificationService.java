@@ -27,7 +27,7 @@ public class ClarificationService {
         ClarificationRecord rec = new ClarificationRecord(UUID.randomUUID().toString(), projectId, jobId, question, defaultOption);
         rec.setRationale(rationale);
         if (options != null) {
-            rec.getOptions().addAll(options);
+            rec.setOptions(options);
         }
         if (store != null) {
             store.saveClarification(rec);

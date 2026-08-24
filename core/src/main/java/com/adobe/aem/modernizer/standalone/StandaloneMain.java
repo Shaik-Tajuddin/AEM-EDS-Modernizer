@@ -28,26 +28,13 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Standalone executable runner launching embedded HTTP server on port 8080 for offline/local testing.
+ * Standalone executable runner launching embedded HTTP server for offline/local testing.
  */
 public class StandaloneMain {
 
     private static final Logger LOG = LoggerFactory.getLogger(StandaloneMain.class);
 
-    public static void main(String[] args) throws Exception {
-        int port = 8080;
-        if (args.length > 0) {
-            try {
-                port = Integer.parseInt(args[0]);
-            } catch (NumberFormatException ignored) {}
-        }
-        String envPort = System.getenv("PORT");
-        if (envPort != null) {
-            try {
-                port = Integer.parseInt(envPort);
-            } catch (NumberFormatException ignored) {}
-        }
-
+    public static HttpServer startServer(int port) throws IOException {
         // Initialize components
         Store store = new InMemoryStore();
         MarkerEvaluator marker = new MarkerEvaluator("edsModernize", "true");
@@ -113,9 +100,9 @@ public class StandaloneMain {
         HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
 
         // Serve Static SPA
-        final int finalPort = port;
+        final int boundPort = server.getAddress().getPort();
         HttpHandler spaHandler = exchange -> {
-            byte[] response = StaticDashboard.html("http://localhost:" + finalPort + "/api").getBytes(StandardCharsets.UTF_8);
+            byte[] response = StaticDashboard.html("http://localhost:" + boundPort + "/api").getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "text/html; charset=utf-8");
             exchange.getResponseHeaders().set("Cache-Control", "no-store");
             exchange.sendResponseHeaders(200, response.length);
@@ -169,8 +156,26 @@ public class StandaloneMain {
 
         LOG.info("===============================================================");
         LOG.info(" AEM -> EDS Modernizer Standalone Server Started!");
-        LOG.info(" URL: http://localhost:{}", port);
-        LOG.info(" API: http://localhost:{}/api/health", port);
+        LOG.info(" URL: http://localhost:{}", boundPort);
+        LOG.info(" API: http://localhost:{}/api/health", boundPort);
         LOG.info("===============================================================");
+        return server;
+    }
+
+    public static void main(String[] args) throws Exception {
+        int port = 8080;
+        if (args.length > 0) {
+            try {
+                port = Integer.parseInt(args[0]);
+            } catch (NumberFormatException ignored) {}
+        }
+        String envPort = System.getenv("PORT");
+        if (envPort != null) {
+            try {
+                port = Integer.parseInt(envPort);
+            } catch (NumberFormatException ignored) {}
+        }
+
+        startServer(port);
     }
 }
