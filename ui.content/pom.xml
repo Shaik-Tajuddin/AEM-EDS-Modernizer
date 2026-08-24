@@ -22,6 +22,15 @@
         <skipPackageDeploy>false</skipPackageDeploy>
     </properties>
 
+    <dependencies>
+        <dependency>
+            <groupId>com.adobe.aem.guides</groupId>
+            <artifactId>aem-guides-wknd.ui.content</artifactId>
+            <type>zip</type>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
     <build>
         <sourceDirectory>src/main/content/jcr_root</sourceDirectory>
         <plugins>
@@ -36,6 +45,12 @@
                     <name>aem-eds-modernizer.ui.content</name>
                     <packageType>content</packageType>
                     <accessControlHandling>merge</accessControlHandling>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.adobe.aem.guides</groupId>
+                            <artifactId>aem-guides-wknd.ui.content</artifactId>
+                        </dependency>
+                    </dependencies>
                 </configuration>
             </plugin>
         </plugins>
