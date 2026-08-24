@@ -47,32 +47,6 @@
             <version>${project.version}</version>
             <type>zip</type>
         </dependency>
-
-        <!-- WKND Clean Subpackages (Excludes sample package to ensure Cloud Manager OakPal compliance) -->
-        <dependency>
-            <groupId>com.adobe.aem.guides</groupId>
-            <artifactId>aem-guides-wknd.core</artifactId>
-            <version>${wknd.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.adobe.aem.guides</groupId>
-            <artifactId>aem-guides-wknd.ui.apps</artifactId>
-            <version>${wknd.version}</version>
-            <type>zip</type>
-        </dependency>
-        <dependency>
-            <groupId>com.adobe.aem.guides</groupId>
-            <artifactId>aem-guides-wknd.ui.config</artifactId>
-            <version>${wknd.version}</version>
-            <type>zip</type>
-        </dependency>
-        <dependency>
-            <groupId>com.adobe.aem.guides</groupId>
-            <artifactId>aem-guides-wknd.ui.content</artifactId>
-            <version>${wknd.version}</version>
-            <type>zip</type>
-        </dependency>
     </dependencies>
 
     <build>
@@ -109,31 +83,6 @@
                         <embedded>
                             <groupId>com.adobe.aem.modernizer</groupId>
                             <artifactId>aem-eds-modernizer.ui.content</artifactId>
-                            <type>zip</type>
-                            <target>/apps/aem-eds-modernizer-packages/content/install</target>
-                        </embedded>
-
-                        <!-- WKND Reference Sample Packages -->
-                        <embedded>
-                            <groupId>com.adobe.aem.guides</groupId>
-                            <artifactId>aem-guides-wknd.core</artifactId>
-                            <target>/apps/aem-eds-modernizer-packages/application/install</target>
-                        </embedded>
-                        <embedded>
-                            <groupId>com.adobe.aem.guides</groupId>
-                            <artifactId>aem-guides-wknd.ui.apps</artifactId>
-                            <type>zip</type>
-                            <target>/apps/aem-eds-modernizer-packages/application/install</target>
-                        </embedded>
-                        <embedded>
-                            <groupId>com.adobe.aem.guides</groupId>
-                            <artifactId>aem-guides-wknd.ui.config</artifactId>
-                            <type>zip</type>
-                            <target>/apps/aem-eds-modernizer-packages/application/install</target>
-                        </embedded>
-                        <embedded>
-                            <groupId>com.adobe.aem.guides</groupId>
-                            <artifactId>aem-guides-wknd.ui.content</artifactId>
                             <type>zip</type>
                             <target>/apps/aem-eds-modernizer-packages/content/install</target>
                         </embedded>

@@ -45,7 +45,6 @@
         <junit.jupiter.version>5.10.2</junit.jupiter.version>
         <mockito.version>5.11.0</mockito.version>
         <assertj.version>3.25.3</assertj.version>
-        <wknd.version>3.2.0</wknd.version>
 
         <!-- Deployment defaults -->
         <aem.host>http://localhost:4502</aem.host>
@@ -166,35 +165,6 @@
                 <groupId>com.adobe.aem.modernizer</groupId>
                 <artifactId>aem-eds-modernizer.core</artifactId>
                 <version>${project.version}</version>
-            </dependency>
-
-            <!-- WKND Reference Guide Dependencies (https://github.com/adobe/aem-guides-wknd) -->
-            <dependency>
-                <groupId>com.adobe.aem.guides</groupId>
-                <artifactId>aem-guides-wknd.core</artifactId>
-                <version>${wknd.version}</version>
-                <scope>provided</scope>
-            </dependency>
-            <dependency>
-                <groupId>com.adobe.aem.guides</groupId>
-                <artifactId>aem-guides-wknd.ui.apps</artifactId>
-                <version>${wknd.version}</version>
-                <type>zip</type>
-                <scope>provided</scope>
-            </dependency>
-            <dependency>
-                <groupId>com.adobe.aem.guides</groupId>
-                <artifactId>aem-guides-wknd.ui.config</artifactId>
-                <version>${wknd.version}</version>
-                <type>zip</type>
-                <scope>provided</scope>
-            </dependency>
-            <dependency>
-                <groupId>com.adobe.aem.guides</groupId>
-                <artifactId>aem-guides-wknd.ui.content</artifactId>
-                <version>${wknd.version}</version>
-                <type>zip</type>
-                <scope>provided</scope>
             </dependency>
 
             <!-- Testing -->
