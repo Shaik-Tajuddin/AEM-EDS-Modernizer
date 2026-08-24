@@ -27,12 +27,6 @@
             <groupId>com.adobe.aem.modernizer</groupId>
             <artifactId>aem-eds-modernizer.core</artifactId>
         </dependency>
-        <dependency>
-            <groupId>com.adobe.aem.guides</groupId>
-            <artifactId>aem-guides-wknd.ui.apps</artifactId>
-            <type>zip</type>
-            <scope>provided</scope>
-        </dependency>
     </dependencies>
 
     <build>
@@ -49,12 +43,6 @@
                     <name>aem-eds-modernizer.ui.apps</name>
                     <packageType>application</packageType>
                     <accessControlHandling>merge</accessControlHandling>
-                    <dependencies>
-                        <dependency>
-                            <groupId>com.adobe.aem.guides</groupId>
-                            <artifactId>aem-guides-wknd.ui.apps</artifactId>
-                        </dependency>
-                    </dependencies>
                     <validatorsSettings>
                         <jackrabbit-nodetypes>
                             <options>
