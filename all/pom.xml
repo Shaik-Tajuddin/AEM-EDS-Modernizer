@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.adobe.aem.modernizer</groupId>
+        <artifactId>aem-eds-modernizer</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>aem-eds-modernizer.all</artifactId>
+    <packaging>content-package</packaging>
+
+    <name>AEM → EDS Modernizer - All Package</name>
+    <description>All content package container that embeds all other subpackages</description>
+
+    <properties>
+        <skipBundleDeploy>true</skipBundleDeploy>
+        <skipPackageDeploy>true</skipPackageDeploy>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.adobe.aem.modernizer</groupId>
+            <artifactId>aem-eds-modernizer.ui.apps</artifactId>
+            <version>${project.version}</version>
+            <type>zip</type>
+        </dependency>
+        <dependency>
+            <groupId>com.adobe.aem.modernizer</groupId>
+            <artifactId>aem-eds-modernizer.ui.config</artifactId>
+            <version>${project.version}</version>
+            <type>zip</type>
+        </dependency>
+        <dependency>
+            <groupId>com.adobe.aem.modernizer</groupId>
+            <artifactId>aem-eds-modernizer.ui.content</artifactId>
+            <version>${project.version}</version>
+            <type>zip</type>
+        </dependency>
+        <dependency>
+            <groupId>com.adobe.aem.modernizer</groupId>
+            <artifactId>aem-eds-modernizer.dispatcher</artifactId>
+            <version>${project.version}</version>
+            <type>zip</type>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.jackrabbit</groupId>
+                <artifactId>filevault-package-maven-plugin</artifactId>
+                <configuration>
+                    <properties>
+                        <cloudManagerTarget>none</cloudManagerTarget>
+                    </properties>
+                    <group>com.adobe.aem.modernizer</group>
+                    <name>aem-eds-modernizer.all</name>
+                    <packageType>container</packageType>
+                    <subPackages>
+                        <subPackage>
+                            <groupId>com.adobe.aem.modernizer</groupId>
+                            <artifactId>aem-eds-modernizer.ui.apps</artifactId>
+                            <filter>true</filter>
+                        </subPackage>
+                        <subPackage>
+                            <groupId>com.adobe.aem.modernizer</groupId>
+                            <artifactId>aem-eds-modernizer.ui.config</artifactId>
+                            <filter>true</filter>
+                        </subPackage>
+                        <subPackage>
+                            <groupId>com.adobe.aem.modernizer</groupId>
+                            <artifactId>aem-eds-modernizer.ui.content</artifactId>
+                            <filter>true</filter>
+                        </subPackage>
+                        <subPackage>
+                            <groupId>com.adobe.aem.modernizer</groupId>
+                            <artifactId>aem-eds-modernizer.dispatcher</artifactId>
+                            <filter>true</filter>
+                        </subPackage>
+                    </subPackages>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

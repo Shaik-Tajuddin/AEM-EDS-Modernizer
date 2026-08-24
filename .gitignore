@@ -1,0 +1,27 @@
+# Maven
+target/
+*.jar
+*.war
+*.ear
+*.zip
+*.rar
+!src/**/target/
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+.factorypath
+*.sublime-project
+*.sublime-workspace
+
+# Logs and OS files
+*.log
+.DS_Store
+Thumbs.db
+
+# Standalone build output
+bin/

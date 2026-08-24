@@ -1,0 +1,22 @@
+<VirtualHost *:80>
+    ServerName modernizer.local
+    ServerAlias modernizer.*
+
+    <LocationMatch "^/aem-eds-modernizer">
+        Header set Cache-Control "no-store, no-cache, must-revalidate"
+    </LocationMatch>
+
+    <LocationMatch "^/bin/aem-eds-modernizer/api/">
+        Header set Cache-Control "no-store, no-cache, must-revalidate"
+    </LocationMatch>
+
+    <Directory />
+        <IfModule disp_apache2.c>
+            SetHandler dispatcher-handler
+            ModMimeUsePathInfo On
+        </IfModule>
+        Options FollowSymLinks
+        AllowOverride None
+        Require all granted
+    </Directory>
+</VirtualHost>

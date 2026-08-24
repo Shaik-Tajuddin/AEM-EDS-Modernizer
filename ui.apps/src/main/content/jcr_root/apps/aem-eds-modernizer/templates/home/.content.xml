@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.1"
+    jcr:primaryType="cq:Template"
+    jcr:title="AEM → EDS Modernizer — Home"
+    jcr:description="Page template that renders the migration control-center SPA."
+    allowedPaths="[/content/aem-eds-modernizer(/.*)?]">
+  <jcr:content
+      cq:designPath="/libs/wcm/foundation/components/page/par"
+      jcr:primaryType="cq:PageContent"
+      sling:resourceType="aem-eds-modernizer/components/page/root"
+      cq:allowedTemplates="[/apps/aem-eds-modernizer/templates/.*]"/>
+</jcr:root>

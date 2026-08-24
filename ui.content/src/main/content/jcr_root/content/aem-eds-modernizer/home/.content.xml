@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.1"
+    jcr:primaryType="cq:Page">
+  <jcr:content
+      cq:template="/apps/aem-eds-modernizer/templates/home"
+      jcr:primaryType="cq:PageContent"
+      jcr:title="AEM → EDS Modernizer"
+      jcr:description="Migration control center — create a project, run a Dry Run, then approve the migration."
+      sling:resourceType="aem-eds-modernizer/components/page/home"
+      modernizerHint="Click Create demo project to populate the dashboard with a sample WKND migration, then click Run Dry Run."/>
+</jcr:root>

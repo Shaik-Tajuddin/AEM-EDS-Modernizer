@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.adobe.aem.modernizer</groupId>
+        <artifactId>aem-eds-modernizer</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>aem-eds-modernizer.ui.apps</artifactId>
+    <packaging>content-package</packaging>
+
+    <name>AEM → EDS Modernizer - UI Apps</name>
+    <description>Immutable HTL components, templates, and clientlibs for AEM EDS Modernizer</description>
+
+    <properties>
+        <skipBundleDeploy>true</skipBundleDeploy>
+        <skipPackageDeploy>false</skipPackageDeploy>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.adobe.aem.modernizer</groupId>
+            <artifactId>aem-eds-modernizer.core</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <sourceDirectory>src/main/content/jcr_root</sourceDirectory>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.jackrabbit</groupId>
+                <artifactId>filevault-package-maven-plugin</artifactId>
+                <configuration>
+                    <properties>
+                        <cloudManagerTarget>none</cloudManagerTarget>
+                    </properties>
+                    <group>com.adobe.aem.modernizer</group>
+                    <name>aem-eds-modernizer.ui.apps</name>
+                    <packageType>application</packageType>
+                    <accessControlHandling>merge</accessControlHandling>
+                    <validatorsSettings>
+                        <jackrabbit-nodetypes>
+                            <options>
+                                <cnds>tccl:default.cnd</cnds>
+                            </options>
+                        </jackrabbit-nodetypes>
+                    </validatorsSettings>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

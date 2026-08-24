@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.adobe.aem.modernizer</groupId>
+        <artifactId>aem-eds-modernizer</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>aem-eds-modernizer.core</artifactId>
+    <packaging>bundle</packaging>
+
+    <name>AEM → EDS Modernizer - Core Bundle</name>
+    <description>Core OSGi bundle and standalone application containing agents, AI gateway, connectors, and dashboard servlets</description>
+
+    <properties>
+        <skipBundleDeploy>false</skipBundleDeploy>
+        <skipPackageDeploy>true</skipPackageDeploy>
+    </properties>
+
+    <dependencies>
+        <!-- OSGi & Sling (Provided by AEM runtime) -->
+        <dependency>
+            <groupId>org.osgi</groupId>
+            <artifactId>osgi.core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.osgi</groupId>
+            <artifactId>osgi.cmpn</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.osgi</groupId>
+            <artifactId>org.osgi.annotation.versioning</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.osgi</groupId>
+            <artifactId>org.osgi.service.component.annotations</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.osgi</groupId>
+            <artifactId>org.osgi.service.metatype.annotations</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.sling</groupId>
+            <artifactId>org.apache.sling.api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.sling</groupId>
+            <artifactId>org.apache.sling.servlets.annotations</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>javax.jcr</groupId>
+            <artifactId>jcr</artifactId>
+        </dependency>
+
+        <!-- Libraries -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
+        </dependency>
+
+        <!-- Testing -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- 1) OSGi Bundle Plugin -->
+            <plugin>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>maven-bundle-plugin</artifactId>
+                <extensions>true</extensions>
+                <configuration>
+                    <instructions>
+                        <Bundle-SymbolicName>com.adobe.aem.modernizer.core</Bundle-SymbolicName>
+                        <Bundle-Name>AEM → EDS Modernizer Core</Bundle-Name>
+                        <Export-Package>
+                            com.adobe.aem.modernizer.agents.*,
+                            com.adobe.aem.modernizer.connectors.*,
+                            com.adobe.aem.modernizer.ai.*,
+                            com.adobe.aem.modernizer.ai.providers.*,
+                            com.adobe.aem.modernizer.ai.routing.*,
+                            com.adobe.aem.modernizer.ai.secret.*,
+                            com.adobe.aem.modernizer.dashboard.*,
+                            com.adobe.aem.modernizer.dashboard.servlets.*,
+                            com.adobe.aem.modernizer.persistence.*,
+                            com.adobe.aem.modernizer.persistence.model.*,
+                            com.adobe.aem.modernizer.security.*,
+                            com.adobe.aem.modernizer.services.*,
+                            com.adobe.aem.modernizer.ssrf.*,
+                            com.adobe.aem.modernizer.scopes.*,
+                            com.adobe.aem.modernizer.mock.*,
+                            com.adobe.aem.modernizer.util.*,
+                            com.adobe.aem.modernizer.osgi.*
+                        </Export-Package>
+                        <Import-Package>
+                            org.osgi.*;resolution:=optional,
+                            org.apache.sling.api.*;resolution:=optional,
+                            org.apache.sling.servlets.annotations.*;resolution:=optional,
+                            javax.servlet.*;resolution:=optional,
+                            javax.jcr.*;resolution:=optional,
+                            *
+                        </Import-Package>
+                        <Embed-Dependency>jackson-databind,jackson-core,jackson-annotations,okhttp,commons-codec;scope=compile|runtime</Embed-Dependency>
+                        <Embed-Transitive>true</Embed-Transitive>
+                        <_removeheaders>Bnd-LastModified,Created-By,Tool</_removeheaders>
+                    </instructions>
+                </configuration>
+            </plugin>
+
+            <!-- 2) Shade Plugin for Standalone Fat JAR -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>standalone-jar</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <shadedClassifierName>standalone</shadedClassifierName>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>com.adobe.aem.modernizer.standalone.StandaloneMain</mainClass>
+                                </transformer>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
