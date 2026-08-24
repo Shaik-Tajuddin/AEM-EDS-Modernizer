@@ -42,5 +42,5 @@ public class RolloutPolicy {
         return policy;
     }
 
-    public List<StageDefinition> getStages() { return stages; }
+    public List<StageDefinition> getStages() { return stages != null ? new ArrayList<>(stages) : new ArrayList<>(); }
 }

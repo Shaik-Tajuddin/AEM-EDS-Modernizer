@@ -35,7 +35,7 @@ public class TemplateAnalysisAgent implements Agent {
     }
 
     @Override
-    public void execute(AgentContext ctx) throws Exception {
+    public void execute(AgentContext ctx) throws com.adobe.aem.modernizer.ModernizerException {
         SiteInventory inv = ctx.getInventory();
         int count = (inv != null && inv.getTemplates() != null) ? inv.getTemplates().size() : 0;
         LOG.info("TemplateAnalysisAgent analyzed {} templates", count);

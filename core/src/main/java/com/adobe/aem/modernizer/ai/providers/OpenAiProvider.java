@@ -79,7 +79,7 @@ public class OpenAiProvider implements AiProvider {
         try (Response httpResponse = httpClient.newCall(httpRequest).execute()) {
             if (!httpResponse.isSuccessful()) {
                 String errBody = httpResponse.body() != null ? httpResponse.body().string() : "";
-                throw new RuntimeException("OpenAI HTTP " + httpResponse.code() + ": " + errBody);
+                throw new AiProviderException("OpenAI HTTP " + httpResponse.code() + ": " + errBody);
             }
             String respBody = httpResponse.body() != null ? httpResponse.body().string() : "{}";
             Map<?, ?> parsed = JsonUtil.fromJson(respBody, Map.class);
@@ -106,7 +106,7 @@ public class OpenAiProvider implements AiProvider {
             response.setFinishReason(finishReason);
             return response;
         } catch (IOException e) {
-            throw new RuntimeException("OpenAI request failed: " + e.getMessage(), e);
+            throw new AiProviderException("OpenAI request failed: " + e.getMessage(), e);
         }
     }
 }

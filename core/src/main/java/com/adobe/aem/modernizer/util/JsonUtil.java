@@ -31,7 +31,7 @@ public final class JsonUtil {
         try {
             return MAPPER.writeValueAsString(value);
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Failed to serialize to JSON: " + e.getMessage(), e);
+            throw new JsonSerializationException("Failed to serialize to JSON: " + e.getMessage(), e);
         }
     }
 
@@ -42,7 +42,7 @@ public final class JsonUtil {
         try {
             return MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(value);
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Failed to serialize to pretty JSON: " + e.getMessage(), e);
+            throw new JsonSerializationException("Failed to serialize to pretty JSON: " + e.getMessage(), e);
         }
     }
 
@@ -53,7 +53,7 @@ public final class JsonUtil {
         try {
             return MAPPER.readValue(json, clazz);
         } catch (IOException e) {
-            throw new RuntimeException("Failed to deserialize JSON to " + clazz.getSimpleName() + ": " + e.getMessage(), e);
+            throw new JsonSerializationException("Failed to deserialize JSON to " + clazz.getSimpleName() + ": " + e.getMessage(), e);
         }
     }
 
@@ -64,7 +64,7 @@ public final class JsonUtil {
         try {
             return MAPPER.readValue(is, clazz);
         } catch (IOException e) {
-            throw new RuntimeException("Failed to deserialize JSON stream to " + clazz.getSimpleName() + ": " + e.getMessage(), e);
+            throw new JsonSerializationException("Failed to deserialize JSON stream to " + clazz.getSimpleName() + ": " + e.getMessage(), e);
         }
     }
 }

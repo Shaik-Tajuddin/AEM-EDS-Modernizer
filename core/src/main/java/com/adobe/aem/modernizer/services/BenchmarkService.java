@@ -53,7 +53,7 @@ public class BenchmarkService {
                     .collect(Collectors.toList());
 
             long p50 = durations.get(durations.size() / 2);
-            int p95Index = (int) Math.min(durations.size() - 1, Math.ceil(durations.size() * 0.95) - 1);
+            int p95Index = (int) Math.min((double) durations.size() - 1.0, Math.ceil(durations.size() * 0.95) - 1.0);
             long p95 = durations.get(Math.max(0, p95Index));
 
             double avgCost = list.stream()

@@ -38,7 +38,7 @@ public class SelfRepairAgent implements Agent {
     }
 
     @Override
-    public void execute(AgentContext ctx) throws Exception {
+    public void execute(AgentContext ctx) throws com.adobe.aem.modernizer.ModernizerException {
         LOG.info("SelfRepairAgent evaluating repair triggers");
 
         if (ai != null) {

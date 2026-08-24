@@ -70,7 +70,7 @@ public class GeminiProvider implements AiProvider {
         try (Response httpResponse = httpClient.newCall(httpRequest).execute()) {
             if (!httpResponse.isSuccessful()) {
                 String errBody = httpResponse.body() != null ? httpResponse.body().string() : "";
-                throw new RuntimeException("Gemini HTTP " + httpResponse.code() + ": " + errBody);
+                throw new AiProviderException("Gemini HTTP " + httpResponse.code() + ": " + errBody);
             }
             String respBody = httpResponse.body() != null ? httpResponse.body().string() : "{}";
             Map<?, ?> parsed = JsonUtil.fromJson(respBody, Map.class);
@@ -92,7 +92,7 @@ public class GeminiProvider implements AiProvider {
             response.setTokenUsage(new TokenUsage(64, 64));
             return response;
         } catch (IOException e) {
-            throw new RuntimeException("Gemini request failed: " + e.getMessage(), e);
+            throw new AiProviderException("Gemini request failed: " + e.getMessage(), e);
         }
     }
 }

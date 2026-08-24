@@ -25,13 +25,13 @@ public class MockEdsClient implements EdsClient {
     @Override
     public String getPreviewUrl(String branch, String path) {
         String cleanBranch = (branch != null) ? branch : "main";
-        String cleanPath = (path != null && !path.startsWith("/")) ? "/" + path : (path != null ? path : "");
+        String cleanPath = (path != null && !path.startsWith("/")) ? ("/" + path) : ((path != null) ? path : "");
         return edsBaseUrl + "/preview/" + cleanBranch + cleanPath;
     }
 
     @Override
     public String getLiveUrl(String path) {
-        String cleanPath = (path != null && !path.startsWith("/")) ? "/" + path : (path != null ? path : "");
+        String cleanPath = (path != null && !path.startsWith("/")) ? ("/" + path) : ((path != null) ? path : "");
         return edsBaseUrl + "/live" + cleanPath;
     }
 

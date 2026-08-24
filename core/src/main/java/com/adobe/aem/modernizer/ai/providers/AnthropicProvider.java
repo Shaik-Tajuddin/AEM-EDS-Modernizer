@@ -76,7 +76,7 @@ public class AnthropicProvider implements AiProvider {
         try (Response httpResponse = httpClient.newCall(httpRequest).execute()) {
             if (!httpResponse.isSuccessful()) {
                 String errBody = httpResponse.body() != null ? httpResponse.body().string() : "";
-                throw new RuntimeException("Anthropic HTTP " + httpResponse.code() + ": " + errBody);
+                throw new AiProviderException("Anthropic HTTP " + httpResponse.code() + ": " + errBody);
             }
             String respBody = httpResponse.body() != null ? httpResponse.body().string() : "{}";
             Map<?, ?> parsed = JsonUtil.fromJson(respBody, Map.class);
@@ -101,7 +101,7 @@ public class AnthropicProvider implements AiProvider {
             response.setTokenUsage(new TokenUsage(promptTokens, completionTokens));
             return response;
         } catch (IOException e) {
-            throw new RuntimeException("Anthropic request failed: " + e.getMessage(), e);
+            throw new AiProviderException("Anthropic request failed: " + e.getMessage(), e);
         }
     }
 }

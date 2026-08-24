@@ -72,7 +72,7 @@ public class OllamaProvider implements AiProvider {
 
         try (Response httpResponse = httpClient.newCall(httpRequest).execute()) {
             if (!httpResponse.isSuccessful()) {
-                throw new RuntimeException("Ollama HTTP " + httpResponse.code());
+                throw new AiProviderException("Ollama HTTP " + httpResponse.code());
             }
             String respBody = httpResponse.body() != null ? httpResponse.body().string() : "{}";
             Map<?, ?> parsed = JsonUtil.fromJson(respBody, Map.class);
@@ -89,7 +89,7 @@ public class OllamaProvider implements AiProvider {
             response.setCostUsd(0.0);
             return response;
         } catch (IOException e) {
-            throw new RuntimeException("Ollama local connection failed: " + e.getMessage(), e);
+            throw new AiProviderException("Ollama local connection failed: " + e.getMessage(), e);
         }
     }
 }

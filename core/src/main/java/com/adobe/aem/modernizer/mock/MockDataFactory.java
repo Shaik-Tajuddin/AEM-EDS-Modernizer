@@ -28,68 +28,86 @@ public final class MockDataFactory {
                 "faq", "privacy-policy"
         );
 
+        List<SiteInventory.PageInfo> pages = new ArrayList<>();
         int total = Math.max(count, pageNames.size());
         for (int i = 0; i < total; i++) {
-            String subPath = i < pageNames.size() ? pageNames.get(i) : "page-" + i;
+            String subPath = (i < pageNames.size()) ? pageNames.get(i) : ("page-" + i);
             String path = root + "/" + subPath;
             String title = formatTitle(subPath);
 
             SiteInventory.PageInfo p = new SiteInventory.PageInfo(path, title, "/conf/wknd/settings/wcm/templates/article-page");
-            p.getComponentResourceTypes().add("wknd/components/hero");
-            p.getComponentResourceTypes().add("wknd/components/text");
-            p.getComponentResourceTypes().add("wknd/components/image");
-            if (i % 2 == 0) p.getComponentResourceTypes().add("wknd/components/teaser");
-            if (i % 3 == 0) p.getComponentResourceTypes().add("wknd/components/carousel");
-            if (i % 4 == 0) p.getComponentResourceTypes().add("wknd/components/tabs");
+            List<String> crt = new ArrayList<>();
+            crt.add("wknd/components/hero");
+            crt.add("wknd/components/text");
+            crt.add("wknd/components/image");
+            if (i % 2 == 0) crt.add("wknd/components/teaser");
+            if (i % 3 == 0) crt.add("wknd/components/carousel");
+            if (i % 4 == 0) crt.add("wknd/components/tabs");
+            p.setComponentResourceTypes(crt);
 
-            p.getAssetPaths().add("/content/dam/wknd/en/adventures/hero-" + (i % 5) + ".jpg");
-            p.getAssetPaths().add("/content/dam/wknd/en/magazine/cover-" + (i % 3) + ".png");
+            List<String> ap = new ArrayList<>();
+            ap.add("/content/dam/wknd/en/adventures/hero-" + (i % 5) + ".jpg");
+            ap.add("/content/dam/wknd/en/magazine/cover-" + (i % 3) + ".png");
+            p.setAssetPaths(ap);
 
-            inv.getPages().add(p);
+            pages.add(p);
         }
+        inv.setPages(pages);
 
         // Distinct Components
-        inv.getComponents().add(new SiteInventory.ComponentInfo("wknd/components/hero", "Hero Block", "WKND Content"));
-        inv.getComponents().add(new SiteInventory.ComponentInfo("wknd/components/teaser", "Teaser", "WKND Content"));
-        inv.getComponents().add(new SiteInventory.ComponentInfo("wknd/components/cards", "Cards List", "WKND Content"));
-        inv.getComponents().add(new SiteInventory.ComponentInfo("wknd/components/carousel", "Carousel", "WKND Content"));
-        inv.getComponents().add(new SiteInventory.ComponentInfo("wknd/components/tabs", "Tabs", "WKND Content"));
-        inv.getComponents().add(new SiteInventory.ComponentInfo("wknd/components/accordion", "Accordion", "WKND Content"));
-        inv.getComponents().add(new SiteInventory.ComponentInfo("wknd/components/text", "Text", "WKND Core"));
-        inv.getComponents().add(new SiteInventory.ComponentInfo("wknd/components/image", "Image", "WKND Core"));
-        inv.getComponents().add(new SiteInventory.ComponentInfo("wknd/components/navigation", "Navigation", "WKND Structure"));
-        inv.getComponents().add(new SiteInventory.ComponentInfo("wknd/components/footer", "Footer", "WKND Structure"));
-        inv.getComponents().add(new SiteInventory.ComponentInfo("wknd/components/form/container", "Form Container", "WKND Form"));
-        inv.getComponents().add(new SiteInventory.ComponentInfo("wknd/components/search", "Search Bar", "WKND Search"));
-        inv.getComponents().add(new SiteInventory.ComponentInfo("wknd/components/breadcrumb", "Breadcrumb", "WKND Structure"));
-        inv.getComponents().add(new SiteInventory.ComponentInfo("wknd/components/video", "Video Player", "WKND Media"));
-        inv.getComponents().add(new SiteInventory.ComponentInfo("wknd/components/button", "Button", "WKND Core"));
+        List<SiteInventory.ComponentInfo> components = new ArrayList<>();
+        components.add(new SiteInventory.ComponentInfo("wknd/components/hero", "Hero Block", "WKND Content"));
+        components.add(new SiteInventory.ComponentInfo("wknd/components/teaser", "Teaser", "WKND Content"));
+        components.add(new SiteInventory.ComponentInfo("wknd/components/cards", "Cards List", "WKND Content"));
+        components.add(new SiteInventory.ComponentInfo("wknd/components/carousel", "Carousel", "WKND Content"));
+        components.add(new SiteInventory.ComponentInfo("wknd/components/tabs", "Tabs", "WKND Content"));
+        components.add(new SiteInventory.ComponentInfo("wknd/components/accordion", "Accordion", "WKND Content"));
+        components.add(new SiteInventory.ComponentInfo("wknd/components/text", "Text", "WKND Core"));
+        components.add(new SiteInventory.ComponentInfo("wknd/components/image", "Image", "WKND Core"));
+        components.add(new SiteInventory.ComponentInfo("wknd/components/navigation", "Navigation", "WKND Structure"));
+        components.add(new SiteInventory.ComponentInfo("wknd/components/footer", "Footer", "WKND Structure"));
+        components.add(new SiteInventory.ComponentInfo("wknd/components/form/container", "Form Container", "WKND Form"));
+        components.add(new SiteInventory.ComponentInfo("wknd/components/search", "Search Bar", "WKND Search"));
+        components.add(new SiteInventory.ComponentInfo("wknd/components/breadcrumb", "Breadcrumb", "WKND Structure"));
+        components.add(new SiteInventory.ComponentInfo("wknd/components/video", "Video Player", "WKND Media"));
+        components.add(new SiteInventory.ComponentInfo("wknd/components/button", "Button", "WKND Core"));
+        inv.setComponents(components);
 
         // Distinct Templates
-        inv.getTemplates().add(new SiteInventory.TemplateInfo("/conf/wknd/settings/wcm/templates/landing-page", "Landing Page"));
-        inv.getTemplates().add(new SiteInventory.TemplateInfo("/conf/wknd/settings/wcm/templates/article-page", "Article Page"));
-        inv.getTemplates().add(new SiteInventory.TemplateInfo("/conf/wknd/settings/wcm/templates/adventure-page", "Adventure Page"));
+        List<SiteInventory.TemplateInfo> templates = new ArrayList<>();
+        templates.add(new SiteInventory.TemplateInfo("/conf/wknd/settings/wcm/templates/landing-page", "Landing Page"));
+        templates.add(new SiteInventory.TemplateInfo("/conf/wknd/settings/wcm/templates/article-page", "Article Page"));
+        templates.add(new SiteInventory.TemplateInfo("/conf/wknd/settings/wcm/templates/adventure-page", "Adventure Page"));
+        inv.setTemplates(templates);
 
         // Content Fragments
-        inv.getContentFragments().add(new SiteInventory.ContentFragmentInfo("/content/dam/wknd/en/adventures/bali-surf/cf", "adventure-model", "Bali Surf Camp"));
-        inv.getContentFragments().add(new SiteInventory.ContentFragmentInfo("/content/dam/wknd/en/adventures/mont-blanc/cf", "adventure-model", "Mont Blanc Skiing"));
+        List<SiteInventory.ContentFragmentInfo> cfs = new ArrayList<>();
+        cfs.add(new SiteInventory.ContentFragmentInfo("/content/dam/wknd/en/adventures/bali-surf/cf", "adventure-model", "Bali Surf Camp"));
+        cfs.add(new SiteInventory.ContentFragmentInfo("/content/dam/wknd/en/adventures/mont-blanc/cf", "adventure-model", "Mont Blanc Skiing"));
+        inv.setContentFragments(cfs);
 
         // Assets
-        inv.getAssets().add(new SiteInventory.AssetInfo("/content/dam/wknd/en/adventures/hero-0.jpg", "image/jpeg"));
-        inv.getAssets().add(new SiteInventory.AssetInfo("/content/dam/wknd/en/adventures/hero-1.jpg", "image/jpeg"));
-        inv.getAssets().add(new SiteInventory.AssetInfo("/content/dam/wknd/en/magazine/cover-0.png", "image/png"));
+        List<SiteInventory.AssetInfo> assets = new ArrayList<>();
+        assets.add(new SiteInventory.AssetInfo("/content/dam/wknd/en/adventures/hero-0.jpg", "image/jpeg"));
+        assets.add(new SiteInventory.AssetInfo("/content/dam/wknd/en/adventures/hero-1.jpg", "image/jpeg"));
+        assets.add(new SiteInventory.AssetInfo("/content/dam/wknd/en/magazine/cover-0.png", "image/png"));
+        inv.setAssets(assets);
 
         // MSM Live Copies
-        inv.getLiveCopies().add(new SiteInventory.MsmLiveCopyInfo("/content/wknd/language-masters/en", "/content/wknd/us/en"));
-        inv.getLiveCopies().add(new SiteInventory.MsmLiveCopyInfo("/content/wknd/language-masters/en", "/content/wknd/ca/en"));
-        inv.getLiveCopies().add(new SiteInventory.MsmLiveCopyInfo("/content/wknd/language-masters/en", "/content/wknd/fr/fr"));
+        List<SiteInventory.MsmLiveCopyInfo> liveCopies = new ArrayList<>();
+        liveCopies.add(new SiteInventory.MsmLiveCopyInfo("/content/wknd/language-masters/en", "/content/wknd/us/en"));
+        liveCopies.add(new SiteInventory.MsmLiveCopyInfo("/content/wknd/language-masters/en", "/content/wknd/ca/en"));
+        liveCopies.add(new SiteInventory.MsmLiveCopyInfo("/content/wknd/language-masters/en", "/content/wknd/fr/fr"));
+        inv.setLiveCopies(liveCopies);
 
         // Figma Tokens
-        inv.getFigmaTokens().put("--color-brand", "#eb1000");
-        inv.getFigmaTokens().put("--color-text", "#222222");
-        inv.getFigmaTokens().put("--color-bg", "#ffffff");
-        inv.getFigmaTokens().put("--font-body", "'Source Sans Pro', sans-serif");
-        inv.getFigmaTokens().put("--font-heading", "'Source Serif Pro', serif");
+        Map<String, String> figmaTokens = new HashMap<>();
+        figmaTokens.put("--color-brand", "#eb1000");
+        figmaTokens.put("--color-text", "#222222");
+        figmaTokens.put("--color-bg", "#ffffff");
+        figmaTokens.put("--font-body", "'Source Sans Pro', sans-serif");
+        figmaTokens.put("--font-heading", "'Source Serif Pro', serif");
+        inv.setFigmaTokens(figmaTokens);
 
         return inv;
     }

@@ -24,7 +24,7 @@ public final class UrlGuard {
         URI uri;
         try {
             uri = URI.create(urlString.trim());
-        } catch (Exception e) {
+        } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Malformed URL: " + urlString, e);
         }
 

@@ -48,26 +48,26 @@ public class SiteInventory {
     public int getExcludedPages() { return excludedPages; }
     public void setExcludedPages(int excludedPages) { this.excludedPages = excludedPages; }
 
-    public List<PageInfo> getPages() { return pages; }
-    public void setPages(List<PageInfo> pages) { this.pages = pages; }
+    public List<PageInfo> getPages() { return pages != null ? new ArrayList<>(pages) : new ArrayList<>(); }
+    public void setPages(List<PageInfo> pages) { this.pages = pages != null ? new ArrayList<>(pages) : new ArrayList<>(); }
 
-    public List<ComponentInfo> getComponents() { return components; }
-    public void setComponents(List<ComponentInfo> components) { this.components = components; }
+    public List<ComponentInfo> getComponents() { return components != null ? new ArrayList<>(components) : new ArrayList<>(); }
+    public void setComponents(List<ComponentInfo> components) { this.components = components != null ? new ArrayList<>(components) : new ArrayList<>(); }
 
-    public List<TemplateInfo> getTemplates() { return templates; }
-    public void setTemplates(List<TemplateInfo> templates) { this.templates = templates; }
+    public List<TemplateInfo> getTemplates() { return templates != null ? new ArrayList<>(templates) : new ArrayList<>(); }
+    public void setTemplates(List<TemplateInfo> templates) { this.templates = templates != null ? new ArrayList<>(templates) : new ArrayList<>(); }
 
-    public List<AssetInfo> getAssets() { return assets; }
-    public void setAssets(List<AssetInfo> assets) { this.assets = assets; }
+    public List<AssetInfo> getAssets() { return assets != null ? new ArrayList<>(assets) : new ArrayList<>(); }
+    public void setAssets(List<AssetInfo> assets) { this.assets = assets != null ? new ArrayList<>(assets) : new ArrayList<>(); }
 
-    public List<ContentFragmentInfo> getContentFragments() { return contentFragments; }
-    public void setContentFragments(List<ContentFragmentInfo> contentFragments) { this.contentFragments = contentFragments; }
+    public List<ContentFragmentInfo> getContentFragments() { return contentFragments != null ? new ArrayList<>(contentFragments) : new ArrayList<>(); }
+    public void setContentFragments(List<ContentFragmentInfo> contentFragments) { this.contentFragments = contentFragments != null ? new ArrayList<>(contentFragments) : new ArrayList<>(); }
 
-    public List<MsmLiveCopyInfo> getLiveCopies() { return liveCopies; }
-    public void setLiveCopies(List<MsmLiveCopyInfo> liveCopies) { this.liveCopies = liveCopies; }
+    public List<MsmLiveCopyInfo> getLiveCopies() { return liveCopies != null ? new ArrayList<>(liveCopies) : new ArrayList<>(); }
+    public void setLiveCopies(List<MsmLiveCopyInfo> liveCopies) { this.liveCopies = liveCopies != null ? new ArrayList<>(liveCopies) : new ArrayList<>(); }
 
-    public Map<String, String> getFigmaTokens() { return figmaTokens; }
-    public void setFigmaTokens(Map<String, String> figmaTokens) { this.figmaTokens = figmaTokens; }
+    public Map<String, String> getFigmaTokens() { return figmaTokens != null ? new HashMap<>(figmaTokens) : new HashMap<>(); }
+    public void setFigmaTokens(Map<String, String> figmaTokens) { this.figmaTokens = figmaTokens != null ? new HashMap<>(figmaTokens) : new HashMap<>(); }
 
     public long getTimestamp() { return timestamp; }
     public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
@@ -111,11 +111,11 @@ public class SiteInventory {
         public String getExclusionReason() { return exclusionReason; }
         public void setExclusionReason(String exclusionReason) { this.exclusionReason = exclusionReason; }
 
-        public List<String> getComponentResourceTypes() { return componentResourceTypes; }
-        public void setComponentResourceTypes(List<String> componentResourceTypes) { this.componentResourceTypes = componentResourceTypes; }
+        public List<String> getComponentResourceTypes() { return componentResourceTypes != null ? new ArrayList<>(componentResourceTypes) : new ArrayList<>(); }
+        public void setComponentResourceTypes(List<String> componentResourceTypes) { this.componentResourceTypes = componentResourceTypes != null ? new ArrayList<>(componentResourceTypes) : new ArrayList<>(); }
 
-        public List<String> getAssetPaths() { return assetPaths; }
-        public void setAssetPaths(List<String> assetPaths) { this.assetPaths = assetPaths; }
+        public List<String> getAssetPaths() { return assetPaths != null ? new ArrayList<>(assetPaths) : new ArrayList<>(); }
+        public void setAssetPaths(List<String> assetPaths) { this.assetPaths = assetPaths != null ? new ArrayList<>(assetPaths) : new ArrayList<>(); }
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -171,8 +171,8 @@ public class SiteInventory {
         public String getTitle() { return title; }
         public void setTitle(String title) { this.title = title; }
 
-        public List<String> getAllowedComponents() { return allowedComponents; }
-        public void setAllowedComponents(List<String> allowedComponents) { this.allowedComponents = allowedComponents; }
+        public List<String> getAllowedComponents() { return allowedComponents != null ? new ArrayList<>(allowedComponents) : new ArrayList<>(); }
+        public void setAllowedComponents(List<String> allowedComponents) { this.allowedComponents = allowedComponents != null ? new ArrayList<>(allowedComponents) : new ArrayList<>(); }
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

@@ -41,7 +41,7 @@ public class AdvancedRepairAgent implements Agent {
     }
 
     @Override
-    public void execute(AgentContext ctx) throws Exception {
+    public void execute(AgentContext ctx) throws com.adobe.aem.modernizer.ModernizerException {
         SiteInventory inv = ctx.getInventory();
         int componentCount = (inv != null && inv.getComponents() != null) ? inv.getComponents().size() : 10;
 
@@ -53,7 +53,7 @@ public class AdvancedRepairAgent implements Agent {
         for (int i = 0; i < componentCount; i++) {
             String blockName = (inv != null && i < inv.getComponents().size())
                     ? inv.getComponents().get(i).getProposedEdsBlock()
-                    : "block-" + i;
+                    : ("block-" + i);
 
             if (ai != null) {
                 ChatRequest req = new ChatRequest(getName(), "Analyze failed visual validation diff and synthesize CSS patch for " + blockName);

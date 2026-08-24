@@ -38,7 +38,7 @@ public class VerificationAgent implements Agent {
     }
 
     @Override
-    public void execute(AgentContext ctx) throws Exception {
+    public void execute(AgentContext ctx) throws com.adobe.aem.modernizer.ModernizerException {
         SiteInventory inv = ctx.getInventory();
         int count = (inv != null && inv.getPages() != null) ? inv.getPages().size() : 0;
         LOG.info("VerificationAgent running final production live crawl across {} endpoints", count);

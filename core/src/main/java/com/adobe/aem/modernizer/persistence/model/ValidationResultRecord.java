@@ -66,8 +66,8 @@ public class ValidationResultRecord {
     public double getA11yScore() { return a11yScore; }
     public void setA11yScore(double a11yScore) { this.a11yScore = a11yScore; }
 
-    public List<String> getIssues() { return issues; }
-    public void setIssues(List<String> issues) { this.issues = issues; }
+    public List<String> getIssues() { return issues != null ? new ArrayList<>(issues) : new ArrayList<>(); }
+    public void setIssues(List<String> issues) { this.issues = issues != null ? new ArrayList<>(issues) : new ArrayList<>(); }
 
     public String getScreenshotBase64() { return screenshotBase64; }
     public void setScreenshotBase64(String screenshotBase64) { this.screenshotBase64 = screenshotBase64; }

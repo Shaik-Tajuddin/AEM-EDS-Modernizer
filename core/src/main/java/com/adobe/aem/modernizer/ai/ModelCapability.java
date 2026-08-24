@@ -45,6 +45,6 @@ public class ModelCapability {
     public int getMaxContextTokens() { return maxContextTokens; }
     public void setMaxContextTokens(int maxContextTokens) { this.maxContextTokens = maxContextTokens; }
 
-    public Set<String> getCapabilities() { return capabilities; }
-    public void setCapabilities(Set<String> capabilities) { this.capabilities = capabilities; }
+    public Set<String> getCapabilities() { return capabilities != null ? new HashSet<>(capabilities) : new HashSet<>(); }
+    public void setCapabilities(Set<String> capabilities) { this.capabilities = capabilities != null ? new HashSet<>(capabilities) : new HashSet<>(); }
 }

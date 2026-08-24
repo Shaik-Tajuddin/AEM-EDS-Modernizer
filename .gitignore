@@ -25,3 +25,6 @@ Thumbs.db
 
 # Standalone build output
 bin/
+
+# Local analysis reports
+*.csv

@@ -35,7 +35,7 @@ public class MsmAnalysisAgent implements Agent {
     }
 
     @Override
-    public void execute(AgentContext ctx) throws Exception {
+    public void execute(AgentContext ctx) throws com.adobe.aem.modernizer.ModernizerException {
         SiteInventory inv = ctx.getInventory();
         int count = (inv != null && inv.getLiveCopies() != null) ? inv.getLiveCopies().size() : 0;
         LOG.info("MsmAnalysisAgent analyzed {} live copies", count);

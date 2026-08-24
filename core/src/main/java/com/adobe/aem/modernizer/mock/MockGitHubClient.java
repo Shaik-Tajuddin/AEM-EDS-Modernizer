@@ -6,6 +6,7 @@ import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.security.SecureRandom;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -16,28 +17,34 @@ import java.util.concurrent.ConcurrentHashMap;
 public class MockGitHubClient implements GitHubClient {
 
     private static final Logger LOG = LoggerFactory.getLogger(MockGitHubClient.class);
+    private static final SecureRandom RANDOM = new SecureRandom();
 
-    private String repoUrl = "https://github.com/company/wknd-eds";
+    private final String repoUrl;
     private final Set<String> branches = Collections.synchronizedSet(new HashSet<>());
     private final Map<String, List<GeneratedFileRecord>> branchFiles = new ConcurrentHashMap<>();
 
     public MockGitHubClient() {
-        branches.add("main");
+        this("https://github.com/company/wknd-eds");
     }
 
     public MockGitHubClient(String repoUrl) {
-        this();
-        this.repoUrl = repoUrl;
+        this.repoUrl = (repoUrl != null && !repoUrl.trim().isEmpty()) ? repoUrl : "https://github.com/company/wknd-eds";
+        branches.add("main");
     }
 
     @Override
     public boolean testConnection() {
+        LOG.info("Mock GitHub connection check passed for {}", repoUrl);
         return true;
     }
 
     @Override
     public String getRepoUrl() {
         return repoUrl;
+    }
+
+    public List<String> listBranches() {
+        return new ArrayList<>(branches);
     }
 
     @Override
@@ -51,16 +58,22 @@ public class MockGitHubClient implements GitHubClient {
         LOG.info("Created mock Git branch: {}", branch);
     }
 
+    public void createBranch(String branch, String sourceBranch) {
+        createBranch(branch);
+    }
+
     @Override
     public void commitFiles(String branch, List<GeneratedFileRecord> files, String commitMessage) {
-        branchFiles.computeIfAbsent(branch, k -> Collections.synchronizedList(new ArrayList<>()))
-                .addAll(files);
-        LOG.info("Committed {} files to branch '{}': {}", files.size(), branch, commitMessage);
+        if (files != null) {
+            branchFiles.computeIfAbsent(branch, k -> Collections.synchronizedList(new ArrayList<>()))
+                    .addAll(files);
+            LOG.info("Committed {} files to branch '{}': {}", files.size(), branch, commitMessage);
+        }
     }
 
     @Override
     public String createPullRequest(String title, String body, String headBranch, String baseBranch) {
-        String prUrl = repoUrl + "/pull/" + (new Random().nextInt(900) + 100);
+        String prUrl = repoUrl + "/pull/" + (RANDOM.nextInt(900) + 100);
         LOG.info("Created mock PR from {} to {}: {}", headBranch, baseBranch, prUrl);
         return prUrl;
     }

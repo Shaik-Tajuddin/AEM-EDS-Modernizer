@@ -54,8 +54,8 @@ public class ClarificationRecord {
     public String getRationale() { return rationale; }
     public void setRationale(String rationale) { this.rationale = rationale; }
 
-    public List<String> getOptions() { return options; }
-    public void setOptions(List<String> options) { this.options = options; }
+    public List<String> getOptions() { return options != null ? new ArrayList<>(options) : new ArrayList<>(); }
+    public void setOptions(List<String> options) { this.options = options != null ? new ArrayList<>(options) : new ArrayList<>(); }
 
     public String getDefaultOption() { return defaultOption; }
     public void setDefaultOption(String defaultOption) { this.defaultOption = defaultOption; }
@@ -70,8 +70,8 @@ public class ClarificationRecord {
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
 
-    public List<String> getAffectedPages() { return affectedPages; }
-    public void setAffectedPages(List<String> affectedPages) { this.affectedPages = affectedPages; }
+    public List<String> getAffectedPages() { return affectedPages != null ? new ArrayList<>(affectedPages) : new ArrayList<>(); }
+    public void setAffectedPages(List<String> affectedPages) { this.affectedPages = affectedPages != null ? new ArrayList<>(affectedPages) : new ArrayList<>(); }
 
     public long getCreatedAt() { return createdAt; }
     public void setCreatedAt(long createdAt) { this.createdAt = createdAt; }

@@ -41,7 +41,7 @@ public class DiscoveryAgent implements Agent {
     }
 
     @Override
-    public void execute(AgentContext ctx) throws Exception {
+    public void execute(AgentContext ctx) throws com.adobe.aem.modernizer.ModernizerException {
         LOG.info("DiscoveryAgent crawling AEM at {}", ctx.getProject().getContentRoot());
 
         SiteInventory inventory = null;

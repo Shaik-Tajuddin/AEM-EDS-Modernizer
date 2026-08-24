@@ -42,7 +42,7 @@ public class PreviewAgent implements Agent {
     }
 
     @Override
-    public void execute(AgentContext ctx) throws Exception {
+    public void execute(AgentContext ctx) throws com.adobe.aem.modernizer.ModernizerException {
         if (ctx.isDryRun()) {
             LOG.info("PreviewAgent skipped real deploy during Dry Run");
             if (store != null) {
@@ -68,7 +68,7 @@ public class PreviewAgent implements Agent {
             }
         }
 
-        String previewUrl = (eds != null) ? eds.getPreviewUrl(branch, "/index") : "https://eds-mock.local/preview/" + branch;
+        String previewUrl = (eds != null) ? eds.getPreviewUrl(branch, "/index") : ("https://eds-mock.local/preview/" + branch);
 
         if (store != null) {
             store.recordEvent(new JobEventRecord(

@@ -38,7 +38,7 @@ public class AdvancedRolloutAgent implements Agent {
     }
 
     @Override
-    public void execute(AgentContext ctx) throws Exception {
+    public void execute(AgentContext ctx) throws com.adobe.aem.modernizer.ModernizerException {
         LOG.info("AdvancedRolloutAgent preparing staged progressive rollout schedule");
 
         List<RolloutPolicy.StageDefinition> stages = rolloutPolicy.getStages();

@@ -45,6 +45,6 @@ public class ChatRequest {
     public int getMaxTokens() { return maxTokens; }
     public void setMaxTokens(int maxTokens) { this.maxTokens = maxTokens; }
 
-    public List<String> getImageBase64List() { return imageBase64List; }
-    public void setImageBase64List(List<String> imageBase64List) { this.imageBase64List = imageBase64List; }
+    public List<String> getImageBase64List() { return imageBase64List != null ? new ArrayList<>(imageBase64List) : new ArrayList<>(); }
+    public void setImageBase64List(List<String> imageBase64List) { this.imageBase64List = imageBase64List != null ? new ArrayList<>(imageBase64List) : new ArrayList<>(); }
 }

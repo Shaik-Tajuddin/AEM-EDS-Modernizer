@@ -104,6 +104,6 @@ public class ProjectRecord {
     public long getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(long updatedAt) { this.updatedAt = updatedAt; }
 
-    public Map<String, Object> getProperties() { return properties; }
-    public void setProperties(Map<String, Object> properties) { this.properties = properties; }
+    public Map<String, Object> getProperties() { return properties != null ? new HashMap<>(properties) : new HashMap<>(); }
+    public void setProperties(Map<String, Object> properties) { this.properties = properties != null ? new HashMap<>(properties) : new HashMap<>(); }
 }

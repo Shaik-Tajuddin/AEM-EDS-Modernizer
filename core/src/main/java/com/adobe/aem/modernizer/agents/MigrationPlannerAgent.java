@@ -40,7 +40,7 @@ public class MigrationPlannerAgent implements Agent {
     }
 
     @Override
-    public void execute(AgentContext ctx) throws Exception {
+    public void execute(AgentContext ctx) throws com.adobe.aem.modernizer.ModernizerException {
         LOG.info("MigrationPlannerAgent computing estimate and migration plan");
 
         List<BenchmarkSampleRecord> samples = (store != null)

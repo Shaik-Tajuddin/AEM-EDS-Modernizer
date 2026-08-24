@@ -76,6 +76,6 @@ public class JobRecord {
     public String getActor() { return actor; }
     public void setActor(String actor) { this.actor = actor; }
 
-    public Map<String, Object> getMetadata() { return metadata; }
-    public void setMetadata(Map<String, Object> metadata) { this.metadata = metadata; }
+    public Map<String, Object> getMetadata() { return metadata != null ? new HashMap<>(metadata) : new HashMap<>(); }
+    public void setMetadata(Map<String, Object> metadata) { this.metadata = metadata != null ? new HashMap<>(metadata) : new HashMap<>(); }
 }

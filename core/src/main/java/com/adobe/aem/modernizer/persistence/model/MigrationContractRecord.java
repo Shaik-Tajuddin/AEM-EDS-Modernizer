@@ -79,6 +79,6 @@ public class MigrationContractRecord {
     public long getApprovedAt() { return approvedAt; }
     public void setApprovedAt(long approvedAt) { this.approvedAt = approvedAt; }
 
-    public List<String> getAcceptedRisks() { return acceptedRisks; }
-    public void setAcceptedRisks(List<String> acceptedRisks) { this.acceptedRisks = acceptedRisks; }
+    public List<String> getAcceptedRisks() { return acceptedRisks != null ? new ArrayList<>(acceptedRisks) : new ArrayList<>(); }
+    public void setAcceptedRisks(List<String> acceptedRisks) { this.acceptedRisks = acceptedRisks != null ? new ArrayList<>(acceptedRisks) : new ArrayList<>(); }
 }

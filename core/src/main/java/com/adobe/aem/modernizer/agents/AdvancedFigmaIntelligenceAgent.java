@@ -40,7 +40,7 @@ public class AdvancedFigmaIntelligenceAgent implements Agent {
     }
 
     @Override
-    public void execute(AgentContext ctx) throws Exception {
+    public void execute(AgentContext ctx) throws com.adobe.aem.modernizer.ModernizerException {
         LOG.info("AdvancedFigmaIntelligenceAgent generating design system component pairings");
 
         if (ai != null) {

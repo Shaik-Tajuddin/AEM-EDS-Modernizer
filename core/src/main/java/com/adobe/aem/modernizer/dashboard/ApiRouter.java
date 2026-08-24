@@ -22,6 +22,7 @@ import java.util.*;
 public class ApiRouter {
 
     private static final Logger LOG = LoggerFactory.getLogger(ApiRouter.class);
+    private static final String PATH_DEPENDENCIES = "dependencies";
 
     @Reference private transient Store store;
     @Reference private transient Orchestrator orchestrator;
@@ -170,7 +171,7 @@ public class ApiRouter {
                         return JsonUtil.toJson(store != null ? store.getUrlRedirectsForProject(projectId) : Collections.emptyList());
                     }
 
-                    if ("dependencies".equalsIgnoreCase(sub)) {
+                    if (PATH_DEPENDENCIES.equalsIgnoreCase(sub)) {
                         return JsonUtil.toJson(store != null ? store.getDependencyEdgesForProject(projectId) : Collections.emptyList());
                     }
 

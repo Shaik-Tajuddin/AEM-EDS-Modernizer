@@ -15,7 +15,8 @@ public class ScopeEvaluator {
 
         // Must be under contentRoot if specified
         if (contentRoot != null && !contentRoot.isEmpty()) {
-            if (!path.equals(contentRoot) && !path.startsWith(contentRoot.endsWith("/") ? contentRoot : contentRoot + "/")) {
+            String rootPrefix = contentRoot.endsWith("/") ? contentRoot : (contentRoot + "/");
+            if (!path.equals(contentRoot) && !path.startsWith(rootPrefix)) {
                 return false;
             }
         }
@@ -30,7 +31,8 @@ public class ScopeEvaluator {
                 String prefix = cleanScope.substring(0, cleanScope.length() - 1);
                 return path.startsWith(prefix);
             } else {
-                return path.equals(cleanScope) || path.startsWith(cleanScope.endsWith("/") ? cleanScope : cleanScope + "/");
+                String scopePrefix = cleanScope.endsWith("/") ? cleanScope : (cleanScope + "/");
+                return path.equals(cleanScope) || path.startsWith(scopePrefix);
             }
         }
 

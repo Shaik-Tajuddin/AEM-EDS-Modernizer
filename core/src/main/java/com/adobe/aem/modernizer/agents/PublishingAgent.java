@@ -37,7 +37,7 @@ public class PublishingAgent implements Agent {
     }
 
     @Override
-    public void execute(AgentContext ctx) throws Exception {
+    public void execute(AgentContext ctx) throws com.adobe.aem.modernizer.ModernizerException {
         if (ctx.isDryRun()) {
             LOG.info("PublishingAgent skipped during Dry Run");
             return;

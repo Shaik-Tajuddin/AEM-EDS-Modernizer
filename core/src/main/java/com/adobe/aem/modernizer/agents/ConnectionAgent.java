@@ -49,7 +49,7 @@ public class ConnectionAgent implements Agent {
     }
 
     @Override
-    public void execute(AgentContext ctx) throws Exception {
+    public void execute(AgentContext ctx) throws com.adobe.aem.modernizer.ModernizerException {
         LOG.info("ConnectionAgent testing endpoints for project: {}", ctx.getProject().getId());
 
         boolean authorOk = aemAuthor == null || aemAuthor.testConnection();
@@ -62,6 +62,12 @@ public class ConnectionAgent implements Agent {
         }
         if (!ghOk) {
             throw new IllegalStateException("GitHub repository is unreachable or unauthorized: " + ctx.getProject().getEdsGitRepoUrl());
+        }
+        if (!edsOk) {
+            throw new IllegalStateException("EDS endpoint is unreachable");
+        }
+        if (!browserOk) {
+            throw new IllegalStateException("Browser rendering service is unavailable");
         }
 
         if (store != null) {

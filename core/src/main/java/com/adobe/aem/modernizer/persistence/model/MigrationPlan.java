@@ -89,17 +89,17 @@ public class MigrationPlan {
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
 
-    public List<String> getDerivationTrail() { return derivationTrail; }
-    public void setDerivationTrail(List<String> derivationTrail) { this.derivationTrail = derivationTrail; }
+    public List<String> getDerivationTrail() { return derivationTrail != null ? new ArrayList<>(derivationTrail) : new ArrayList<>(); }
+    public void setDerivationTrail(List<String> derivationTrail) { this.derivationTrail = derivationTrail != null ? new ArrayList<>(derivationTrail) : new ArrayList<>(); }
 
-    public List<String> getBlockers() { return blockers; }
-    public void setBlockers(List<String> blockers) { this.blockers = blockers; }
+    public List<String> getBlockers() { return blockers != null ? new ArrayList<>(blockers) : new ArrayList<>(); }
+    public void setBlockers(List<String> blockers) { this.blockers = blockers != null ? new ArrayList<>(blockers) : new ArrayList<>(); }
 
-    public List<String> getWarnings() { return warnings; }
-    public void setWarnings(List<String> warnings) { this.warnings = warnings; }
+    public List<String> getWarnings() { return warnings != null ? new ArrayList<>(warnings) : new ArrayList<>(); }
+    public void setWarnings(List<String> warnings) { this.warnings = warnings != null ? new ArrayList<>(warnings) : new ArrayList<>(); }
 
-    public Map<String, Object> getDetails() { return details; }
-    public void setDetails(Map<String, Object> details) { this.details = details; }
+    public Map<String, Object> getDetails() { return details != null ? new HashMap<>(details) : new HashMap<>(); }
+    public void setDetails(Map<String, Object> details) { this.details = details != null ? new HashMap<>(details) : new HashMap<>(); }
 
     public long getGeneratedAt() { return generatedAt; }
     public void setGeneratedAt(long generatedAt) { this.generatedAt = generatedAt; }

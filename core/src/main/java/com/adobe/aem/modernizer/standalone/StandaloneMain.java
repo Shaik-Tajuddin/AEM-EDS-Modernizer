@@ -167,10 +167,10 @@ public class StandaloneMain {
         server.setExecutor(null);
         server.start();
 
-        System.out.println("===============================================================");
-        System.out.println(" AEM -> EDS Modernizer Standalone Server Started!");
-        System.out.println(" URL: http://localhost:" + port);
-        System.out.println(" API: http://localhost:" + port + "/api/health");
-        System.out.println("===============================================================");
+        LOG.info("===============================================================");
+        LOG.info(" AEM -> EDS Modernizer Standalone Server Started!");
+        LOG.info(" URL: http://localhost:{}", port);
+        LOG.info(" API: http://localhost:{}/api/health", port);
+        LOG.info("===============================================================");
     }
 }

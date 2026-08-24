@@ -49,8 +49,8 @@ public class CheckpointRecord {
     public String getResumeHint() { return resumeHint; }
     public void setResumeHint(String resumeHint) { this.resumeHint = resumeHint; }
 
-    public Map<String, Object> getStateData() { return stateData; }
-    public void setStateData(Map<String, Object> stateData) { this.stateData = stateData; }
+    public Map<String, Object> getStateData() { return stateData != null ? new HashMap<>(stateData) : new HashMap<>(); }
+    public void setStateData(Map<String, Object> stateData) { this.stateData = stateData != null ? new HashMap<>(stateData) : new HashMap<>(); }
 
     public long getTimestamp() { return timestamp; }
     public void setTimestamp(long timestamp) { this.timestamp = timestamp; }

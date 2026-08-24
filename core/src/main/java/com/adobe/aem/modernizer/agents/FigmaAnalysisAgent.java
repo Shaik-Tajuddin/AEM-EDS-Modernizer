@@ -38,7 +38,7 @@ public class FigmaAnalysisAgent implements Agent {
     }
 
     @Override
-    public void execute(AgentContext ctx) throws Exception {
+    public void execute(AgentContext ctx) throws com.adobe.aem.modernizer.ModernizerException {
         String figmaUrl = ctx.getProject().getFigmaUrl();
         if (figmaUrl == null || figmaUrl.trim().isEmpty()) {
             LOG.info("FigmaAnalysisAgent skipped: no Figma URL configured");

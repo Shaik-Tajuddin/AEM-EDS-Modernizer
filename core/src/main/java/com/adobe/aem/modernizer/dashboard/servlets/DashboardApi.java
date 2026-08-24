@@ -2,6 +2,7 @@ package com.adobe.aem.modernizer.dashboard.servlets;
 
 import com.adobe.aem.modernizer.dashboard.ApiRouter;
 import org.apache.sling.servlets.annotations.SlingServletPaths;
+import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 
@@ -18,13 +19,15 @@ import java.io.IOException;
 @SlingServletPaths(value = {"/bin/aem-eds-modernizer/*"})
 public class DashboardApi extends HttpServlet {
 
-    @Reference
-    private transient ApiRouter router;
+    private final transient ApiRouter router;
 
-    public DashboardApi() {}
-
-    public DashboardApi(ApiRouter router) {
+    @Activate
+    public DashboardApi(@Reference ApiRouter router) {
         this.router = router;
+    }
+
+    public DashboardApi() {
+        this.router = null;
     }
 
     @Override

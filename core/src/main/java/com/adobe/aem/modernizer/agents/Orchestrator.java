@@ -1,5 +1,6 @@
 package com.adobe.aem.modernizer.agents;
 
+import com.adobe.aem.modernizer.ModernizerException;
 import com.adobe.aem.modernizer.ai.AiGateway;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.*;
@@ -65,14 +66,18 @@ public class Orchestrator {
         return Optional.ofNullable(agents.get(name.toLowerCase()));
     }
 
-    public void invokeIfRegistered(String name, AgentContext ctx) throws Exception {
+    public void invokeIfRegistered(String name, AgentContext ctx) throws ModernizerException {
         Optional<Agent> agentOpt = getAgent(name);
         if (agentOpt.isPresent()) {
-            agentOpt.get().execute(ctx);
+            try {
+                agentOpt.get().execute(ctx);
+            } catch (Exception e) {
+                throw new ModernizerException("Error invoking agent " + name, e);
+            }
         }
     }
 
-    public JobRecord runDryRun(ProjectRecord project, String actor) throws Exception {
+    public JobRecord runDryRun(ProjectRecord project, String actor) throws ModernizerException {
         String jobId = "job-" + UUID.randomUUID().toString().substring(0, 8);
         JobRecord job = new JobRecord(jobId, project.getId(), "DRY_RUN");
         job.setActor(actor != null ? actor : "admin");
@@ -122,20 +127,19 @@ public class Orchestrator {
                 store.saveJob(job);
             }
         } catch (Exception e) {
-            LOG.error("Dry run execution failed for job {}: {}", jobId, e.getMessage(), e);
             job.setState(MigrationState.FAILED.name());
             job.setLastError(e.getMessage());
             job.setFinishedAt(System.currentTimeMillis());
             if (store != null) {
                 store.saveJob(job);
             }
-            throw e;
+            throw new ModernizerException("Dry run execution failed for job " + jobId + ": " + e.getMessage(), e);
         }
 
         return job;
     }
 
-    public JobRecord runMigration(ProjectRecord project, String actor) throws Exception {
+    public JobRecord runMigration(ProjectRecord project, String actor) throws ModernizerException {
         String jobId = "job-" + UUID.randomUUID().toString().substring(0, 8);
         JobRecord job = new JobRecord(jobId, project.getId(), "MIGRATE");
         job.setActor(actor != null ? actor : "admin");
@@ -206,23 +210,26 @@ public class Orchestrator {
                 store.saveJob(job);
             }
         } catch (Exception e) {
-            LOG.error("Migration execution failed for job {}: {}", jobId, e.getMessage(), e);
             job.setState(MigrationState.FAILED.name());
             job.setLastError(e.getMessage());
             job.setFinishedAt(System.currentTimeMillis());
             if (store != null) {
                 store.saveJob(job);
             }
-            throw e;
+            throw new ModernizerException("Migration execution failed for job " + jobId + ": " + e.getMessage(), e);
         }
 
         return job;
     }
 
-    private void invokeAgent(String name, AgentContext ctx) throws Exception {
+    private void invokeAgent(String name, AgentContext ctx) throws ModernizerException {
         Agent agent = agents.get(name.toLowerCase());
         if (agent != null) {
-            agent.execute(ctx);
+            try {
+                agent.execute(ctx);
+            } catch (Exception e) {
+                throw new ModernizerException("Error executing agent " + name, e);
+            }
         } else {
             LOG.warn("Agent '{}' not registered in orchestrator", name);
         }
@@ -252,7 +259,7 @@ public class Orchestrator {
         }
     }
 
-    public Map<String, Agent> getAgents() { return agents; }
+    public Map<String, Agent> getAgents() { return new HashMap<>(agents); }
     public Store getStore() { return store; }
     public AiGateway getAi() { return ai; }
     public EstimatorService getEstimator() { return estimator; }

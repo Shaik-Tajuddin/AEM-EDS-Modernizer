@@ -3,6 +3,7 @@ package com.adobe.aem.modernizer.dashboard.servlets;
 import com.adobe.aem.modernizer.dashboard.StaticDashboard;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
+import org.apache.sling.api.servlets.HttpConstants;
 import org.apache.sling.api.servlets.SlingSafeMethodsServlet;
 import org.apache.sling.servlets.annotations.SlingServletPaths;
 import org.apache.sling.servlets.annotations.SlingServletResourceTypes;
@@ -18,7 +19,7 @@ import java.io.IOException;
 @SlingServletPaths(value = {"/aem-eds-modernizer", "/aem-eds-modernizer/"})
 @SlingServletResourceTypes(
         resourceTypes = "aem-eds-modernizer/components/page/home",
-        methods = "GET",
+        methods = HttpConstants.METHOD_GET,
         extensions = "html"
 )
 public class ModernizerHomeServlet extends SlingSafeMethodsServlet {
@@ -29,7 +30,7 @@ public class ModernizerHomeServlet extends SlingSafeMethodsServlet {
         String host = request.getServerName();
         int port = request.getServerPort();
         String apiBase = scheme + "://" + host
-                + (port == 80 || port == 443 ? "" : ":" + port)
+                + ((port == 80 || port == 443) ? "" : (":" + port))
                 + "/bin/aem-eds-modernizer/api";
 
         String html = StaticDashboard.html(apiBase);

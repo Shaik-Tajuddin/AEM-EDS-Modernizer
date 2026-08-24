@@ -38,7 +38,7 @@ public class VisualValidationAgent implements Agent {
     }
 
     @Override
-    public void execute(AgentContext ctx) throws Exception {
+    public void execute(AgentContext ctx) throws com.adobe.aem.modernizer.ModernizerException {
         LOG.info("VisualValidationAgent running visual regression tests");
 
         ValidationResultRecord rec = new ValidationResultRecord(

@@ -52,6 +52,6 @@ public class AiRoutingPolicy {
     public String getDefaultModel() { return defaultModel; }
     public void setDefaultModel(String defaultModel) { this.defaultModel = defaultModel; }
 
-    public Map<String, String> getAgentProviderMap() { return agentProviderMap; }
-    public Map<String, String> getAgentModelMap() { return agentModelMap; }
+    public Map<String, String> getAgentProviderMap() { return agentProviderMap != null ? new HashMap<>(agentProviderMap) : new HashMap<>(); }
+    public Map<String, String> getAgentModelMap() { return agentModelMap != null ? new HashMap<>(agentModelMap) : new HashMap<>(); }
 }

@@ -46,5 +46,5 @@ public class AgentContext {
     public String getLastGeneratedPrUrl() { return lastGeneratedPrUrl; }
     public void setLastGeneratedPrUrl(String lastGeneratedPrUrl) { this.lastGeneratedPrUrl = lastGeneratedPrUrl; }
 
-    public Map<String, Object> getAttributes() { return attributes; }
+    public Map<String, Object> getAttributes() { return new HashMap<>(attributes); }
 }

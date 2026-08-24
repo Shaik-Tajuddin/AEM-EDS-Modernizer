@@ -44,7 +44,7 @@ public class AdvancedVisualValidationAgent implements Agent {
     }
 
     @Override
-    public void execute(AgentContext ctx) throws Exception {
+    public void execute(AgentContext ctx) throws com.adobe.aem.modernizer.ModernizerException {
         SiteInventory inv = ctx.getInventory();
         int sampleCount = (inv != null && inv.getPages() != null)
                 ? Math.max(1, inv.getPages().size() / 5) : 1;

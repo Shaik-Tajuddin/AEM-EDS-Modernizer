@@ -46,7 +46,7 @@ public class ContentMigrationAgent implements Agent {
     }
 
     @Override
-    public void execute(AgentContext ctx) throws Exception {
+    public void execute(AgentContext ctx) throws com.adobe.aem.modernizer.ModernizerException {
         SiteInventory inv = ctx.getInventory();
         if (inv == null || inv.getPages() == null) return;
 

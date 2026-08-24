@@ -37,7 +37,7 @@ public class AuthoringAgent implements Agent {
     }
 
     @Override
-    public void execute(AgentContext ctx) throws Exception {
+    public void execute(AgentContext ctx) throws com.adobe.aem.modernizer.ModernizerException {
         String strategy = ctx.getProject().getAuthoringStrategy();
         LOG.info("AuthoringAgent applying authoring strategy: {}", strategy);
 
