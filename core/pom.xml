@@ -95,13 +95,6 @@
             <artifactId>commons-codec</artifactId>
         </dependency>
 
-        <!-- WKND Reference Sample Dependency (https://github.com/adobe/aem-guides-wknd) -->
-        <dependency>
-            <groupId>com.adobe.aem.guides</groupId>
-            <artifactId>aem-guides-wknd.core</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
         <!-- Testing -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

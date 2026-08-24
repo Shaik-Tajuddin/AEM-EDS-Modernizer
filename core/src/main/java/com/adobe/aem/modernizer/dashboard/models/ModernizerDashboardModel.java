@@ -16,6 +16,7 @@ import org.apache.sling.models.annotations.injectorspecific.OSGiService;
 import org.apache.sling.models.annotations.injectorspecific.Self;
 
 import javax.annotation.PostConstruct;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -132,7 +133,9 @@ public class ModernizerDashboardModel {
     public ProjectRecord getActiveProject() { return activeProject; }
     public void setActiveProject(ProjectRecord activeProject) { this.activeProject = activeProject; }
 
-    public List<ProjectRecord> getProjects() { return projects; }
+    public List<ProjectRecord> getProjects() {
+        return (projects != null) ? Collections.unmodifiableList(new ArrayList<>(projects)) : Collections.emptyList();
+    }
 
     public SiteInventory getInventory() { return inventory; }
     public void setInventory(SiteInventory inventory) { this.inventory = inventory; }
@@ -140,9 +143,17 @@ public class ModernizerDashboardModel {
     public MigrationPlan getPlan() { return plan; }
     public void setPlan(MigrationPlan plan) { this.plan = plan; }
 
-    public List<RolloutStageRecord> getRolloutStages() { return rolloutStages; }
-    public List<RepairAttemptRecord> getRepairs() { return repairs; }
-    public List<BenchmarkSampleRecord> getBenchmarks() { return benchmarks; }
+    public List<RolloutStageRecord> getRolloutStages() {
+        return (rolloutStages != null) ? Collections.unmodifiableList(new ArrayList<>(rolloutStages)) : Collections.emptyList();
+    }
+
+    public List<RepairAttemptRecord> getRepairs() {
+        return (repairs != null) ? Collections.unmodifiableList(new ArrayList<>(repairs)) : Collections.emptyList();
+    }
+
+    public List<BenchmarkSampleRecord> getBenchmarks() {
+        return (benchmarks != null) ? Collections.unmodifiableList(new ArrayList<>(benchmarks)) : Collections.emptyList();
+    }
 
     public int getPagesCount() {
         return (inventory != null && inventory.getPages() != null) ? inventory.getPages().size() : 0;

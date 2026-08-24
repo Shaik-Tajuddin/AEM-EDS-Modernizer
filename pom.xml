@@ -168,20 +168,6 @@
                 <version>${project.version}</version>
             </dependency>
 
-            <!-- Sample Site: WKND (https://github.com/adobe/aem-guides-wknd) -->
-            <dependency>
-                <groupId>com.adobe.aem.guides</groupId>
-                <artifactId>aem-guides-wknd.core</artifactId>
-                <version>${wknd.version}</version>
-                <scope>provided</scope>
-            </dependency>
-            <dependency>
-                <groupId>com.adobe.aem.guides</groupId>
-                <artifactId>aem-guides-wknd.all</artifactId>
-                <version>${wknd.version}</version>
-                <type>zip</type>
-            </dependency>
-
             <!-- Testing -->
             <dependency>
                 <groupId>org.junit.jupiter</groupId>
