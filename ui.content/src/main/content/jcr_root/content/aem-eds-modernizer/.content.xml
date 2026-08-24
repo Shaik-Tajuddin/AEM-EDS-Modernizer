@@ -8,5 +8,4 @@
       jcr:description="AEM as a Cloud Service → Edge Delivery Services migration control center."
       sling:resourceType="aem-eds-modernizer/components/page/root"
       cq:allowedTemplates="[/apps/aem-eds-modernizer/templates/.*]"/>
-  <home/>
 </jcr:root>
