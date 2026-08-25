@@ -1,0 +1,127 @@
+{
+  "definitions": [
+    {
+      "title": "Simple CTA",
+      "id": "simple-cta",
+      "plugins": {
+        "xwalk": {
+          "page": {
+            "resourceType": "core/franklin/components/block/v1/block",
+            "template": {
+              "name": "Simple CTA",
+              "model": "simple-cta",
+              "filter": "simple-cta",
+              "title": "<p>Title</p>",
+              "text": "<p>Add your message here.</p>",
+              "ctaContent": "<p>Learn more</p>",
+              "classes": "cta-primary-filled"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "models": [
+    {
+      "id": "simple-cta",
+      "fields": [
+        {
+          "component": "tab",
+          "label": "General",
+          "name": "tabGeneral"
+        },
+        {
+          "component": "text",
+          "name": "id",
+          "label": "ID",
+          "description": "Optional anchor ID for this block"
+        },
+        {
+          "component": "richtext",
+          "name": "title",
+          "label": "Title",
+          "description": "Heading displayed above the body text",
+          "required": true
+        },
+        {
+          "component": "richtext",
+          "name": "text",
+          "label": "Text",
+          "description": "Supporting copy below the title"
+        },
+        {
+          "component": "aem-content",
+          "name": "ctaLink",
+          "label": "CTA link"
+        },
+        {
+          "component": "richtext",
+          "name": "ctaContent",
+          "label": "CTA text"
+        },
+        {
+          "component": "select",
+          "name": "classes",
+          "label": "CTA Type",
+          "valueType": "string",
+          "value": "cta-primary-filled",
+          "options": [
+            {
+              "name": "Primary filled",
+              "value": "cta-primary-filled"
+            },
+            {
+              "name": "Primary outlined",
+              "value": "cta-primary-outlined"
+            },
+            {
+              "name": "Secondary filled",
+              "value": "cta-secondary-filled"
+            },
+            {
+              "name": "Secondary outlined",
+              "value": "cta-secondary-outlined"
+            },
+            {
+              "name": "Link",
+              "value": "cta-link"
+            }
+          ]
+        },
+        {
+          "component": "tab",
+          "label": "Appearance",
+          "name": "tabAppearance"
+        },
+        {
+          "component": "select",
+          "name": "classes_simpleCTAAlign",
+          "label": "Alignment",
+          "description": "Align title, text, and CTA within the block",
+          "valueType": "string",
+          "value": "",
+          "options": [
+            {
+              "name": "Left",
+              "value": ""
+            },
+            {
+              "name": "Center",
+              "value": "simple-cta-align-center"
+            },
+            {
+              "name": "Right",
+              "value": "simple-cta-align-right"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "filters": [
+    {
+      "id": "simple-cta",
+      "components": []
+    }
+  ]
+}

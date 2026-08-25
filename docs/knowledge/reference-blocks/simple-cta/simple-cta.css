@@ -1,0 +1,250 @@
+/* Simple CTA Block Styles */
+/* Mobile-first responsive design with basic CSS */
+/*
+ * STYLE VARIANTS (from JSON "classes" field):
+ *   cta-primary-filled, cta-primary-outlined,
+ *   cta-secondary-filled, cta-secondary-outlined
+ *
+ * ALIGNMENT CLASSES (from JSON "classes_simpleCTAAlign" field):
+ *   simple-cta-align-center, simple-cta-align-right
+ */
+
+/* ============================================================================
+   BLOCK CONTAINER
+   ============================================================================ */
+.simple-cta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  background-color: #ffffff;
+  color: #1a1a1a;
+  padding: 3rem 1.5rem;
+  text-align: left;
+}
+
+@media (min-width: 768px) {
+  .simple-cta {
+    padding: 4rem 3rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .simple-cta {
+    padding: 4rem;
+  }
+}
+
+/* ============================================================================
+   CONTENT WRAPPER
+   ============================================================================ */
+.simple-cta-inner {
+  max-width: 640px;
+  width: 100%;
+}
+
+/* ============================================================================
+   TITLE
+   ============================================================================ */
+.simple-cta-title {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #1a1a1a;
+  margin: 0 0 1rem 0;
+}
+
+@media (min-width: 768px) {
+  .simple-cta-title {
+    font-size: 1.75rem;
+    margin-bottom: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .simple-cta-title {
+    font-size: 2rem;
+  }
+}
+
+/* ============================================================================
+   TEXT / DESCRIPTION
+   ============================================================================ */
+.simple-cta-text {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: #4a4a4a;
+  margin: 0 0 2rem 0;
+  max-width: 540px;
+}
+
+@media (min-width: 768px) {
+  .simple-cta-text {
+    margin-bottom: 3rem;
+  }
+}
+
+/* ============================================================================
+   CTA BUTTON
+   ============================================================================ */
+.simple-cta .brand-cta {
+  display: inline-block;
+  padding: 1rem 3rem;
+  background-color: #0066cc;
+  color: #ffffff;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+  white-space: nowrap;
+}
+
+.simple-cta .brand-cta:hover {
+  background-color: #0052a3;
+  text-decoration: none;
+}
+
+.simple-cta .brand-cta:focus-visible {
+  outline: 2px solid #0066cc;
+  outline-offset: 2px;
+}
+
+.simple-cta .brand-cta:active {
+  transform: scale(0.98);
+}
+
+/* ============================================================================
+   STYLE VARIANTS (applied as classes on the block div by AEM)
+   ============================================================================ */
+
+/* Primary Filled (default) */
+.simple-cta.cta-primary-filled .brand-cta {
+  background-color: #0066cc;
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.simple-cta.cta-primary-filled .brand-cta:hover {
+  background-color: #0052a3;
+}
+
+/* Primary Outlined */
+.simple-cta.cta-primary-outlined .brand-cta {
+  background-color: transparent;
+  color: #0066cc;
+  border-color: #0066cc;
+}
+
+.simple-cta.cta-primary-outlined .brand-cta:hover {
+  background-color: rgba(0, 102, 204, 0.08);
+}
+
+/* Secondary Filled */
+.simple-cta.cta-secondary-filled .brand-cta {
+  background-color: #6c757d;
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.simple-cta.cta-secondary-filled .brand-cta:hover {
+  background-color: #545b62;
+}
+
+/* Secondary Outlined */
+.simple-cta.cta-secondary-outlined .brand-cta {
+  background-color: transparent;
+  color: #6c757d;
+  border-color: #6c757d;
+}
+
+.simple-cta.cta-secondary-outlined .brand-cta:hover {
+  background-color: rgba(108, 117, 125, 0.08);
+}
+
+/* ============================================================================
+   ALIGNMENT CLASSES (from classes_simpleCTAAlign)
+   ============================================================================ */
+.simple-cta.simple-cta-align-center {
+  justify-content: center;
+  text-align: center;
+}
+
+.simple-cta.simple-cta-align-center .simple-cta-text {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.simple-cta.simple-cta-align-right {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.simple-cta.simple-cta-align-right .simple-cta-text {
+  margin-left: auto;
+}
+
+/* ============================================================================
+   LOADING & ERROR STATES
+   ============================================================================ */
+.simple-cta:not(.simple-cta--ready) {
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.simple-cta.simple-cta--ready {
+  opacity: 1;
+}
+
+.simple-cta.simple-cta--error {
+  opacity: 1;
+  border: 2px dashed #cc0000;
+  min-height: 100px;
+}
+
+.simple-cta.simple-cta--error::after {
+  content: 'Block failed to load';
+  display: block;
+  text-align: center;
+  padding: 1.5rem;
+  color: #cc0000;
+  font-size: 0.875rem;
+}
+
+/* ============================================================================
+   ACCESSIBILITY & UTILITIES
+   ============================================================================ */
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .simple-cta .brand-cta {
+    transition: none;
+  }
+
+  .simple-cta .brand-cta:active {
+    transform: none;
+  }
+
+  .simple-cta:not(.simple-cta--ready) {
+    transition: none;
+  }
+}
+
+/* Print styles */
+@media print {
+  .simple-cta {
+    padding: 1rem;
+    page-break-inside: avoid;
+  }
+
+  .simple-cta .brand-cta {
+    border: 1px solid #000;
+    color: #000;
+    background: transparent;
+  }
+}

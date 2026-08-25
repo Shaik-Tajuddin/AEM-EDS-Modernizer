@@ -1,0 +1,185 @@
+/* Text Callout Block Styles */
+/* Mobile-first responsive design with basic CSS */
+/* Production reference implementation */
+/*
+ * STYLE VARIANTS (from JSON "classes" field):
+ *   callout-primary, callout-secondary, callout-accent
+ *
+ * ALIGNMENT CLASSES (from JSON "classes_textCalloutAlign" field):
+ *   text-callout-align-center, text-callout-align-right
+ */
+
+/* ============================================================================
+   BLOCK CONTAINER
+   ============================================================================ */
+.text-callout {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  background-color: #ffffff;
+  color: #1a1a1a;
+  padding: 3rem 1.5rem;
+  text-align: left;
+}
+
+@media (min-width: 768px) {
+  .text-callout {
+    padding: 4rem 3rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .text-callout {
+    padding: 4rem;
+  }
+}
+
+/* ============================================================================
+   CONTENT WRAPPER
+   ============================================================================ */
+.text-callout-inner {
+  max-width: 640px;
+  width: 100%;
+}
+
+/* ============================================================================
+   TITLE
+   ============================================================================ */
+.text-callout-title {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #1a1a1a;
+  margin: 0 0 1rem 0;
+}
+
+@media (min-width: 768px) {
+  .text-callout-title {
+    font-size: 1.75rem;
+    margin-bottom: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .text-callout-title {
+    font-size: 2rem;
+  }
+}
+
+/* ============================================================================
+   TEXT / DESCRIPTION
+   ============================================================================ */
+.text-callout-text {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: #4a4a4a;
+  margin: 0 0 2rem 0;
+  max-width: 540px;
+}
+
+@media (min-width: 768px) {
+  .text-callout-text {
+    margin-bottom: 3rem;
+  }
+}
+
+/* ============================================================================
+   CTA BUTTON
+   ============================================================================ */
+.text-callout .brand-cta {
+  display: inline-block;
+  padding: 1rem 3rem;
+  background-color: #0066cc;
+  color: #ffffff;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+  white-space: nowrap;
+}
+
+.text-callout .brand-cta:hover {
+  background-color: #0052a3;
+  text-decoration: none;
+}
+
+.text-callout .brand-cta:focus-visible {
+  outline: 2px solid #0066cc;
+  outline-offset: 2px;
+}
+
+/* ============================================================================
+   STYLE VARIANTS (applied as classes on the block div by AEM)
+   ============================================================================ */
+.text-callout.callout-primary .brand-cta {
+  background-color: #0066cc;
+  color: #ffffff;
+}
+
+.text-callout.callout-primary .brand-cta:hover {
+  background-color: #0052a3;
+}
+
+.text-callout.callout-secondary .brand-cta {
+  background-color: #6c757d;
+  color: #ffffff;
+}
+
+.text-callout.callout-secondary .brand-cta:hover {
+  background-color: #545b62;
+}
+
+.text-callout.callout-accent {
+  background-color: #f8f9fa;
+}
+
+/* ============================================================================
+   ALIGNMENT CLASSES
+   ============================================================================ */
+.text-callout.text-callout-align-center {
+  justify-content: center;
+  text-align: center;
+}
+
+.text-callout.text-callout-align-center .text-callout-text {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.text-callout.text-callout-align-right {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.text-callout.text-callout-align-right .text-callout-text {
+  margin-left: auto;
+}
+
+/* ============================================================================
+   ACCESSIBILITY
+   ============================================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .text-callout .brand-cta {
+    transition: none;
+  }
+}
+
+@media print {
+  .text-callout {
+    padding: 1rem;
+    page-break-inside: avoid;
+  }
+
+  .text-callout .brand-cta {
+    border: 1px solid #000;
+    color: #000;
+    background: transparent;
+  }
+}

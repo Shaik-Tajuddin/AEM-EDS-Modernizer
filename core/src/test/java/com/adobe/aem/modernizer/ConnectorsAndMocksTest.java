@@ -63,6 +63,20 @@ class ConnectorsAndMocksTest {
     }
 
     @Test
+    void testRealGitHubClientDynamicProjectResolution() {
+        com.adobe.aem.modernizer.connectors.RealGitHubClient baseClient =
+                new com.adobe.aem.modernizer.connectors.RealGitHubClient("https://github.com/fallback/eds", "dummy-token");
+        assertThat(baseClient.getRepoUrl()).isEqualTo("https://github.com/fallback/eds");
+
+        com.adobe.aem.modernizer.persistence.model.ProjectRecord proj =
+                new com.adobe.aem.modernizer.persistence.model.ProjectRecord("proj-wknd", "WKND", "http://localhost:4502", "/content/wknd", "https://github.com/custom-org/wknd-eds");
+        proj.setEdsBranch("develop");
+
+        com.adobe.aem.modernizer.connectors.RealGitHubClient projClient = baseClient.forProject(proj);
+        assertThat(projClient.getRepoUrl()).isEqualTo("https://github.com/custom-org/wknd-eds");
+    }
+
+    @Test
     void testMockBrowserClient() {
         MockBrowserClient client = new MockBrowserClient();
         assertThat(client.testConnection()).isTrue();

@@ -45,37 +45,279 @@ public class BlockGenerationAgent implements Agent {
 
         LOG.info("BlockGenerationAgent generating blocks for {} components", inv.getComponents().size());
 
+        int aiCallCount = 0;
         for (SiteInventory.ComponentInfo comp : inv.getComponents()) {
             String blockName = comp.getProposedEdsBlock() != null
-                    ? comp.getProposedEdsBlock()
-                    : comp.getResourceType().substring(comp.getResourceType().lastIndexOf('/') + 1);
+                    ? comp.getProposedEdsBlock().toLowerCase().replace(' ', '-')
+                    : comp.getResourceType().substring(comp.getResourceType().lastIndexOf('/') + 1).toLowerCase().replace(' ', '-');
+            String titleCase = Character.toUpperCase(blockName.charAt(0)) + blockName.substring(1).replace('-', ' ');
 
-            String jsContent = "export default function decorate(block) {\n"
-                    + "  const cols = [...block.firstElementChild.children];\n"
-                    + "  block.classList.add(`" + blockName + "-${cols.length}-cols`);\n"
+            // 1. <block-name>.js (Decoration logic + createBlock)
+            String jsContent = "import {\n"
+                    + "  checkAndHandleNestedBlocks,\n"
+                    + "  replaceBlockRowsPreservingNestedBlocks,\n"
+                    + "  getTextFromBlockRow,\n"
+                    + "  getHtmlFromBlockRow,\n"
+                    + "  coerceAuthorClasses,\n"
+                    + "  escapeHtml,\n"
+                    + "  escapeHtmlAttribute,\n"
+                    + "  franklinBlockRow,\n"
+                    + "} from '../../scripts/utilities/block-helpers.js';\n\n"
+                    + "/**\n"
+                    + " * Row layout — tab / classes / classes_* create no rows.\n"
+                    + " * 0: id\n"
+                    + " * 1: title (richtext)\n"
+                    + " * 2: text (richtext)\n"
+                    + " * 3: ctaLink (aem-content)\n"
+                    + " * 4: ctaContent (richtext)\n"
+                    + " */\n"
+                    + "function extractConfig(block) {\n"
+                    + "  if (!block) return {};\n"
+                    + "  const rows = [...block.children];\n"
+                    + "  const anchor = rows[3]?.querySelector('a');\n"
+                    + "  return {\n"
+                    + "    id: getTextFromBlockRow(rows[0]),\n"
+                    + "    title: getHtmlFromBlockRow(rows[1]),\n"
+                    + "    text: getHtmlFromBlockRow(rows[2]),\n"
+                    + "    ctaLink: anchor instanceof HTMLAnchorElement ? anchor.getAttribute('href') : '',\n"
+                    + "    ctaContent: getHtmlFromBlockRow(rows[4]),\n"
+                    + "  };\n"
+                    + "}\n\n"
+                    + "function buildBlock(block, config) {\n"
+                    + "  const inner = document.createElement('div');\n"
+                    + "  inner.classList.add('" + blockName + "-inner');\n\n"
+                    + "  if (config.title) {\n"
+                    + "    const titleEl = document.createElement('div');\n"
+                    + "    titleEl.classList.add('" + blockName + "-title');\n"
+                    + "    titleEl.innerHTML = config.title;\n"
+                    + "    inner.appendChild(titleEl);\n"
+                    + "  }\n\n"
+                    + "  if (config.text) {\n"
+                    + "    const textEl = document.createElement('div');\n"
+                    + "    textEl.classList.add('" + blockName + "-text');\n"
+                    + "    textEl.innerHTML = config.text;\n"
+                    + "    inner.appendChild(textEl);\n"
+                    + "  }\n\n"
+                    + "  if (config.ctaLink || config.ctaContent) {\n"
+                    + "    const ctaWrap = document.createElement('div');\n"
+                    + "    ctaWrap.classList.add('" + blockName + "-cta');\n"
+                    + "    if (config.ctaLink) {\n"
+                    + "      const a = document.createElement('a');\n"
+                    + "      a.href = config.ctaLink;\n"
+                    + "      a.classList.add('brand-cta');\n"
+                    + "      a.innerHTML = config.ctaContent || '<span>Learn more</span>';\n"
+                    + "      ctaWrap.appendChild(a);\n"
+                    + "    } else {\n"
+                    + "      ctaWrap.innerHTML = config.ctaContent;\n"
+                    + "    }\n"
+                    + "    inner.appendChild(ctaWrap);\n"
+                    + "  }\n\n"
+                    + "  replaceBlockRowsPreservingNestedBlocks(block, inner);\n"
+                    + "  if (config.id) block.id = config.id;\n"
+                    + "  // eslint-disable-next-line no-param-reassign\n"
+                    + "  config.mainEl = inner;\n"
+                    + "}\n\n"
+                    + "function appendEvents(config) {\n"
+                    + "  if (!config?.mainEl) return;\n"
+                    + "}\n\n"
+                    + "export default async function decorate(block) {\n"
+                    + "  await checkAndHandleNestedBlocks(block);\n"
+                    + "  const config = extractConfig(block);\n"
+                    + "  buildBlock(block, config);\n"
+                    + "  appendEvents(config);\n"
+                    + "}\n\n"
+                    + "export function createBlock(options = {}) {\n"
+                    + "  const id = escapeHtml(options.id ?? '');\n"
+                    + "  const title = typeof options.title === 'string' ? options.title : '';\n"
+                    + "  const text = typeof options.text === 'string' ? options.text : '';\n"
+                    + "  const ctaLink = escapeHtmlAttribute(options.ctaLink ?? '');\n"
+                    + "  const ctaContent = typeof options.ctaContent === 'string' && options.ctaContent.trim()\n"
+                    + "    ? options.ctaContent : '<p>Learn more</p>';\n"
+                    + "  const extra = coerceAuthorClasses(options.classes);\n"
+                    + "  const rootClasses = ['" + blockName + "', 'eds-block-" + blockName + "', extra].filter(Boolean).join(' ');\n"
+                    + "  const ctaRow = ctaLink\n"
+                    + "    ? `${franklinBlockRow(`<a href=\"${ctaLink}\">Learn more</a>`)}${franklinBlockRow(ctaContent)}`\n"
+                    + "    : '';\n"
+                    + "  return `<div class=\"${escapeHtmlAttribute(rootClasses)}\">${franklinBlockRow(id)}${franklinBlockRow(\n"
+                    + "    title\n"
+                    + "  )}${franklinBlockRow(text)}${ctaRow}</div>`;\n"
                     + "}\n";
 
-            if (ai != null) {
-                ChatRequest req = new ChatRequest(getName(), "Generate EDS decorate() function for block: " + blockName);
+            // 2. _<block-name>.json (Universal Editor Model)
+            String jsonContent = "{\n"
+                    + "  \"definitions\": [\n"
+                    + "    {\n"
+                    + "      \"title\": \"" + titleCase + "\",\n"
+                    + "      \"id\": \"" + blockName + "\",\n"
+                    + "      \"plugins\": {\n"
+                    + "        \"xwalk\": {\n"
+                    + "          \"page\": {\n"
+                    + "            \"resourceType\": \"core/franklin/components/block/v1/block\",\n"
+                    + "            \"template\": {\n"
+                    + "              \"name\": \"" + titleCase + "\",\n"
+                    + "              \"model\": \"" + blockName + "\",\n"
+                    + "              \"filter\": \"" + blockName + "\",\n"
+                    + "              \"id\": \"\",\n"
+                    + "              \"classes\": \"eds-block-" + blockName + "\",\n"
+                    + "              \"title\": \"<p>Lorem ipsum dolor sit amet.</p>\",\n"
+                    + "              \"text\": \"<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>\",\n"
+                    + "              \"classes_align\": \"\",\n"
+                    + "              \"classes_tone\": \"" + blockName + "-tone-default\"\n"
+                    + "            }\n"
+                    + "          }\n"
+                    + "        }\n"
+                    + "      }\n"
+                    + "    }\n"
+                    + "  ],\n"
+                    + "  \"models\": [\n"
+                    + "    {\n"
+                    + "      \"id\": \"" + blockName + "\",\n"
+                    + "      \"fields\": [\n"
+                    + "        { \"component\": \"tab\", \"label\": \"General\", \"name\": \"tabGeneral\" },\n"
+                    + "        { \"component\": \"text\", \"name\": \"id\", \"label\": \"Block ID\", \"valueType\": \"string\", \"value\": \"\" },\n"
+                    + "        { \"component\": \"text\", \"name\": \"classes\", \"label\": \"Block classes\", \"valueType\": \"string\", \"value\": \"eds-block-" + blockName + "\", \"hidden\": true, \"readOnly\": true },\n"
+                    + "        { \"component\": \"richtext\", \"name\": \"title\", \"label\": \"Title\" },\n"
+                    + "        { \"component\": \"richtext\", \"name\": \"text\", \"label\": \"Text\" },\n"
+                    + "        { \"component\": \"aem-content\", \"name\": \"ctaLink\", \"label\": \"CTA link\" },\n"
+                    + "        { \"component\": \"richtext\", \"name\": \"ctaContent\", \"label\": \"CTA text\" },\n"
+                    + "        { \"component\": \"tab\", \"label\": \"Appearance\", \"name\": \"tabAppearance\" },\n"
+                    + "        {\n"
+                    + "          \"component\": \"select\",\n"
+                    + "          \"name\": \"classes_align\",\n"
+                    + "          \"label\": \"Alignment\",\n"
+                    + "          \"valueType\": \"string\",\n"
+                    + "          \"value\": \"\",\n"
+                    + "          \"options\": [\n"
+                    + "            { \"name\": \"Left\", \"value\": \"\" },\n"
+                    + "            { \"name\": \"Center\", \"value\": \"" + blockName + "-align-center\" },\n"
+                    + "            { \"name\": \"Right\", \"value\": \"" + blockName + "-align-right\" }\n"
+                    + "          ]\n"
+                    + "        },\n"
+                    + "        {\n"
+                    + "          \"component\": \"select\",\n"
+                    + "          \"name\": \"classes_tone\",\n"
+                    + "          \"label\": \"Tone\",\n"
+                    + "          \"valueType\": \"string\",\n"
+                    + "          \"value\": \"" + blockName + "-tone-default\",\n"
+                    + "          \"options\": [\n"
+                    + "            { \"name\": \"Default\", \"value\": \"" + blockName + "-tone-default\" },\n"
+                    + "            { \"name\": \"Emphasis\", \"value\": \"" + blockName + "-tone-emphasis\" }\n"
+                    + "          ]\n"
+                    + "        }\n"
+                    + "      ]\n"
+                    + "    }\n"
+                    + "  ],\n"
+                    + "  \"filters\": [\n"
+                    + "    { \"id\": \"" + blockName + "\", \"components\": [] }\n"
+                    + "  ]\n"
+                    + "}\n";
+
+            // 3. <block-name>-example.html (HTML Demo before & after decoration)
+            String htmlContent = "<!doctype html>\n"
+                    + "<html lang=\"en\">\n"
+                    + "  <head>\n"
+                    + "    <meta charset=\"utf-8\" />\n"
+                    + "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n"
+                    + "    <title>" + titleCase + " — Universal Editor Demo</title>\n"
+                    + "    <link rel=\"stylesheet\" href=\"/styles/styles.css\" />\n"
+                    + "    <link rel=\"stylesheet\" href=\"" + blockName + ".css\" />\n"
+                    + "  </head>\n"
+                    + "  <body style=\"font-family:system-ui, sans-serif; padding:24px; background:#f8fafc;\">\n"
+                    + "    <!--\n"
+                    + "      " + blockName + "-example.html\n"
+                    + "      Shows AEM Universal Editor generated markup before & after decorate() runs.\n"
+                    + "    -->\n"
+                    + "    <main style=\"max-width:960px; margin:0 auto;\">\n"
+                    + "      <div class=\"block-example-variant-section\" style=\"margin-bottom:32px; background:#fff; padding:24px; border-radius:8px; border:1px solid #e2e8f0;\">\n"
+                    + "        <h2 style=\"font-size:1.25rem; font-weight:700; margin-bottom:8px;\">Default Variation</h2>\n"
+                    + "        <p style=\"color:#64748b; font-size:0.9rem; margin-bottom:16px;\"><code>classes_tone</code> = <code>" + blockName + "-tone-default</code>, Left aligned.</p>\n"
+                    + "        <div class=\"" + blockName + " eds-block-" + blockName + " " + blockName + "-tone-default\">\n"
+                    + "          <div><div>demo-default</div></div>\n"
+                    + "          <div><div><p>" + titleCase + " Headline</p></div></div>\n"
+                    + "          <div><div><p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero.</p></div></div>\n"
+                    + "          <div><div><a href=\"#\">Learn More</a></div></div>\n"
+                    + "          <div><div><p>Learn More</p></div></div>\n"
+                    + "        </div>\n"
+                    + "      </div>\n\n"
+                    + "      <div class=\"block-example-variant-section\" style=\"background:#fff; padding:24px; border-radius:8px; border:1px solid #e2e8f0;\">\n"
+                    + "        <h2 style=\"font-size:1.25rem; font-weight:700; margin-bottom:8px;\">Center Aligned, Emphasis Tone</h2>\n"
+                    + "        <p style=\"color:#64748b; font-size:0.9rem; margin-bottom:16px;\"><code>classes_align</code> = <code>" + blockName + "-align-center</code>, <code>classes_tone</code> = <code>" + blockName + "-tone-emphasis</code>.</p>\n"
+                    + "        <div class=\"" + blockName + " eds-block-" + blockName + " " + blockName + "-align-center " + blockName + "-tone-emphasis\">\n"
+                    + "          <div><div>demo-emphasis</div></div>\n"
+                    + "          <div><div><p>Promoted Feature</p></div></div>\n"
+                    + "          <div><div><p>Highlight your most important content with bold styling and prominent call-to-action buttons.</p></div></div>\n"
+                    + "          <div><div><a href=\"#\">Get Started</a></div></div>\n"
+                    + "          <div><div><p>Get Started</p></div></div>\n"
+                    + "        </div>\n"
+                    + "      </div>\n"
+                    + "    </main>\n"
+                    + "  </body>\n"
+                    + "</html>\n";
+
+            // 4. README.md (Documentation & LLM Selection)
+            String readmeContent = "# " + titleCase + " Block (`" + blockName + "`)\n\n"
+                    + "## 1. Purpose\n"
+                    + "Renders the " + titleCase + " block with responsive layout and Universal Editor authoring.\n\n"
+                    + "## 2. For another AI / LLM\n"
+                    + "- **Pick this block when:** The AEM component is `" + comp.getResourceType() + "`.\n"
+                    + "- **Do not pick when:** A simple text paragraph suffices.\n\n"
+                    + "## 3. Fields / options\n"
+                    + "| Field | Component | Row? | Description |\n"
+                    + "|---|---|---|---|\n"
+                    + "| `id` | text | Yes (row 0) | Optional HTML anchor ID |\n"
+                    + "| `classes` | text (hidden) | No | Root class `eds-block-" + blockName + "` |\n"
+                    + "| `title` | richtext | Yes (row 1) | Block heading |\n"
+                    + "| `text` | richtext | Yes (row 2) | Main body text |\n"
+                    + "| `ctaLink` | aem-content | Yes (row 3) | Target URL |\n"
+                    + "| `ctaContent` | richtext | Yes (row 4) | Button text |\n"
+                    + "| `classes_align` | select | No | Alignment variant (Left, Center, Right) |\n"
+                    + "| `classes_tone` | select | No | Visual tone (Default, Emphasis) |\n\n"
+                    + "## 4. Row Map\n"
+                    + "- **Row 0:** `id`\n"
+                    + "- **Row 1:** `title`\n"
+                    + "- **Row 2:** `text`\n"
+                    + "- **Row 3:** `ctaLink`\n"
+                    + "- **Row 4:** `ctaContent`\n";
+
+            if (ai != null && aiCallCount++ < 2) {
+                ChatRequest req = new ChatRequest(getName(), "Generate EDS decorate() function and Universal Editor model for block: " + blockName);
                 req.setTargetCapability(ModelCapability.CAP_CODE);
-                ChatResponse resp = ai.dispatch(req);
-                if (resp.getContent() != null && !resp.getContent().trim().isEmpty()) {
-                    jsContent = resp.getContent();
+                req.setPreferredProvider(ctx.getProject().getAiProvider());
+                req.setPreferredModel(ctx.getProject().getAiModel());
+                req.setProjectId(ctx.getProject().getId());
+                req.setJobId(ctx.getJob().getId());
+                try {
+                    ChatResponse resp = ai.dispatch(req);
+                    if (resp.getContent() != null && resp.getContent().contains("function decorate")) {
+                        jsContent = resp.getContent();
+                    }
+                } catch (Exception e) {
+                    LOG.debug("AI generation fallback for block {}: {}", blockName, e.getMessage());
                 }
             }
 
-            GeneratedFileRecord file = new GeneratedFileRecord(
-                    UUID.randomUUID().toString(),
-                    ctx.getProject().getId(),
-                    ctx.getJob().getId(),
-                    "blocks/" + blockName + "/" + blockName + ".js",
-                    "BLOCK_JS",
-                    jsContent
-            );
-            file.setVirtualDiffOnly(ctx.isDryRun());
+            GeneratedFileRecord jsFile = new GeneratedFileRecord(UUID.randomUUID().toString(), ctx.getProject().getId(), ctx.getJob().getId(), "blocks/" + blockName + "/" + blockName + ".js", "BLOCK_JS", jsContent);
+            GeneratedFileRecord jsonFile = new GeneratedFileRecord(UUID.randomUUID().toString(), ctx.getProject().getId(), ctx.getJob().getId(), "blocks/" + blockName + "/_" + blockName + ".json", "BLOCK_MODEL_JSON", jsonContent);
+            GeneratedFileRecord htmlFile = new GeneratedFileRecord(UUID.randomUUID().toString(), ctx.getProject().getId(), ctx.getJob().getId(), "blocks/" + blockName + "/" + blockName + "-example.html", "BLOCK_EXAMPLE_HTML", htmlContent);
+            GeneratedFileRecord readmeFile = new GeneratedFileRecord(UUID.randomUUID().toString(), ctx.getProject().getId(), ctx.getJob().getId(), "blocks/" + blockName + "/README.md", "BLOCK_README", readmeContent);
+
+            jsFile.setVirtualDiffOnly(ctx.isDryRun());
+            jsonFile.setVirtualDiffOnly(ctx.isDryRun());
+            htmlFile.setVirtualDiffOnly(ctx.isDryRun());
+            readmeFile.setVirtualDiffOnly(ctx.isDryRun());
 
             if (store != null) {
-                store.saveGeneratedFile(file);
+                store.saveGeneratedFile(jsFile);
+                store.saveGeneratedFile(jsonFile);
+                store.saveGeneratedFile(htmlFile);
+                store.saveGeneratedFile(readmeFile);
+            }
+
+            if (!ctx.isDryRun()) {
+                writeLocalFile("blocks/" + blockName + "/" + blockName + ".js", jsContent);
+                writeLocalFile("blocks/" + blockName + "/_" + blockName + ".json", jsonContent);
+                writeLocalFile("blocks/" + blockName + "/" + blockName + "-example.html", htmlContent);
+                writeLocalFile("blocks/" + blockName + "/README.md", readmeContent);
             }
         }
 
@@ -85,8 +327,37 @@ public class BlockGenerationAgent implements Agent {
                     ctx.getProject().getId(),
                     ctx.getJob().getId(),
                     getName(),
-                    "Generated JavaScript decoration logic for " + inv.getComponents().size() + " EDS blocks."
+                    "Generated full Block Quad (JS, JSON Model, Example HTML, README) for " + inv.getComponents().size() + " EDS blocks."
             ));
+        }
+    }
+
+    private void writeLocalFile(String relPath, String content) {
+        try {
+            java.io.File target = null;
+            String[] candidateRoots = new String[] {
+                "D:/eds personal/AEM-EDS-Modernizer",
+                "d:/eds personal/AEM-EDS-Modernizer",
+                System.getProperty("user.dir")
+            };
+            for (String root : candidateRoots) {
+                java.io.File dir = new java.io.File(root);
+                if (new java.io.File(dir, "pom.xml").exists() || new java.io.File(dir, "blocks").exists()) {
+                    target = new java.io.File(dir, relPath);
+                    break;
+                }
+            }
+            if (target == null) {
+                target = new java.io.File("D:/eds personal/AEM-EDS-Modernizer", relPath);
+            }
+            java.io.File parent = target.getParentFile();
+            if (parent != null && !parent.exists()) {
+                parent.mkdirs();
+            }
+            java.nio.file.Files.writeString(target.toPath(), content, java.nio.charset.StandardCharsets.UTF_8);
+            LOG.info("Wrote local block file: {}", target.getAbsolutePath());
+        } catch (Exception e) {
+            LOG.warn("Could not write local block file {}: {}", relPath, e.getMessage());
         }
     }
 }

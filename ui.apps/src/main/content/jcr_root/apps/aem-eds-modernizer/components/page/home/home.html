@@ -4,8 +4,6 @@
   <meta charset="utf-8">
   <title>AEM → EDS Modernizer</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <base href="${model.apiBaseUrl}/">
-  <link rel="stylesheet" href="/etc.clientlibs/aem-eds-modernizer/clientlibs/clientlib-dashboard.css">
   <sly data-sly-call="${clientlib.css @ categories='aem-eds-modernizer.dashboard'}" data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
 </head>
 <body>
@@ -31,7 +29,8 @@
       <div class="actions-left">
         <button class="btn btn-outline" onclick="showTab('setup')">⚙️ Project Configuration</button>
         <button id="btn-dryrun" class="btn btn-primary" onclick="runDryRun()">🔍 Run Dry Run</button>
-        <button id="btn-migrate" class="btn btn-accent" onclick="runMigration()" disabled>🚀 Approve Contract & Migrate</button>
+        <button id="btn-migrate" class="btn btn-primary" onclick="runMigration()" disabled>⚡ Generate & Build Blocks</button>
+        <button id="btn-publish" class="btn btn-accent" onclick="runPushToGit()" disabled>🚀 Commit & Push to Git</button>
       </div>
       <div class="actions-right">
         <button class="btn btn-outline" onclick="refreshDashboard()">🔄 Refresh</button>
@@ -42,17 +41,16 @@
     <div class="pipeline-stepper">
       <div id="step-connect" class="step-item active">1. CONNECT</div>
       <div id="step-dryrun" class="step-item">2. DRY RUN</div>
-      <div id="step-analyze" class="step-item">3. DISCOVER & ESTIMATE</div>
-      <div id="step-contract" class="step-item">4. SIGN CONTRACT</div>
-      <div id="step-migrate" class="step-item">5. MIGRATE & AUTHOR</div>
-      <div id="step-verify" class="step-item">6. VERIFY & ROLLOUT</div>
+      <div id="step-build" class="step-item">3. GENERATE BLOCKS</div>
+      <div id="step-validate" class="step-item">4. REVIEW & VALIDATE</div>
+      <div id="step-publish" class="step-item">5. COMMIT & PUSH TO GIT</div>
     </div>
 
     <div class="nav-tabs">
       <button class="nav-tab active" onclick="showTab('overview')">Overview</button>
       <button class="nav-tab" onclick="showTab('setup')">Project Setup & Details</button>
+      <button class="nav-tab" onclick="showTab('components')">Generated Blocks & Code</button>
       <button class="nav-tab" onclick="showTab('pages')">Pages & Scope</button>
-      <button class="nav-tab" onclick="showTab('components')">Components & Blocks</button>
       <button class="nav-tab" onclick="showTab('estimate')">Estimate & Cost</button>
       <button class="nav-tab" onclick="showTab('redirects')">301 Redirects</button>
       <button class="nav-tab" onclick="showTab('dependencies')">Dependencies Graph</button>
@@ -184,19 +182,73 @@
       </div>
     </div>
 
+    <!-- Tab: Components & Block Quad Explorer -->
+    <div id="tab-components" class="tab-content" style="display:none;">
+      <div class="card" style="margin-bottom: 20px;">
+        <div class="card-title">
+          <span>📦 Generated Block Quad Inspector</span>
+          <span id="blocks-count-badge" class="block-item-badge">0 Blocks Generated</span>
+        </div>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:16px;">
+          Inspect and validate each generated block before committing to Git: Live Demo HTML (authored in UE), Universal Editor JSON model, JavaScript decoration, CSS styles, and LLM README.
+        </p>
+        
+        <div class="block-explorer">
+          <!-- Left: List of Blocks -->
+          <div class="block-list">
+            <div class="block-list-header">
+              <span>Blocks</span>
+              <span id="block-list-total">0</span>
+            </div>
+            <div id="block-items-container">
+              <div style="padding:12px; color:var(--text-dim); font-size:0.85rem; text-align:center;">
+                Run Dry Run or Generate Blocks to populate.
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Block File Detail -->
+          <div class="block-detail">
+            <div class="block-detail-header">
+              <div class="block-file-tabs">
+                <button id="filetab-demo" class="block-file-tab active" onclick="switchBlockFileTab('demo')">👁️ Live Demo (UE HTML)</button>
+                <button id="filetab-json" class="block-file-tab" onclick="switchBlockFileTab('json')">⚙️ Model (_*.json)</button>
+                <button id="filetab-js" class="block-file-tab" onclick="switchBlockFileTab('js')">📄 Script (*.js)</button>
+                <button id="filetab-css" class="block-file-tab" onclick="switchBlockFileTab('css')">🎨 Style (*.css)</button>
+                <button id="filetab-readme" class="block-file-tab" onclick="switchBlockFileTab('readme')">📖 README.md</button>
+              </div>
+              <div style="font-size:0.8rem; color:var(--text-dim);" id="block-file-path">blocks/...</div>
+            </div>
+
+            <!-- Code Viewer / Live Preview -->
+            <div id="block-view-code" class="code-viewer-container" style="display:none;">
+              <button class="btn-copy" onclick="copyActiveCode()">📋 Copy Code</button>
+              <pre id="block-code-content" class="code-viewer">// Select a block and file tab</pre>
+            </div>
+
+            <!-- Live HTML Preview -->
+            <div id="block-view-demo" class="preview-frame-container">
+              <div class="preview-card" id="block-demo-rendered">
+                <div style="text-align:center; padding:40px 20px; color:#64748b;">
+                  Select a generated block to view its Universal Editor rendered demo.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Component Intelligence & Block Mapping Table</div>
+        <table id="table-components"><thead><tr><th>AEM Resource Type</th><th>Title</th><th>Group</th><th>Proposed EDS Block</th><th>Capability Classification</th></tr></thead><tbody><tr><td colspan="5">Run a Dry Run to classify components.</td></tr></tbody></table>
+      </div>
+    </div>
+
     <!-- Tab: Pages -->
     <div id="tab-pages" class="tab-content" style="display:none;">
       <div class="card">
         <div class="card-title">Discovered Pages & Opt-In Eligibility</div>
         <table id="table-pages"><thead><tr><th>AEM Content Path</th><th>Page Title</th><th>Template</th><th>Eligibility Status</th></tr></thead><tbody><tr><td colspan="4">Run a Dry Run to discover pages.</td></tr></tbody></table>
-      </div>
-    </div>
-
-    <!-- Tab: Components -->
-    <div id="tab-components" class="tab-content" style="display:none;">
-      <div class="card">
-        <div class="card-title">Component Intelligence & Block Mapping</div>
-        <table id="table-components"><thead><tr><th>AEM Resource Type</th><th>Title</th><th>Group</th><th>Proposed EDS Block</th><th>Capability Classification</th></tr></thead><tbody><tr><td colspan="5">Run a Dry Run to classify components.</td></tr></tbody></table>
       </div>
     </div>
 
@@ -259,7 +311,6 @@
 
   <div id="toast" class="toast"></div>
 
-  <script src="/etc.clientlibs/aem-eds-modernizer/clientlibs/clientlib-dashboard.js"></script>
   <sly data-sly-call="${clientlib.js @ categories='aem-eds-modernizer.dashboard'}" data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"/>
 </body>
 </html>

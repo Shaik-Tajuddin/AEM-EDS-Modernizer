@@ -4,18 +4,21 @@ import com.adobe.aem.modernizer.ai.ChatRequest;
 import com.adobe.aem.modernizer.ai.ChatResponse;
 import com.adobe.aem.modernizer.ai.TokenUsage;
 import com.adobe.aem.modernizer.util.JsonUtil;
-import okhttp3.*;
 
-import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Anthropic Provider implementation (Claude 3.5 Sonnet, Claude 3 Haiku).
  */
 public class AnthropicProvider implements AiProvider {
 
-    private final OkHttpClient httpClient;
+    private final HttpClient httpClient;
     private final String baseUrl;
 
     public AnthropicProvider() {
@@ -24,9 +27,8 @@ public class AnthropicProvider implements AiProvider {
 
     public AnthropicProvider(String baseUrl) {
         this.baseUrl = baseUrl;
-        this.httpClient = new OkHttpClient.Builder()
-                .connectTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(60, TimeUnit.SECONDS)
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(30))
                 .build();
     }
 
@@ -65,22 +67,25 @@ public class AnthropicProvider implements AiProvider {
 
         String jsonBody = JsonUtil.toJson(bodyMap);
 
-        Request httpRequest = new Request.Builder()
-                .url(baseUrl + "/messages")
+        HttpRequest httpRequest = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/messages"))
                 .header("x-api-key", apiKey)
                 .header("anthropic-version", "2023-06-01")
                 .header("Content-Type", "application/json")
-                .post(RequestBody.create(jsonBody, MediaType.get("application/json")))
+                .timeout(Duration.ofSeconds(60))
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
                 .build();
 
-        try (Response httpResponse = httpClient.newCall(httpRequest).execute()) {
-            if (!httpResponse.isSuccessful()) {
-                String errBody = httpResponse.body() != null ? httpResponse.body().string() : "";
-                throw new AiProviderException("Anthropic HTTP " + httpResponse.code() + ": " + errBody);
+        try {
+            HttpResponse<String> httpResponse = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (httpResponse.statusCode() < 200 || httpResponse.statusCode() >= 300) {
+                String errBody = httpResponse.body() != null ? httpResponse.body() : "";
+                throw new AiProviderException("Anthropic HTTP " + httpResponse.statusCode() + ": " + errBody);
             }
-            String respBody = httpResponse.body() != null ? httpResponse.body().string() : "{}";
+            String respBody = httpResponse.body() != null ? httpResponse.body() : "{}";
             Map<?, ?> parsed = JsonUtil.fromJson(respBody, Map.class);
-            List<?> contentList = (List<?>) parsed.get("content");
+            List<?> contentList = (parsed != null && parsed.get("content") instanceof List)
+                    ? (List<?>) parsed.get("content") : null;
             StringBuilder sb = new StringBuilder();
             if (contentList != null) {
                 for (Object item : contentList) {
@@ -91,16 +96,17 @@ public class AnthropicProvider implements AiProvider {
                 }
             }
 
-            Map<?, ?> usage = (Map<?, ?>) parsed.get("usage");
-            int promptTokens = usage != null && usage.get("input_tokens") instanceof Number
+            Map<?, ?> usage = (parsed != null && parsed.get("usage") instanceof Map)
+                    ? (Map<?, ?>) parsed.get("usage") : null;
+            int promptTokens = (usage != null && usage.get("input_tokens") instanceof Number)
                     ? ((Number) usage.get("input_tokens")).intValue() : 0;
-            int completionTokens = usage != null && usage.get("output_tokens") instanceof Number
+            int completionTokens = (usage != null && usage.get("output_tokens") instanceof Number)
                     ? ((Number) usage.get("output_tokens")).intValue() : 0;
 
             ChatResponse response = new ChatResponse(sb.toString(), "anthropic", targetModel);
             response.setTokenUsage(new TokenUsage(promptTokens, completionTokens));
             return response;
-        } catch (IOException e) {
+        } catch (Exception e) {
             throw new AiProviderException("Anthropic request failed: " + e.getMessage(), e);
         }
     }

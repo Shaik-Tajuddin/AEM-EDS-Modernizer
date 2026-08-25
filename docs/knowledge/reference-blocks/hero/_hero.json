@@ -1,0 +1,99 @@
+{
+  "definitions": [
+    {
+      "title": "Hero",
+      "id": "hero",
+      "plugins": {
+        "xwalk": {
+          "page": {
+            "resourceType": "core/franklin/components/block/v1/block",
+            "template": {
+              "name": "Hero",
+              "model": "hero"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "models": [
+    {
+      "id": "hero",
+      "fields": [
+        {
+          "component": "tab",
+          "label": "General",
+          "name": "tabGeneral"
+        },
+        {
+          "component": "text",
+          "name": "id",
+          "value": "",
+          "label": "Element ID",
+          "description": "Unique identifier for this block instance"
+        },
+        {
+          "component": "richtext",
+          "name": "eyebrow",
+          "value": "",
+          "label": "Eyebrow",
+          "description": "Small text above headline (supports formatting)"
+        },
+        {
+          "component": "text",
+          "name": "headline",
+          "value": "",
+          "label": "Headline",
+          "description": "Main headline text"
+        },
+        {
+          "component": "textarea",
+          "name": "description",
+          "value": "",
+          "label": "Description",
+          "description": "Body text below headline"
+        },
+        {
+          "component": "textarea",
+          "name": "disclaimer",
+          "value": "",
+          "label": "Disclaimer",
+          "description": "Legal disclaimer text (small print)"
+        },
+        {
+          "component": "reference",
+          "name": "image",
+          "value": "",
+          "label": "Hero Image",
+          "description": "Primary hero image"
+        },
+        {
+          "component": "text",
+          "name": "imageAlt",
+          "value": "",
+          "label": "Image Alt Text",
+          "description": "Accessibility alt text for the image"
+        },
+        {
+          "component": "tab",
+          "label": "Appearance",
+          "name": "tabAppearance"
+        },
+        {
+          "component": "select",
+          "name": "classes",
+          "value": "",
+          "label": "Style Variant",
+          "description": "Visual style variant",
+          "valueType": "string",
+          "options": [
+            { "name": "Default", "value": "" },
+            { "name": "Dark Theme", "value": "hero-dark" },
+            { "name": "Light Theme", "value": "hero-light" }
+          ]
+        }
+      ]
+    }
+  ],
+  "filters": []
+}

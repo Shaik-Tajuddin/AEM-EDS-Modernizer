@@ -1,0 +1,444 @@
+package com.adobe.aem.modernizer.connectors;
+
+import com.adobe.aem.modernizer.ai.secret.SecretProvider;
+import com.adobe.aem.modernizer.persistence.model.GeneratedFileRecord;
+import com.adobe.aem.modernizer.ssrf.UrlGuard;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Modified;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.metatype.annotations.AttributeDefinition;
+import org.osgi.service.metatype.annotations.Designate;
+import org.osgi.service.metatype.annotations.ObjectClassDefinition;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * Real GitHub REST / Git Data API implementation of {@link GitHubClient}.
+ *
+ * <p>Per-project repository settings (repo URL, target branch) are read from the
+ * {@link com.adobe.aem.modernizer.persistence.model.ProjectRecord} saved from the
+ * dashboard home page — see {@link GitHubClientProvider}. The OSGi configuration
+ * below only supplies fallbacks / global settings.</p>
+ *
+ * <p>Authentication uses a Personal Access Token (repo scope) resolved through a
+ * {@link SecretProvider} reference ("env:GITHUB_TOKEN" style).</p>
+ */
+@Component(service = GitHubClient.class, immediate = true)
+@Designate(ocd = RealGitHubClient.Config.class)
+public class RealGitHubClient implements GitHubClient {
+
+    @ObjectClassDefinition(name = "AEM EDS Modernizer - Real GitHub Client",
+            description = "Commits generated EDS blocks directly to GitHub")
+    @interface Config {
+        @AttributeDefinition(name = "Fallback Repository URL",
+                description = "Used only when the project record has no EDS Git Repo URL")
+        String repoUrl() default "";
+
+        @AttributeDefinition(name = "Token secret reference",
+                description = "Secret reference for the PAT, e.g. env:GITHUB_TOKEN (repo scope required)")
+        String tokenRef() default "env:GITHUB_TOKEN";
+
+        @AttributeDefinition(name = "Fallback default branch",
+                description = "Used only when the project record has no EDS Branch")
+        String defaultBranch() default "main";
+
+        @AttributeDefinition(name = "Enabled", description = "When false, fall back to the mock client")
+        boolean enabled() default true;
+
+        @AttributeDefinition(name = "API base URL", description = "GitHub API root (or GHES endpoint)")
+        String apiBase() default "https://api.github.com";
+    }
+
+    private static final Logger LOG = LoggerFactory.getLogger(RealGitHubClient.class);
+
+    private final ObjectMapper mapper = new ObjectMapper();
+    private final java.net.http.HttpClient http = java.net.http.HttpClient.newBuilder()
+            .connectTimeout(java.time.Duration.ofSeconds(15))
+            .build();
+
+    private volatile String tokenRef = "env:GITHUB_TOKEN";
+    private volatile String repoUrl = "";
+    private volatile String owner;
+    private volatile String repo;
+    private volatile String apiBase = "https://api.github.com";
+    private volatile String defaultBranch = "main";
+    private volatile boolean enabled = true;
+    private transient String staticToken;
+
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL)
+    private transient SecretProvider secretProvider;
+
+    @Activate
+    @Modified
+    public void activate(Config config) {
+        if (config != null) {
+            this.repoUrl = config.repoUrl() != null ? config.repoUrl().trim() : "";
+            this.apiBase = trimTrailingSlash(config.apiBase());
+            this.defaultBranch = (config.defaultBranch() == null || config.defaultBranch().isBlank()) ? "main" : config.defaultBranch().trim();
+            this.tokenRef = config.tokenRef();
+            this.enabled = config.enabled();
+            if (!this.repoUrl.isEmpty()) {
+                parseOwnerRepo(this.repoUrl);
+            }
+        }
+        LOG.info("RealGitHubClient activated (fallbackRepo='{}', defaultBranch='{}', enabled={})",
+                this.repoUrl.isEmpty() ? "<per-project>" : this.repoUrl, this.defaultBranch, enabled);
+    }
+
+    public RealGitHubClient() {
+        this("", null, "https://api.github.com", "main", "env:GITHUB_TOKEN", true);
+    }
+
+    public RealGitHubClient(Config config) {
+        this(config.repoUrl(), null, config.apiBase(), config.defaultBranch(),
+                config.tokenRef(), config.enabled());
+    }
+
+    /** Standalone/testing constructor. */
+    public RealGitHubClient(String repoUrl, String token) {
+        this(repoUrl, token, "https://api.github.com", "main", "env:GITHUB_TOKEN", true);
+    }
+
+    public RealGitHubClient(String repoUrl, String token, String apiBase, String defaultBranch) {
+        this(repoUrl, token, apiBase, defaultBranch, "env:GITHUB_TOKEN", true);
+    }
+
+    public RealGitHubClient(String repoUrl, String token, String apiBase,
+                            String defaultBranch, String tokenRef, boolean enabled) {
+        this.repoUrl = repoUrl == null ? "" : repoUrl.trim();
+        this.apiBase = trimTrailingSlash(apiBase);
+        this.defaultBranch = (defaultBranch == null || defaultBranch.isBlank()) ? "main" : defaultBranch.trim();
+        this.tokenRef = tokenRef != null ? tokenRef : "env:GITHUB_TOKEN";
+        this.enabled = enabled;
+        this.staticToken = token;
+        if (!this.repoUrl.isEmpty()) {
+            parseOwnerRepo(this.repoUrl);
+        }
+    }
+
+    /**
+     * Returns a client bound to the given project's home-page settings
+     * ({@code edsGitRepoUrl}, {@code edsBranch}), falling back to this client's
+     * configured values when the project does not specify them.
+     */
+    public RealGitHubClient forProject(com.adobe.aem.modernizer.persistence.model.ProjectRecord project) {
+        String projRepo = project != null && project.getEdsGitRepoUrl() != null
+                ? project.getEdsGitRepoUrl().trim() : "";
+        String projBranch = project != null && project.getEdsBranch() != null
+                ? project.getEdsBranch().trim() : "";
+        RealGitHubClient client = new RealGitHubClient(
+                projRepo.isEmpty() ? this.repoUrl : projRepo,
+                this.staticToken,
+                this.apiBase,
+                projBranch.isEmpty() ? this.defaultBranch : projBranch,
+                this.tokenRef,
+                this.enabled);
+        client.secretProvider = this.secretProvider;
+        return client;
+    }
+
+    private void ensureOwnerRepo() {
+        if (owner == null || repo == null) {
+            if (repoUrl.isEmpty()) {
+                throw new IllegalStateException(
+                        "No GitHub repository configured. Set 'EDS Git Repository URL' on the project in the dashboard home page.");
+            }
+            parseOwnerRepo(repoUrl);
+        }
+    }
+
+    private synchronized void parseOwnerRepo(String url) {
+        String[] parts = splitOwnerRepo(url);
+        this.owner = parts[0];
+        this.repo = parts[1];
+    }
+
+    // ------------------------------------------------------------------
+    // GitHubClient API
+    // ------------------------------------------------------------------
+
+    @Override
+    public boolean testConnection() {
+        try {
+            ensureOwnerRepo();
+            JsonNode repoJson = get("/repos/" + owner + "/" + repo);
+            boolean ok = repoJson.has("full_name");
+            LOG.info("GitHub connection {} for {}", ok ? "OK" : "FAILED", repoUrl);
+            return ok;
+        } catch (IOException | RuntimeException e) {
+            LOG.error("GitHub connection test failed: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    @Override
+    public String getRepoUrl() {
+        return repoUrl;
+    }
+
+    @Override
+    public boolean branchExists(String branch) {
+        try {
+            ensureOwnerRepo();
+            get("/repos/" + owner + "/" + repo + "/branches/" + urlEncode(branch));
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    @Override
+    public void createBranch(String branch) {
+        createBranch(branch, defaultBranch);
+    }
+
+    /** Creates a branch from the given source branch (Git Data API). */
+    public void createBranch(String branch, String sourceBranch) {
+        try {
+            if (branchExists(branch)) {
+                LOG.info("Branch '{}' already exists", branch);
+                return;
+            }
+            String sha = getBranchHeadSha(sourceBranch);
+            ObjectNode body = mapper.createObjectNode();
+            body.put("ref", "refs/heads/" + branch);
+            body.put("sha", sha);
+            post("/repos/" + owner + "/" + repo + "/git/refs", body);
+            LOG.info("Created branch '{}' from '{}'", branch, sourceBranch);
+        } catch (IOException | RuntimeException e) {
+            throw new IllegalStateException("Failed to create branch '" + branch + "': " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public void commitFiles(String branch, List<GeneratedFileRecord> files, String commitMessage) {
+        if (files == null || files.isEmpty()) {
+            LOG.warn("commitFiles called with no files; skipping");
+            return;
+        }
+        ensureOwnerRepo();
+        try {
+            String baseSha = getBranchHeadSha(branchExists(branch) ? branch : defaultBranch);
+            if (!branchExists(branch)) {
+                createBranch(branch);
+                baseSha = getBranchHeadSha(defaultBranch);
+            }
+            String baseTreeSha = getCommitTreeSha(baseSha);
+
+            // 1. Create blobs
+            ArrayNode treeItems = mapper.createArrayNode();
+            Map<String, String> createdBlobs = new LinkedHashMap<>();
+            for (GeneratedFileRecord file : files) {
+                String path = normalizePath(file.getPath());
+                if (path == null || file.getContent() == null) {
+                    continue;
+                }
+                String blobSha = createBlob(file.getContent());
+                createdBlobs.put(path, blobSha);
+                ObjectNode item = treeItems.addObject();
+                item.put("path", path);
+                item.put("mode", "100644");
+                item.put("type", "blob");
+                item.put("sha", blobSha);
+            }
+            if (createdBlobs.isEmpty()) {
+                throw new IllegalStateException("No valid files to commit");
+            }
+
+            // 2. Create tree
+            ObjectNode treeBody = mapper.createObjectNode();
+            treeBody.set("tree", treeItems);
+            treeBody.put("base_tree", baseTreeSha);
+            String newTreeSha = post("/repos/" + owner + "/" + repo + "/git/trees", treeBody)
+                    .path("sha").asText();
+
+            // 3. Create commit
+            ObjectNode commitBody = mapper.createObjectNode();
+            commitBody.put("message", commitMessage);
+            commitBody.put("tree", newTreeSha);
+            ArrayNode parents = commitBody.putArray("parents");
+            parents.add(baseSha);
+            String commitSha = post("/repos/" + owner + "/" + repo + "/git/commits", commitBody)
+                    .path("sha").asText();
+
+            // 4. Update ref
+            ObjectNode refBody = mapper.createObjectNode();
+            refBody.put("sha", commitSha);
+            refBody.put("force", false);
+            patch("/repos/" + owner + "/" + repo + "/git/refs/heads/" + urlEncode(branch), refBody);
+
+            LOG.info("Committed {} files to {}/{} as commit {}", createdBlobs.size(), owner, branch, commitSha);
+        } catch (IOException | RuntimeException e) {
+            throw new IllegalStateException("Failed to commit files to GitHub: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public String createPullRequest(String title, String body, String headBranch, String baseBranch) {
+        ensureOwnerRepo();
+        try {
+            ObjectNode pr = mapper.createObjectNode();
+            pr.put("title", title);
+            pr.put("head", headBranch);
+            pr.put("base", baseBranch);
+            pr.put("body", body == null ? "" : body);
+            JsonNode resp = post("/repos/" + owner + "/" + repo + "/pulls", pr);
+            String url = resp.path("html_url").asText();
+            LOG.info("Created PR: {}", url);
+            return url;
+        } catch (IOException | RuntimeException e) {
+            throw new IllegalStateException("Failed to create pull request: " + e.getMessage(), e);
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Low-level helpers
+    // ------------------------------------------------------------------
+
+    private String token() {
+        if (staticToken != null && !staticToken.isEmpty()) {
+            return staticToken;
+        }
+        String ref = System.getenv("GITHUB_TOKEN");
+        if (secretProvider != null) {
+            String resolved = secretProvider.resolve("env:GITHUB_TOKEN");
+            if (resolved != null && !resolved.isEmpty()) {
+                ref = resolved;
+            }
+        }
+        if (ref == null || ref.isEmpty()) {
+            throw new IllegalStateException(
+                    "GitHub PAT not configured. Set env GITHUB_TOKEN or OSGi tokenRef (repo scope required).");
+        }
+        return ref;
+    }
+
+    private java.net.http.HttpRequest.Builder baseRequest(String path) throws IOException {
+        String url = apiBase + path;
+        UrlGuard.validateUrl(url, false);
+        return java.net.http.HttpRequest.newBuilder()
+                .uri(java.net.URI.create(url))
+                .header("Authorization", "Bearer " + token())
+                .header("Accept", "application/vnd.github+json")
+                .header("X-GitHub-Api-Version", "2022-11-28")
+                .header("User-Agent", "aem-eds-modernizer")
+                .timeout(java.time.Duration.ofSeconds(30));
+    }
+
+    private JsonNode get(String path) throws IOException {
+        try {
+            java.net.http.HttpResponse<String> resp = http.send(baseRequest(path).GET().build(),
+                    java.net.http.HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            return readBody(resp);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted: " + e.getMessage(), e);
+        }
+    }
+
+    private JsonNode post(String path, ObjectNode body) throws IOException {
+        try {
+            byte[] bytes = mapper.writeValueAsBytes(body);
+            java.net.http.HttpRequest req = baseRequest(path)
+                    .header("Content-Type", "application/json")
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofByteArray(bytes))
+                    .build();
+            java.net.http.HttpResponse<String> resp = http.send(req,
+                    java.net.http.HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            return readBody(resp);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted: " + e.getMessage(), e);
+        }
+    }
+
+    private JsonNode patch(String path, ObjectNode body) throws IOException {
+        try {
+            byte[] bytes = mapper.writeValueAsBytes(body);
+            java.net.http.HttpRequest req = baseRequest(path)
+                    .header("Content-Type", "application/json")
+                    .method("PATCH", java.net.http.HttpRequest.BodyPublishers.ofByteArray(bytes))
+                    .build();
+            java.net.http.HttpResponse<String> resp = http.send(req,
+                    java.net.http.HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            return readBody(resp);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted: " + e.getMessage(), e);
+        }
+    }
+
+    private JsonNode readBody(java.net.http.HttpResponse<String> resp) throws IOException {
+        String text = resp.body() != null ? resp.body() : "";
+        if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
+            throw new IOException("GitHub API " + resp.statusCode() + ": " + truncate(text));
+        }
+        return text.isEmpty() ? mapper.createObjectNode() : mapper.readTree(text);
+    }
+
+    private String getBranchHeadSha(String branch) throws IOException {
+        return get("/repos/" + owner + "/" + repo + "/branches/" + urlEncode(branch))
+                .path("commit").path("sha").asText();
+    }
+
+    private String getCommitTreeSha(String commitSha) throws IOException {
+        return get("/repos/" + owner + "/" + repo + "/git/commits/" + commitSha)
+                .path("tree").path("sha").asText();
+    }
+
+    private String createBlob(String content) throws IOException {
+        ObjectNode blob = mapper.createObjectNode();
+        blob.put("content", Base64.getEncoder().encodeToString(content.getBytes(StandardCharsets.UTF_8)));
+        blob.put("encoding", "base64");
+        return post("/repos/" + owner + "/" + repo + "/git/blobs", blob).path("sha").asText();
+    }
+
+    private static String[] splitOwnerRepo(String repoUrl) {
+        String cleaned = repoUrl.trim();
+        if (cleaned.endsWith(".git")) {
+            cleaned = cleaned.substring(0, cleaned.length() - 4);
+        }
+        cleaned = trimTrailingSlash(cleaned);
+        int slash = cleaned.lastIndexOf('/');
+        int prevSlash = cleaned.lastIndexOf('/', slash - 1);
+        if (slash < 0 || prevSlash < 0) {
+            throw new IllegalArgumentException("Cannot parse owner/repo from URL: " + repoUrl);
+        }
+        return new String[]{cleaned.substring(prevSlash + 1, slash), cleaned.substring(slash + 1)};
+    }
+
+    private static String normalizePath(String path) {
+        if (path == null) return null;
+        String p = path.trim().replace('\\', '/');
+        while (p.startsWith("/")) p = p.substring(1);
+        return p.isEmpty() ? null : p;
+    }
+
+    private static String urlEncode(String value) {
+        return java.net.URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+
+    private static String trimTrailingSlash(String s) {
+        return s != null && s.endsWith("/") ? s.substring(0, s.length() - 1) : s;
+    }
+
+    private static String truncate(String s) {
+        return s.length() > 300 ? s.substring(0, 300) + "..." : s;
+    }
+}

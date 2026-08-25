@@ -1,23 +1,34 @@
 package com.adobe.aem.modernizer.dashboard.servlets;
 
 import com.adobe.aem.modernizer.dashboard.ApiRouter;
+import org.apache.sling.api.SlingHttpServletRequest;
+import org.apache.sling.api.SlingHttpServletResponse;
+import org.apache.sling.api.servlets.SlingAllMethodsServlet;
 import org.apache.sling.servlets.annotations.SlingServletPaths;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 
 import javax.servlet.Servlet;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import javax.servlet.ServletException;
 import java.io.IOException;
 
 /**
- * JSON API endpoint serving `/bin/aem-eds-modernizer/*` within AEM Author (Master §5).
+ * JSON API servlet serving {@code /bin/aem-eds-modernizer/api/*} within AEM Author.
  */
-@Component(service = Servlet.class, immediate = true)
-@SlingServletPaths(value = {"/bin/aem-eds-modernizer/*"})
-public class DashboardApi extends HttpServlet {
+@Component(service = Servlet.class, immediate = true, property = {
+    "sling.servlet.paths=/bin/aem-eds-modernizer/api",
+    "sling.servlet.methods=GET",
+    "sling.servlet.methods=POST",
+    "sling.servlet.methods=DELETE"
+})
+@SlingServletPaths(value = {
+    "/bin/aem-eds-modernizer/api",
+    "/bin/aem-eds-modernizer/api/",
+    "/bin/aem-eds-modernizer/api/projects",
+    "/bin/aem-eds-modernizer/api/projects/"
+})
+public class DashboardApi extends SlingAllMethodsServlet {
 
     private final transient ApiRouter router;
 
@@ -31,11 +42,32 @@ public class DashboardApi extends HttpServlet {
     }
 
     @Override
-    protected void service(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    public void doGet(SlingHttpServletRequest request, SlingHttpServletResponse response)
+            throws ServletException, IOException {
         if (router != null) {
-            router.handle(req, resp);
+            router.handle(request, response);
         } else {
-            resp.sendError(503, "ApiRouter not initialized");
+            response.sendError(503, "ApiRouter not initialized");
+        }
+    }
+
+    @Override
+    public void doPost(SlingHttpServletRequest request, SlingHttpServletResponse response)
+            throws ServletException, IOException {
+        if (router != null) {
+            router.handle(request, response);
+        } else {
+            response.sendError(503, "ApiRouter not initialized");
+        }
+    }
+
+    @Override
+    public void doDelete(SlingHttpServletRequest request, SlingHttpServletResponse response)
+            throws ServletException, IOException {
+        if (router != null) {
+            router.handle(request, response);
+        } else {
+            response.sendError(503, "ApiRouter not initialized");
         }
     }
 }

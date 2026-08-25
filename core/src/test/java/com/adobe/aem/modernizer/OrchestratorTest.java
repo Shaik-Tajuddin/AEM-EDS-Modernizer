@@ -106,7 +106,7 @@ class OrchestratorTest {
         JobRecord job = orchestrator.runMigration(project, "tester");
 
         assertThat(job).isNotNull();
-        assertThat(job.getState()).isEqualTo("COMPLETED");
+        assertThat(job.getState()).isEqualTo("READY_TO_PUBLISH");
         assertThat(job.isDryRun()).isFalse();
 
         assertThat(store.getGeneratedFiles(job.getId())).isNotEmpty();
@@ -115,5 +115,10 @@ class OrchestratorTest {
         assertThat(store.getUrlRedirects(job.getId())).isNotEmpty();
         assertThat(store.getDependencyEdges(job.getId())).isNotEmpty();
         assertThat(store.getRolloutStages(job.getId())).isNotEmpty();
+
+        // Push to Git
+        JobRecord pushJob = orchestrator.pushToGitHub(project, "tester");
+        assertThat(pushJob).isNotNull();
+        assertThat(pushJob.getState()).isEqualTo("COMPLETED");
     }
 }

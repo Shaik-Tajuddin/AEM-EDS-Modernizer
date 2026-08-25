@@ -37,14 +37,42 @@ public class AiGateway {
     private transient Store storeRef;
 
     public AiGateway() {
-        // Register default Mock capability
-        capabilityRegistry.add(new ModelCapability("mock", "mock-general-1", 8192)
-                .add(ModelCapability.CAP_CHAT)
-                .add(ModelCapability.CAP_STRUCTURED)
-                .add(ModelCapability.CAP_CODE)
-                .add(ModelCapability.CAP_VISION)
-                .add(ModelCapability.CAP_LOCAL));
-        register(new MockAiProvider("mock", "mock-general-1"));
+        initProviders();
+    }
+
+    private void initProviders() {
+        try {
+            // Register Mock capability
+            capabilityRegistry.add(new ModelCapability("mock", "mock-general-1", 8192)
+                    .add(ModelCapability.CAP_CHAT)
+                    .add(ModelCapability.CAP_STRUCTURED)
+                    .add(ModelCapability.CAP_CODE)
+                    .add(ModelCapability.CAP_VISION)
+                    .add(ModelCapability.CAP_LOCAL));
+            register(new MockAiProvider("mock", "mock-general-1"));
+
+            // Register Ollama local capabilities & provider
+            capabilityRegistry.add(new ModelCapability("ollama", "llama3", 8192)
+                    .add(ModelCapability.CAP_CHAT).add(ModelCapability.CAP_STRUCTURED).add(ModelCapability.CAP_CODE).add(ModelCapability.CAP_LOCAL));
+            capabilityRegistry.add(new ModelCapability("ollama", "qwen3:8b", 8192)
+                    .add(ModelCapability.CAP_CHAT).add(ModelCapability.CAP_STRUCTURED).add(ModelCapability.CAP_CODE).add(ModelCapability.CAP_LOCAL));
+            capabilityRegistry.add(new ModelCapability("ollama", "llama3:8b", 8192)
+                    .add(ModelCapability.CAP_CHAT).add(ModelCapability.CAP_STRUCTURED).add(ModelCapability.CAP_CODE).add(ModelCapability.CAP_LOCAL));
+            register(new com.adobe.aem.modernizer.ai.providers.OllamaProvider("http://localhost:11434"));
+
+            // Register Cloud AI Providers
+            capabilityRegistry.add(new ModelCapability("anthropic", "claude-3-5-sonnet-20241022", 200000)
+                    .add(ModelCapability.CAP_CHAT).add(ModelCapability.CAP_STRUCTURED).add(ModelCapability.CAP_CODE).add(ModelCapability.CAP_VISION));
+            capabilityRegistry.add(new ModelCapability("openai", "gpt-4o", 128000)
+                    .add(ModelCapability.CAP_CHAT).add(ModelCapability.CAP_STRUCTURED).add(ModelCapability.CAP_CODE).add(ModelCapability.CAP_VISION));
+            capabilityRegistry.add(new ModelCapability("gemini", "gemini-1.5-pro", 1000000)
+                    .add(ModelCapability.CAP_CHAT).add(ModelCapability.CAP_STRUCTURED).add(ModelCapability.CAP_CODE).add(ModelCapability.CAP_VISION));
+            register(new com.adobe.aem.modernizer.ai.providers.AnthropicProvider());
+            register(new com.adobe.aem.modernizer.ai.providers.OpenAiProvider());
+            register(new com.adobe.aem.modernizer.ai.providers.GeminiProvider());
+        } catch (Throwable t) {
+            LOG.error("Failed to initialize AI providers: {}", t.getMessage(), t);
+        }
     }
 
     public AiGateway(AiRoutingPolicy routing, SecretProvider secrets, Store store, boolean localOnly, int maxRepairAttempts) {
@@ -61,7 +89,7 @@ public class AiGateway {
         if (this.store == null && this.storeRef != null) {
             this.store = this.storeRef;
         }
-        LOG.info("AiGateway activated with {} providers", providers.size());
+        LOG.info("AiGateway activated with {} providers: {}", providers.size(), providers.keySet());
     }
 
     public void register(AiProvider provider) {
@@ -76,23 +104,17 @@ public class AiGateway {
         }
 
         String agentName = request.getAgentName() != null ? request.getAgentName() : "general";
-        String providerName = routingPolicy.resolveProvider(agentName);
-        String modelName = routingPolicy.resolveModel(agentName);
+        String providerName = (request.getPreferredProvider() != null && !request.getPreferredProvider().trim().isEmpty())
+                ? request.getPreferredProvider().trim().toLowerCase()
+                : routingPolicy.resolveProvider(agentName);
+        String modelName = (request.getPreferredModel() != null && !request.getPreferredModel().trim().isEmpty())
+                ? request.getPreferredModel().trim()
+                : routingPolicy.resolveModel(agentName);
 
         if (localOnly && !"ollama".equalsIgnoreCase(providerName) && !"mock".equalsIgnoreCase(providerName)) {
-            LOG.warn("Local-only mode active: overriding provider {} to mock/ollama", providerName);
-            providerName = "mock";
-            modelName = "mock-general-1";
-        }
-
-        // Capability Gate Check
-        if (request.getTargetCapability() != null) {
-            boolean supported = capabilityRegistry.supports(providerName, modelName, request.getTargetCapability());
-            if (!supported && !"mock".equalsIgnoreCase(providerName)) {
-                LOG.warn("Model {}:{} lacks capability {}; falling back to mock provider", providerName, modelName, request.getTargetCapability());
-                providerName = "mock";
-                modelName = "mock-general-1";
-            }
+            LOG.warn("Local-only mode active: overriding provider {} to ollama/mock", providerName);
+            providerName = "ollama";
+            modelName = "qwen3:8b";
         }
 
         AiProvider provider = providers.get(providerName.toLowerCase());
@@ -107,7 +129,7 @@ public class AiGateway {
             modelName = "mock-general-1";
         }
 
-        // Resolve secret reference
+        // Resolve secret reference for cloud providers
         String apiKey = null;
         if (!"mock".equalsIgnoreCase(providerName) && !"ollama".equalsIgnoreCase(providerName)) {
             String secretRef = "env:" + providerName.toUpperCase() + "_API_KEY";
@@ -121,7 +143,17 @@ public class AiGateway {
         }
 
         long start = System.currentTimeMillis();
-        ChatResponse response = provider.chat(request, modelName, apiKey);
+        ChatResponse response;
+        try {
+            response = provider.chat(request, modelName, apiKey);
+        } catch (Exception e) {
+            LOG.warn("AI dispatch to {} ({}) failed: {}. Falling back to mock", providerName, modelName, e.getMessage());
+            AiProvider mockProv = providers.get("mock");
+            if (mockProv == null) mockProv = new MockAiProvider();
+            response = mockProv.chat(request, "mock-general-1", null);
+            providerName = "mock";
+            modelName = "mock-general-1";
+        }
         long duration = System.currentTimeMillis() - start;
 
         // Calculate Cost
@@ -138,11 +170,23 @@ public class AiGateway {
             response.setContent(Redactor.redact(response.getContent()));
         }
 
-        LOG.debug("[AI] agent={} provider={} model={} promptTokens={} compTokens={} cost=${} dur={}ms",
-                agentName, providerName, modelName,
+        LOG.info("[AI:{}] Dispatched to {} model '{}': promptTokens={} compTokens={} dur={}ms",
+                providerName, providerName, modelName,
                 response.getTokenUsage().getPromptTokens(),
                 response.getTokenUsage().getCompletionTokens(),
-                cost, duration);
+                duration);
+
+        if (store != null && request.getProjectId() != null && request.getJobId() != null) {
+            String snippet = (request.getPrompt() != null && request.getPrompt().length() > 60)
+                    ? request.getPrompt().substring(0, 60) + "..." : request.getPrompt();
+            store.recordEvent(new com.adobe.aem.modernizer.persistence.model.JobEventRecord(
+                    java.util.UUID.randomUUID().toString(),
+                    request.getProjectId(),
+                    request.getJobId(),
+                    "ai-" + providerName,
+                    "🤖 [AI:" + providerName + "] (model: " + modelName + ") " + snippet + " -> Completed in " + duration + "ms"
+            ));
+        }
 
         return response;
     }

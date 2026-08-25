@@ -47,9 +47,20 @@ public class ApiRouter {
             return;
         }
 
-        String pathInfo = req.getPathInfo();
+        String pathInfo = req.getParameter("path");
+        if (pathInfo == null || pathInfo.isEmpty()) {
+            if (req instanceof org.apache.sling.api.SlingHttpServletRequest) {
+                pathInfo = ((org.apache.sling.api.SlingHttpServletRequest) req).getRequestPathInfo().getSuffix();
+            }
+        }
+        if (pathInfo == null || pathInfo.isEmpty()) {
+            pathInfo = req.getPathInfo();
+        }
         if (pathInfo == null || pathInfo.isEmpty()) {
             pathInfo = req.getRequestURI();
+        }
+        
+        if (pathInfo != null) {
             int idx = pathInfo.indexOf("/api");
             if (idx >= 0) {
                 pathInfo = pathInfo.substring(idx + 4);
@@ -136,6 +147,16 @@ public class ApiRouter {
                             if (store != null) store.saveProject(p);
                         }
                         JobRecord job = (orchestrator != null) ? orchestrator.runMigration(p, "admin") : new JobRecord("job-mock", projectId, "MIGRATE");
+                        return JsonUtil.toJson(job);
+                    }
+
+                    if (("publish".equalsIgnoreCase(sub) || "push".equalsIgnoreCase(sub)) && "POST".equalsIgnoreCase(method)) {
+                        ProjectRecord p = store != null ? store.getProject(projectId).orElse(null) : null;
+                        if (p == null) {
+                            p = new ProjectRecord(projectId, "Project " + projectId, "https://mock-aem.local", "/content/wknd", "https://github.com/company/wknd-eds");
+                            if (store != null) store.saveProject(p);
+                        }
+                        JobRecord job = (orchestrator != null) ? orchestrator.pushToGitHub(p, "admin") : new JobRecord("job-mock", projectId, "PUBLISH");
                         return JsonUtil.toJson(job);
                     }
 

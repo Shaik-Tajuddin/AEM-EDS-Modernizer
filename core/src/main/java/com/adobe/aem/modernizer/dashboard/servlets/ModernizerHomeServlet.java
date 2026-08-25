@@ -13,8 +13,9 @@ import java.io.IOException;
 /**
  * Serves the Modernizer Dashboard SPA at direct vanity paths /aem-eds-modernizer (Master §5, §6).
  */
-@Component(service = Servlet.class, immediate = true)
-@SlingServletPaths(value = {"/aem-eds-modernizer", "/aem-eds-modernizer/"})
+@Component(service = Servlet.class, immediate = true, property = {
+    "sling.servlet.paths=/aem-eds-modernizer"
+})
 public class ModernizerHomeServlet extends SlingSafeMethodsServlet {
 
     @Override
@@ -24,7 +25,7 @@ public class ModernizerHomeServlet extends SlingSafeMethodsServlet {
         int port = request.getServerPort();
         String apiBase = scheme + "://" + host
                 + ((port == 80 || port == 443) ? "" : (":" + port))
-                + "/bin/aem-eds-modernizer/api";
+                + "/bin/aem-eds-modernizer/";
 
         String html = StaticDashboard.html(apiBase);
         response.setContentType("text/html; charset=utf-8");

@@ -1,0 +1,7 @@
+{
+  "filter.excluded.paths": [
+    "/bin/aem-eds-modernizer/api",
+    "/bin/aem-eds-modernizer/api/.*",
+    "/bin/aem-eds-modernizer/.*"
+  ]
+}

@@ -1,9 +1,36 @@
 let currentProjectId = 'wknd-site';
 let projectsList = [];
 
-const api = (path, opts) => {
-  const base = (document.querySelector('base')||{}).href || '/bin/aem-eds-modernizer/api/';
-  return fetch(base + path, opts).then(r => r.json());
+let csrfTokenPromise = null;
+function getCsrfToken() {
+  if (!csrfTokenPromise) {
+    csrfTokenPromise = fetch('/libs/granite/csrf/token.json')
+      .then(r => r.json())
+      .then(d => (d && d.token) ? d.token : '')
+      .catch(() => '');
+  }
+  return csrfTokenPromise;
+}
+
+const api = async (path, opts = {}) => {
+  const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+  const url = '/bin/aem-eds-modernizer/api?path=' + encodeURIComponent(cleanPath);
+  
+  const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+  if (opts.method && opts.method.toUpperCase() !== 'GET') {
+    const token = await getCsrfToken();
+    if (token) {
+      headers['CSRF-Token'] = token;
+    }
+  }
+  opts.headers = headers;
+  
+  const res = await fetch(url, opts);
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(errText || `HTTP ${res.status}`);
+  }
+  return res.json();
 };
 
 function showToast(msg) {
@@ -48,7 +75,7 @@ function onProviderChange() {
   if (provider === 'anthropic') modelInput.value = 'claude-3-5-sonnet-20241022';
   else if (provider === 'openai') modelInput.value = 'gpt-4o';
   else if (provider === 'gemini') modelInput.value = 'gemini-1.5-pro';
-  else if (provider === 'ollama') modelInput.value = 'llama3:8b';
+  else if (provider === 'ollama') modelInput.value = 'qwen3:8b';
 }
 
 function loadWkndPreset() {
@@ -167,40 +194,76 @@ async function populateFormFromProject(id) {
   }
 }
 
+let generatedFiles = [];
+let blockFilesMap = {};
+let activeBlockName = null;
+let activeFileTab = 'demo';
+
 async function runDryRun() {
-  document.getElementById('btn-dryrun').disabled = true;
+  const btn = document.getElementById('btn-dryrun');
+  if (btn) btn.disabled = true;
+  setPipelineStep('connect', 'done');
   setPipelineStep('dryrun', 'active');
   log('orchestrator', `Starting Mandatory Dry Run for project '${currentProjectId}'...`);
   try {
     const job = await api(`projects/${currentProjectId}/dryrun`, { method: 'POST' });
     log('orchestrator', `Dry Run execution completed with state: ${job.state}`);
     setPipelineStep('dryrun', 'done');
-    setPipelineStep('analyze', 'done');
-    setPipelineStep('contract', 'active');
+    setPipelineStep('build', 'active');
     await refreshDashboard();
-    document.getElementById('btn-migrate').disabled = false;
-    showToast('Dry Run Completed! Review components, estimate & contract.');
+    const btnMigrate = document.getElementById('btn-migrate');
+    if (btnMigrate) btnMigrate.disabled = false;
+    showToast('Dry Run Completed! Discovered pages and mapped components.');
   } catch (err) {
     log('error', `Dry run failed: ${err.message}`);
   } finally {
-    document.getElementById('btn-dryrun').disabled = false;
+    if (btn) btn.disabled = false;
   }
 }
 
 async function runMigration() {
-  document.getElementById('btn-migrate').disabled = true;
-  setPipelineStep('contract', 'done');
-  setPipelineStep('migrate', 'active');
-  log('orchestrator', `Executing Approved Migration pipeline for project '${currentProjectId}'...`);
+  const btnMigrate = document.getElementById('btn-migrate');
+  if (btnMigrate) btnMigrate.disabled = true;
+  setPipelineStep('dryrun', 'done');
+  setPipelineStep('build', 'active');
+  log('orchestrator', `Building & Generating EDS Block Quad & Content for project '${currentProjectId}'...`);
   try {
     const job = await api(`projects/${currentProjectId}/migrate`, { method: 'POST' });
-    log('orchestrator', `Migration finished with state: ${job.state}`);
-    setPipelineStep('migrate', 'done');
-    setPipelineStep('verify', 'done');
+    log('orchestrator', `Block Generation finished with state: ${job.state}`);
+    setPipelineStep('build', 'done');
+    setPipelineStep('validate', 'active');
     await refreshDashboard();
-    showToast('Migration Pipeline Completed Successfully!');
+    
+    // Enable the final Commit & Push button so the operator has time to inspect blocks
+    const btnPublish = document.getElementById('btn-publish');
+    if (btnPublish) btnPublish.disabled = false;
+
+    showTab('components');
+    showToast('⚡ Blocks Generated! Please inspect and validate them before committing to Git.');
   } catch (err) {
-    log('error', `Migration failed: ${err.message}`);
+    log('error', `Generation failed: ${err.message}`);
+  } finally {
+    if (btnMigrate) btnMigrate.disabled = false;
+  }
+}
+
+async function runPushToGit() {
+  const btnPublish = document.getElementById('btn-publish');
+  if (btnPublish) btnPublish.disabled = true;
+  setPipelineStep('validate', 'done');
+  setPipelineStep('publish', 'active');
+  log('publishing', `🚀 Committing and Pushing generated blocks & models to remote Git repository...`);
+  try {
+    const job = await api(`projects/${currentProjectId}/publish`, { method: 'POST' });
+    log('publishing', `Successfully committed blocks to preview branch and opened Pull Request! State: ${job.state}`);
+    setPipelineStep('publish', 'done');
+    await refreshDashboard();
+    showToast('🚀 Successfully committed and pushed blocks to GitHub!');
+  } catch (err) {
+    log('error', `Git push failed: ${err.message}`);
+    showToast('Error pushing to Git: ' + err.message);
+  } finally {
+    if (btnPublish) btnPublish.disabled = false;
   }
 }
 
@@ -213,6 +276,15 @@ async function refreshDashboard() {
       document.getElementById('stat-components').innerText = inv.components ? inv.components.length : 0;
       renderPagesTable(inv.pages);
       renderComponentsTable(inv.components);
+    }
+  } catch (e) {}
+
+  try {
+    const files = await api(`projects/${currentProjectId}/files`);
+    if (files) {
+      generatedFiles = files;
+      processBlockFiles(files);
+      renderBlockList();
     }
   } catch (e) {}
 
@@ -253,6 +325,192 @@ async function refreshDashboard() {
     const benchmarks = await api(`projects/${currentProjectId}/benchmarks`);
     renderBenchmarksTable(benchmarks);
   } catch (e) {}
+
+  try {
+    const events = await api(`projects/${currentProjectId}/events`);
+    if (events && Array.isArray(events)) {
+      const eventsLog = document.getElementById('events-log');
+      if (eventsLog) {
+        eventsLog.innerHTML = events.map(e => {
+          const time = new Date(e.timestamp || Date.now()).toLocaleTimeString();
+          const ag = e.agent || e.level || 'system';
+          return `<div class="log-line"><span class="log-time">[${time}]</span><span class="log-agent">[${ag}]</span><span>${e.message || ''}</span></div>`;
+        }).join('');
+        eventsLog.scrollTop = eventsLog.scrollHeight;
+      }
+    }
+  } catch (e) {}
+}
+
+function processBlockFiles(files) {
+  blockFilesMap = {};
+  if (!files || files.length === 0) return;
+
+  files.forEach(f => {
+    const path = f.path || '';
+    if (path.startsWith('blocks/')) {
+      const parts = path.split('/');
+      if (parts.length >= 3) {
+        const bName = parts[1];
+        const fileName = parts[parts.length - 1];
+        if (!blockFilesMap[bName]) {
+          blockFilesMap[bName] = { name: bName, files: {} };
+        }
+        if (fileName.endsWith('.js')) blockFilesMap[bName].files.js = f;
+        else if (fileName.endsWith('.css')) blockFilesMap[bName].files.css = f;
+        else if (fileName.startsWith('_') && fileName.endsWith('.json')) blockFilesMap[bName].files.json = f;
+        else if (fileName.endsWith('-example.html') || fileName.endsWith('.html')) blockFilesMap[bName].files.demo = f;
+        else if (fileName.equalsIgnoreCase('README.md') || fileName.toLowerCase() === 'readme.md') blockFilesMap[bName].files.readme = f;
+      }
+    }
+  });
+}
+
+function renderBlockList() {
+  const container = document.getElementById('block-items-container');
+  const countBadge = document.getElementById('blocks-count-badge');
+  const totalCount = document.getElementById('block-list-total');
+  const blockNames = Object.keys(blockFilesMap);
+
+  if (countBadge) countBadge.innerText = `${blockNames.length} Blocks Generated`;
+  if (totalCount) totalCount.innerText = blockNames.length;
+
+  if (!container) return;
+  if (blockNames.length === 0) {
+    container.innerHTML = '<div style="padding:16px; color:var(--text-dim); font-size:0.85rem; text-align:center;">Run Dry Run or Generate Blocks to populate.</div>';
+    return;
+  }
+
+  if (!activeBlockName || !blockFilesMap[activeBlockName]) {
+    activeBlockName = blockNames[0];
+  }
+
+  container.innerHTML = blockNames.map(name => {
+    const b = blockFilesMap[name];
+    const fileCount = Object.keys(b.files || {}).length;
+    const isActive = (name === activeBlockName);
+    return `<div class="block-item ${isActive ? 'active' : ''}" onclick="selectBlock('${name}')">
+      <div class="block-item-title">
+        <span>🧱</span>
+        <span>${name}</span>
+      </div>
+      <span class="block-item-badge">${fileCount} files</span>
+    </div>`;
+  }).join('');
+
+  renderActiveBlockDetail();
+}
+
+function selectBlock(name) {
+  activeBlockName = name;
+  renderBlockList();
+}
+
+function switchBlockFileTab(tabName) {
+  activeFileTab = tabName;
+  ['demo', 'json', 'js', 'css', 'readme'].forEach(t => {
+    const el = document.getElementById('filetab-' + t);
+    if (el) {
+      if (t === tabName) el.classList.add('active');
+      else el.classList.remove('active');
+    }
+  });
+  renderActiveBlockDetail();
+}
+
+function renderActiveBlockDetail() {
+  if (!activeBlockName || !blockFilesMap[activeBlockName]) return;
+  const b = blockFilesMap[activeBlockName];
+  const fileObj = (b.files || {})[activeFileTab];
+
+  const pathEl = document.getElementById('block-file-path');
+  const codeContainer = document.getElementById('block-view-code');
+  const codeContent = document.getElementById('block-code-content');
+  const demoContainer = document.getElementById('block-view-demo');
+  const demoRendered = document.getElementById('block-demo-rendered');
+
+  if (pathEl) {
+    pathEl.innerText = fileObj ? fileObj.path : `blocks/${activeBlockName}/[not found]`;
+  }
+
+  if (activeFileTab === 'demo') {
+    if (codeContainer) codeContainer.style.display = 'none';
+    if (demoContainer) demoContainer.style.display = 'block';
+
+    const htmlContent = (b.files && b.files.demo) ? b.files.demo.content : '';
+    const cssContent = (b.files && b.files.css) ? b.files.css.content : '';
+    const titleCase = activeBlockName.charAt(0).toUpperCase() + activeBlockName.slice(1).replace('-', ' ');
+
+    if (demoRendered) {
+      demoRendered.innerHTML = `
+        <div style="border-bottom:1px solid #e2e8f0; padding-bottom:12px; margin-bottom:18px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin:0; font-size:1.1rem; color:#0f172a;">👁️ Universal Editor Preview: <code>${activeBlockName}</code></h3>
+            <span style="font-size:0.75rem; background:#dbeafe; color:#1d4ed8; padding:3px 8px; border-radius:4px; font-weight:700;">AEM UE Render</span>
+          </div>
+          <p style="margin:6px 0 0; font-size:0.82rem; color:#64748b;">
+            This demonstrates how authors interact with the <b>${titleCase}</b> block when placed on a page.
+          </p>
+        </div>
+
+        <style>
+          ${cssContent}
+        </style>
+
+        <div style="margin-bottom:24px;">
+          <h4 style="font-size:0.85rem; color:#475569; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.04em;">Authoring Variant: Default</h4>
+          <div class="${activeBlockName} eds-block-${activeBlockName} ${activeBlockName}-tone-default">
+            <div class="${activeBlockName}-inner">
+              <div class="${activeBlockName}-title">
+                <h2>${titleCase} Experience</h2>
+              </div>
+              <div class="${activeBlockName}-text">
+                <p>Curated adventure and premium digital experiences delivered at lightning speed with Adobe Edge Delivery Services.</p>
+              </div>
+              <div class="${activeBlockName}-cta">
+                <a href="#" class="brand-cta"><span>Explore Stories</span></a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h4 style="font-size:0.85rem; color:#475569; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.04em;">Authoring Variant: Center Emphasis</h4>
+          <div class="${activeBlockName} eds-block-${activeBlockName} ${activeBlockName}-align-center ${activeBlockName}-tone-emphasis">
+            <div class="${activeBlockName}-inner">
+              <div class="${activeBlockName}-title">
+                <h2>Featured Highlight</h2>
+              </div>
+              <div class="${activeBlockName}-text">
+                <p>Discover personalized journeys with high visual impact and 100/100 Core Web Vitals performance.</p>
+              </div>
+              <div class="${activeBlockName}-cta">
+                <a href="#" class="brand-cta"><span>Book Adventure</span></a>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  } else {
+    if (demoContainer) demoContainer.style.display = 'none';
+    if (codeContainer) codeContainer.style.display = 'flex';
+
+    if (codeContent) {
+      codeContent.innerText = fileObj ? fileObj.content : `// No ${activeFileTab} file generated for block '${activeBlockName}' yet.`;
+    }
+  }
+}
+
+function copyActiveCode() {
+  const codeContent = document.getElementById('block-code-content');
+  if (codeContent && codeContent.innerText) {
+    navigator.clipboard.writeText(codeContent.innerText).then(() => {
+      showToast('📋 Code copied to clipboard!');
+    }).catch(() => {
+      showToast('Failed to copy code');
+    });
+  }
 }
 
 function renderPagesTable(pages) {

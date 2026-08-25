@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "aem-local": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "aem-mcp-server",
+        "-t",
+        "stdio",
+        "-H",
+        "http://localhost:4502",
+        "-u",
+        "admin",
+        "-p",
+        "admin"
+      ]
+    },
+    "aem-cs-sdk": {
+      "type": "streamable-http",
+      "url": "http://localhost:4502/bin/mcp",
+      "headers": {
+        "Authorization": "Basic YWRtaW46YWRtaW4="
+      }
+    }
+  }
+}

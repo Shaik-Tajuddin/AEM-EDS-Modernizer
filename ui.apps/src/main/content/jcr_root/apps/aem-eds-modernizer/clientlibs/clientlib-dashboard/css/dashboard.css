@@ -72,3 +72,29 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface-card); border: 1px solid var(--surface-border); color: var(--text); padding: 14px 20px; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); z-index: 1000; font-size: 0.9rem; display: none; }
 .toast.show { display: block; animation: slideIn 0.3s ease; }
 @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* Block Inspector & Quad Viewer */
+.block-explorer { display: grid; grid-template-columns: 280px 1fr; gap: 20px; min-height: 580px; }
+.block-list { background: var(--surface-card); border: 1px solid var(--surface-border); border-radius: 8px; padding: 14px; overflow-y: auto; max-height: 650px; }
+.block-list-header { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--surface-border); display: flex; justify-content: space-between; align-items: center; }
+.block-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: 6px; cursor: pointer; margin-bottom: 6px; transition: all 0.15s; background: rgba(255,255,255,0.02); border: 1px solid transparent; }
+.block-item:hover { background: rgba(56,189,248,0.08); border-color: rgba(56,189,248,0.2); }
+.block-item.active { background: rgba(56,189,248,0.15); border-color: var(--primary); color: var(--primary); font-weight: 700; }
+.block-item-title { font-size: 0.88rem; display: flex; align-items: center; gap: 8px; }
+.block-item-badge { font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; background: rgba(16,185,129,0.15); color: var(--accent); font-weight: 600; }
+
+.block-detail { background: var(--surface-card); border: 1px solid var(--surface-border); border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
+.block-detail-header { padding: 14px 20px; background: rgba(15,23,42,0.6); border-bottom: 1px solid var(--surface-border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+.block-file-tabs { display: flex; gap: 6px; }
+.block-file-tab { padding: 6px 14px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; background: transparent; border: 1px solid var(--surface-border); color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
+.block-file-tab:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+.block-file-tab.active { background: var(--primary); color: #090d16; border-color: var(--primary); font-weight: 700; }
+
+.code-viewer-container { position: relative; flex: 1; min-height: 480px; display: flex; flex-direction: column; }
+.code-viewer { background: #060911; color: #e2e8f0; font-family: var(--font-mono); font-size: 0.84rem; line-height: 1.6; padding: 18px 20px; overflow: auto; flex: 1; white-space: pre-wrap; margin: 0; }
+.btn-copy { position: absolute; top: 12px; right: 12px; padding: 6px 12px; font-size: 0.75rem; background: var(--surface-card); border: 1px solid var(--surface-border); color: var(--text-muted); border-radius: 4px; cursor: pointer; }
+.btn-copy:hover { color: var(--text); border-color: var(--primary); }
+
+.preview-frame-container { padding: 20px; background: #0d1527; flex: 1; overflow-y: auto; }
+.preview-card { background: #ffffff; color: #1e293b; border-radius: 8px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-width: 800px; margin: 0 auto; }
+

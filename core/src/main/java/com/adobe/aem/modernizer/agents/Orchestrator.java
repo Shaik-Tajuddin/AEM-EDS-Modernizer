@@ -179,9 +179,6 @@ public class Orchestrator {
             transition(ctx, MigrationState.AUTHORING);
             invokeAgent("authoring", ctx);
 
-            transition(ctx, MigrationState.PREVIEWING);
-            invokeAgent("preview", ctx);
-
             transition(ctx, MigrationState.VALIDATING);
             invokeAgent("validation", ctx);
             invokeAgent("visual-validation", ctx);
@@ -193,6 +190,46 @@ public class Orchestrator {
 
             transition(ctx, MigrationState.READY_TO_PUBLISH);
             invokeIfRegistered("advanced-rollout", ctx);
+
+            job.setFinishedAt(System.currentTimeMillis());
+            if (store != null) {
+                store.saveJob(job);
+            }
+        } catch (ModernizerException | RuntimeException e) {
+            job.setState(MigrationState.FAILED.name());
+            job.setLastError(e.getMessage());
+            job.setFinishedAt(System.currentTimeMillis());
+            if (store != null) {
+                store.saveJob(job);
+            }
+            throw new ModernizerException("Migration execution failed for job " + jobId + ": " + e.getMessage(), e);
+        }
+
+        return job;
+    }
+
+    /**
+     * Executes the final Commit & Push to Git and Pull Request creation step.
+     */
+    public JobRecord pushToGitHub(ProjectRecord project, String actor) throws ModernizerException {
+        if (project == null) {
+            throw new ModernizerException("Project cannot be null");
+        }
+
+        JobRecord latestJob = (store != null) ? store.getLatestJob(project.getId()).orElse(null) : null;
+        String jobId = latestJob != null ? latestJob.getId() : ("job-" + UUID.randomUUID().toString().substring(0, 8));
+        JobRecord job = latestJob != null ? latestJob : new JobRecord(jobId, project.getId(), "PUBLISH");
+        job.setActor(actor != null ? actor : "admin");
+        if (store != null) {
+            store.saveJob(job);
+        }
+
+        AgentContext ctx = new AgentContext(project, job);
+        ctx.setDryRun(false);
+
+        try {
+            transition(ctx, MigrationState.PREVIEWING);
+            invokeAgent("preview", ctx);
 
             transition(ctx, MigrationState.PUBLISHING);
             invokeAgent("publishing", ctx);
@@ -212,7 +249,7 @@ public class Orchestrator {
             if (store != null) {
                 store.saveJob(job);
             }
-            throw new ModernizerException("Migration execution failed for job " + jobId + ": " + e.getMessage(), e);
+            throw new ModernizerException("Git push / publish failed for job " + jobId + ": " + e.getMessage(), e);
         }
 
         return job;

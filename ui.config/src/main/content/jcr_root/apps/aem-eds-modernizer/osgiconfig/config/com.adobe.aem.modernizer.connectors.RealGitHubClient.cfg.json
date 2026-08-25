@@ -1,0 +1,7 @@
+{
+  "enabled": true,
+  "tokenRef": "env:GITHUB_TOKEN",
+  "defaultBranch": "main",
+  "apiBase": "https://api.github.com",
+  "repoUrl": ""
+}

@@ -4,18 +4,21 @@ import com.adobe.aem.modernizer.ai.ChatRequest;
 import com.adobe.aem.modernizer.ai.ChatResponse;
 import com.adobe.aem.modernizer.ai.TokenUsage;
 import com.adobe.aem.modernizer.util.JsonUtil;
-import okhttp3.*;
 
-import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Local Ollama Provider implementation (ADR 0003, Master §16).
  */
 public class OllamaProvider implements AiProvider {
 
-    private final OkHttpClient httpClient;
+    private final HttpClient httpClient;
     private final String baseUrl;
 
     public OllamaProvider() {
@@ -24,9 +27,8 @@ public class OllamaProvider implements AiProvider {
 
     public OllamaProvider(String baseUrl) {
         this.baseUrl = baseUrl;
-        this.httpClient = new OkHttpClient.Builder()
-                .connectTimeout(15, TimeUnit.SECONDS)
-                .readTimeout(120, TimeUnit.SECONDS)
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(15))
                 .build();
     }
 
@@ -42,7 +44,7 @@ public class OllamaProvider implements AiProvider {
 
     @Override
     public ChatResponse chat(ChatRequest request, String model, String apiKey) {
-        String targetModel = (model != null && !model.isEmpty()) ? model : "llama3";
+        String targetModel = (model != null && !model.isEmpty()) ? model : "qwen3:8b";
 
         List<Map<String, String>> messages = new ArrayList<>();
         if (request.getSystemPrompt() != null) {
@@ -60,35 +62,41 @@ public class OllamaProvider implements AiProvider {
         Map<String, Object> bodyMap = new HashMap<>();
         bodyMap.put("model", targetModel);
         bodyMap.put("messages", messages);
+        Map<String, Object> options = new HashMap<>();
+        options.put("num_predict", 256);
+        bodyMap.put("options", options);
         bodyMap.put("stream", false);
 
         String jsonBody = JsonUtil.toJson(bodyMap);
 
-        Request httpRequest = new Request.Builder()
-                .url(baseUrl + "/api/chat")
+        HttpRequest httpRequest = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/api/chat"))
                 .header("Content-Type", "application/json")
-                .post(RequestBody.create(jsonBody, MediaType.get("application/json")))
+                .timeout(Duration.ofSeconds(45))
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
                 .build();
 
-        try (Response httpResponse = httpClient.newCall(httpRequest).execute()) {
-            if (!httpResponse.isSuccessful()) {
-                throw new AiProviderException("Ollama HTTP " + httpResponse.code());
+        try {
+            HttpResponse<String> httpResponse = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (httpResponse.statusCode() < 200 || httpResponse.statusCode() >= 300) {
+                throw new AiProviderException("Ollama HTTP " + httpResponse.statusCode());
             }
-            String respBody = httpResponse.body() != null ? httpResponse.body().string() : "{}";
+            String respBody = httpResponse.body() != null ? httpResponse.body() : "{}";
             Map<?, ?> parsed = JsonUtil.fromJson(respBody, Map.class);
-            Map<?, ?> message = (Map<?, ?>) parsed.get("message");
+            Map<?, ?> message = (parsed != null && parsed.get("message") instanceof Map)
+                    ? (Map<?, ?>) parsed.get("message") : null;
             String content = message != null ? (String) message.get("content") : "";
 
-            int promptTokens = parsed.get("prompt_eval_count") instanceof Number
+            int promptTokens = (parsed != null && parsed.get("prompt_eval_count") instanceof Number)
                     ? ((Number) parsed.get("prompt_eval_count")).intValue() : 0;
-            int completionTokens = parsed.get("eval_count") instanceof Number
+            int completionTokens = (parsed != null && parsed.get("eval_count") instanceof Number)
                     ? ((Number) parsed.get("eval_count")).intValue() : 0;
 
             ChatResponse response = new ChatResponse(content, "ollama", targetModel);
             response.setTokenUsage(new TokenUsage(promptTokens, completionTokens));
             response.setCostUsd(0.0);
             return response;
-        } catch (IOException e) {
+        } catch (Exception e) {
             throw new AiProviderException("Ollama local connection failed: " + e.getMessage(), e);
         }
     }

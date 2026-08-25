@@ -15,6 +15,10 @@ public class ChatRequest {
     private String responseSchema;
     private double temperature = 0.2;
     private int maxTokens = 4096;
+    private String preferredProvider;
+    private String preferredModel;
+    private String projectId;
+    private String jobId;
     private List<String> imageBase64List = new ArrayList<>();
 
     public ChatRequest() {}
@@ -44,6 +48,18 @@ public class ChatRequest {
 
     public int getMaxTokens() { return maxTokens; }
     public void setMaxTokens(int maxTokens) { this.maxTokens = maxTokens; }
+
+    public String getPreferredProvider() { return preferredProvider; }
+    public void setPreferredProvider(String preferredProvider) { this.preferredProvider = preferredProvider; }
+
+    public String getPreferredModel() { return preferredModel; }
+    public void setPreferredModel(String preferredModel) { this.preferredModel = preferredModel; }
+
+    public String getProjectId() { return projectId; }
+    public void setProjectId(String projectId) { this.projectId = projectId; }
+
+    public String getJobId() { return jobId; }
+    public void setJobId(String jobId) { this.jobId = jobId; }
 
     public List<String> getImageBase64List() { return imageBase64List != null ? new ArrayList<>(imageBase64List) : new ArrayList<>(); }
     public void setImageBase64List(List<String> imageBase64List) { this.imageBase64List = imageBase64List != null ? new ArrayList<>(imageBase64List) : new ArrayList<>(); }

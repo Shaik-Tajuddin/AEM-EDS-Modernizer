@@ -22,7 +22,9 @@ import org.apache.sling.api.SlingHttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import static org.mockito.Mockito.mock;
 
+import javax.servlet.FilterChain;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
@@ -137,8 +139,8 @@ class DashboardServletsAndApiTest {
     void testDashboardApiServlet() throws Exception {
         DashboardApi servlet = new DashboardApi(router);
 
-        HttpServletRequest req = Mockito.mock(HttpServletRequest.class);
-        HttpServletResponse resp = Mockito.mock(HttpServletResponse.class);
+        SlingHttpServletRequest req = Mockito.mock(SlingHttpServletRequest.class);
+        SlingHttpServletResponse resp = Mockito.mock(SlingHttpServletResponse.class);
 
         when(req.getRequestURI()).thenReturn("/bin/aem-eds-modernizer/api/health");
         when(req.getContextPath()).thenReturn("");
@@ -151,7 +153,7 @@ class DashboardServletsAndApiTest {
         StringWriter sw = new StringWriter();
         when(resp.getWriter()).thenReturn(new PrintWriter(sw));
 
-        servlet.service(req, resp);
+        servlet.doGet(req, resp);
         assertThat(sw.toString()).contains("UP");
     }
 
@@ -177,7 +179,7 @@ class DashboardServletsAndApiTest {
 
     @Test
     void testProjectServlet() throws Exception {
-        ProjectServlet servlet = new ProjectServlet(store);
+        ProjectServlet servlet = new ProjectServlet(router, store);
 
         // POST project
         SlingHttpServletRequest req = Mockito.mock(SlingHttpServletRequest.class);

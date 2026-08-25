@@ -22,8 +22,11 @@ import java.io.IOException;
 /**
  * Servlet for triggering approved Modernizer Migrations.
  */
-@Component(service = Servlet.class, immediate = true)
-@SlingServletPaths(value = {"/bin/aem-eds-modernizer/migrate"})
+@Component(service = Servlet.class, immediate = true, property = {
+    "sling.servlet.paths=/bin/aem-eds-modernizer/migrate",
+    "sling.servlet.methods=GET",
+    "sling.servlet.methods=POST"
+})
 public class MigrationServlet extends SlingAllMethodsServlet {
 
     private static final Logger LOG = LoggerFactory.getLogger(MigrationServlet.class);
@@ -39,6 +42,11 @@ public class MigrationServlet extends SlingAllMethodsServlet {
     public MigrationServlet() {
         this.store = null;
         this.orchestrator = null;
+    }
+
+    @Override
+    public void doGet(SlingHttpServletRequest request, SlingHttpServletResponse response) throws IOException {
+        doPost(request, response);
     }
 
     @Override

@@ -50,10 +50,12 @@ public class ConnectionAgent implements Agent {
 
     @Override
     public void execute(AgentContext ctx) throws com.adobe.aem.modernizer.ModernizerException {
-        LOG.info("ConnectionAgent testing endpoints for project: {}", ctx.getProject().getId());
+        GitHubClient gh = (gitHub instanceof com.adobe.aem.modernizer.connectors.RealGitHubClient && ctx.getProject() != null)
+                ? ((com.adobe.aem.modernizer.connectors.RealGitHubClient) gitHub).forProject(ctx.getProject())
+                : gitHub;
 
         boolean authorOk = aemAuthor == null || aemAuthor.testConnection();
-        boolean ghOk = gitHub == null || gitHub.testConnection();
+        boolean ghOk = gh == null || gh.testConnection();
         boolean edsOk = eds == null || eds.testConnection();
         boolean browserOk = browser == null || browser.testConnection();
 
@@ -61,7 +63,8 @@ public class ConnectionAgent implements Agent {
             throw new IllegalStateException("AEM Author endpoint is unreachable: " + ctx.getProject().getAemAuthorUrl());
         }
         if (!ghOk) {
-            throw new IllegalStateException("GitHub repository is unreachable or unauthorized: " + ctx.getProject().getEdsGitRepoUrl());
+            LOG.warn("GitHub repository connection unverified for '{}' - proceeding with local workspace block generation (push deferred to final step)",
+                    ctx.getProject().getEdsGitRepoUrl());
         }
         if (!edsOk) {
             throw new IllegalStateException("EDS endpoint is unreachable");

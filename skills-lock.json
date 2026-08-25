@@ -1,0 +1,635 @@
+{
+  "version": 1,
+  "skills": {
+    "aa-conversion-funnel-analysis": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/adobe-analytics/skills/aa-conversion-funnel-analysis/SKILL.md",
+      "computedHash": "54df10a5739c88ed4b5b7050105bdac91ff060f9f3d0dd0104922d175bd3cbfc"
+    },
+    "aa-executive-briefing": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/adobe-analytics/skills/aa-executive-briefing/SKILL.md",
+      "computedHash": "a9d1affefc7b3c49734a56c0e7c5a5cd088fc9e35be0d02c988a0b9b961abe01"
+    },
+    "aa-kpi-pulse": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/adobe-analytics/skills/aa-kpi-pulse/SKILL.md",
+      "computedHash": "da339cd74a4a9cfe2028032b0b73cb3f45a7e94045f997ea8ed9f2baf4d7732a"
+    },
+    "aa-segment-performance-comparator": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/adobe-analytics/skills/aa-segment-performance-comparator/SKILL.md",
+      "computedHash": "605863343160c3fa3ec11ccc3ceb645d695a2dd98abd1970607e11202a9c9ddd"
+    },
+    "aa-top-movers-watchlist": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/adobe-analytics/skills/aa-top-movers-watchlist/SKILL.md",
+      "computedHash": "45597588ee42ab2ff6b4a5ac69a6adae17d27ad464ad10185287e044c148787f"
+    },
+    "accessibility-fix": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services-content-ops/skills/accessibility-fix/SKILL.md",
+      "computedHash": "41d4e2f85cc9a1b9e2bae9a0f4ffd5b25c621841325d8131e30bf49f51a6f0d7"
+    },
+    "aem-cli": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services/skills/aem-cli/SKILL.md",
+      "computedHash": "a471cd56c7e68eabbf144bc088bed147485644a784115424d0bcf540788ca984"
+    },
+    "aem-rde": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/cloud-service/skills/aem-rde/SKILL.md",
+      "computedHash": "962b6baeb30fc6df299f5125bfdfe9f537ff5e7717eacd59da22cef135d340a3"
+    },
+    "aem-replication": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/6.5-lts/skills/aem-replication/SKILL.md",
+      "computedHash": "047a394ddeaa84b287a9efff31ba9b45e98f94c3d1b7ac7144e90a37b4a84d2f"
+    },
+    "aem-workflow": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/cloud-service/skills/aem-workflow/SKILL.md",
+      "computedHash": "4c370f85e82df0453186bf7c4d53c128fd991af5ad277015a8584304b90b89d4"
+    },
+    "analyze-and-plan": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services/skills/analyze-and-plan/SKILL.md",
+      "computedHash": "466392cb5a56070ea51494df6f93b7dfeb2630fe5eaf9fda87e440a20abab34f"
+    },
+    "appbuilder-action-scaffolder": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/app-builder/skills/appbuilder-action-scaffolder/SKILL.md",
+      "computedHash": "eb4e995e211f4a4c87e5ba8c42adb566df84351b381027636820243037ce0105"
+    },
+    "appbuilder-cicd-pipeline": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/app-builder/skills/appbuilder-cicd-pipeline/SKILL.md",
+      "computedHash": "6870cd79d9be09202ca7ca71008522a5239ee8d3bd13538bdaf30207ce40e98e"
+    },
+    "appbuilder-e2e-testing": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/app-builder/skills/appbuilder-e2e-testing/SKILL.md",
+      "computedHash": "a86b6344c0ac7169821990fdb3da50367808a4ada123725e28e2be2cd7376970"
+    },
+    "appbuilder-project-init": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/app-builder/skills/appbuilder-project-init/SKILL.md",
+      "computedHash": "b0d9015cd4645bc796cc0b1909ce1b129d3b7046a1d9e6e2ea3156eb68800aa6"
+    },
+    "appbuilder-testing": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/app-builder/skills/appbuilder-testing/SKILL.md",
+      "computedHash": "c3d2d54787d5de42751e964124f3a90cfac5c8505a52d6f55c79fdd057d4f232"
+    },
+    "appbuilder-ui-scaffolder": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/app-builder/skills/appbuilder-ui-scaffolder/SKILL.md",
+      "computedHash": "43fa4b01a4542125261e76ac44a482e2c12216ed885bb5c34d7d85dae14f0548"
+    },
+    "appbuilder-workfront": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/app-builder/skills/appbuilder-workfront/SKILL.md",
+      "computedHash": "e47a4be04556b4f1523013745ba1e6c88c8016c07dd688e188699ca42e9ffde8"
+    },
+    "audit": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/stardust/skills/audit/SKILL.md",
+      "computedHash": "f69e7f16d19d4e23bfdb426300c3087243eb076de1fb2c75cc4e740104a6d099"
+    },
+    "auth": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/project-management/skills/auth/SKILL.md",
+      "computedHash": "1f205eb33da39f8f02289826ad48a611ec94c03a9274fb35c71766f07a6f7464"
+    },
+    "authoring-analysis": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services/skills/authoring-analysis/SKILL.md",
+      "computedHash": "a2a316a2bc076d296e162ee8d666381b1776b7106e4ecda8aa43a288f9c7d82f"
+    },
+    "block-collection-and-party": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services/skills/block-collection-and-party/SKILL.md",
+      "computedHash": "f3bb36ef035a11f6a320be63ad18148055619aae7e8deeee4063a2b9445093e4"
+    },
+    "block-inventory": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services/skills/block-inventory/SKILL.md",
+      "computedHash": "611ac337a029bd4f8b21d105cfd6ccc892f47a1ab824ae549c6e4e8ee743f054"
+    },
+    "browser-probe": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/web/skills/browser-probe/SKILL.md",
+      "computedHash": "4acf9da7224c3d23983a5432260b8f40d36c5c478c2230fea25c48d4f06de958"
+    },
+    "building-blocks": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services/skills/building-blocks/SKILL.md",
+      "computedHash": "1d872ccb75cc8a94327fe5b10e568bd98b3658fd27346c09f49045eae4a5ac0d"
+    },
+    "bulk-metadata": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services-content-ops/skills/bulk-metadata/SKILL.md",
+      "computedHash": "a04193260496cf4ed1ef01a27a086cbde6e8551ccb81fe2b3b3298bb001572d5"
+    },
+    "cdp-connect": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/web/skills/cdp-connect/SKILL.md",
+      "computedHash": "e7115ed5e596bb985182a3ae713bcb1ce8094874b714a437911d6cf15a128bdf"
+    },
+    "cdp-ext-pilot": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/web/skills/cdp-ext-pilot/SKILL.md",
+      "computedHash": "019244d4ca6e00082670bf395e5ffa14336d4a12bb802c927095acb6e26272a5"
+    },
+    "cja-dimension-analysis": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/adobe-cja/skills/cja-dimension-analysis/SKILL.md",
+      "computedHash": "77e4285471f912d2d0d0440fefba274e1ea7d18fce12847e379db70d110d0b72"
+    },
+    "cja-executive-briefing": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/adobe-cja/skills/cja-executive-briefing/SKILL.md",
+      "computedHash": "5c2d75539bc84935fe419eb2efc4fbdb41ad8686d394870f5e6909560091584d"
+    },
+    "cja-funnel-health-check": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/adobe-cja/skills/cja-funnel-health-check/SKILL.md",
+      "computedHash": "95f14171efc0861c7384b44ce247beeb6f3befc436e4f20821582049cbc5cceb"
+    },
+    "cja-kpi-pulse": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/adobe-cja/skills/cja-kpi-pulse/SKILL.md",
+      "computedHash": "ef04a576ee1fc313817b95de409d5dbbd20b65a54b86a148ef6ebf4eba6589a7"
+    },
+    "cja-segment-performance-comparator": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/adobe-cja/skills/cja-segment-performance-comparator/SKILL.md",
+      "computedHash": "620412f000cfdc19b2d265c9149a87732a82c7b272a88c7dadc34e81a2180285"
+    },
+    "cja-top-movers-watchlist": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/adobe-cja/skills/cja-top-movers-watchlist/SKILL.md",
+      "computedHash": "5e251e55dc429e4e1c43c93bf983e94684c518f3cc9bcb4c36404ba7faa7f051"
+    },
+    "code-assessment": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/cloud-service/skills/code-assessment/SKILL.md",
+      "computedHash": "9afa9c5ea48ffb52e4e95e338adee9c16b8804d3aa0896110423d0864ccca5ea"
+    },
+    "code-review": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services/skills/code-review/SKILL.md",
+      "computedHash": "0017770cc469509a1d86ebf41888b4ba764c6192dd82159408c443a36c440957"
+    },
+    "commerce-app-admin-ui": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/commerce/app-management/skills/commerce-app-admin-ui/SKILL.md",
+      "computedHash": "532f309f5a0529d647c2d27c2f830496c727e7873e4d1107c7a72289f3ce146e"
+    },
+    "commerce-app-business-config": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/commerce/app-management/skills/commerce-app-business-config/SKILL.md",
+      "computedHash": "f4666895c211da8cd1470f497677c1b86d3c1372332db66ac523bca1a5fe6665"
+    },
+    "commerce-app-eventing": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/commerce/app-management/skills/commerce-app-eventing/SKILL.md",
+      "computedHash": "855d5bfb998a321a31a5006d756b0f1d588cab7a712ec7437bac913130d7df23"
+    },
+    "commerce-app-init": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/commerce/app-management/skills/commerce-app-init/SKILL.md",
+      "computedHash": "d1e2b8e4fc913114b0d085be1a03396291c29f2262fc0cbd78a9b3f2ccc80e12"
+    },
+    "commerce-app-migrate": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/commerce/app-migration/skills/commerce-app-migrate/SKILL.md",
+      "computedHash": "96ace18fa469cbcbd9de085ab6e4716c49e89f971d0fd5529098d226ab2c77a0"
+    },
+    "commerce-app-review": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/commerce/app-review/skills/commerce-app-review/SKILL.md",
+      "computedHash": "550a6ddd71f674b56db9b80b3309f988fc5023db57d34eec1c13d687fca3da41"
+    },
+    "commerce-app-storage": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/commerce/app-management/skills/commerce-app-storage/SKILL.md",
+      "computedHash": "cbb50f4659e2096d70f391e6e5ee0be87feef581db9b7f7ce76144dbd1bf8353"
+    },
+    "commerce-app-webhooks": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/commerce/app-management/skills/commerce-app-webhooks/SKILL.md",
+      "computedHash": "6ee2b16476b571cd4ab97a58271b5c38e3dd22b574d47d5adf6c01923881c0a8"
+    },
+    "content-audit": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services-content-ops/skills/content-audit/SKILL.md",
+      "computedHash": "7667ccaf6515247d4d57b8e0168e2bfaa9c87c0bb4996809a8c15b548a8e6f7c"
+    },
+    "content-diff": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services-content-ops/skills/content-diff/SKILL.md",
+      "computedHash": "c88620b257e981f43e88d6a8045ca3fbb9937475e2c038af22a892eab83b5591"
+    },
+    "content-distribution": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/cloud-service/skills/content-distribution/SKILL.md",
+      "computedHash": "4c871a5f2b0f2fe6ae863164d856c7f6dc05bca48c0096615246e19484f4652d"
+    },
+    "content-driven-development": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services/skills/content-driven-development/SKILL.md",
+      "computedHash": "5f874497eddf1085574b38709e4e0b745825ad846d8dc173f353ecdbe59734b3"
+    },
+    "content-modeling": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services/skills/content-modeling/SKILL.md",
+      "computedHash": "3f29fdf4e5d7b98085b0e6e69099cdcc3aad66a95d57e7e94ff938937e073cf5"
+    },
+    "create-component": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/cloud-service/skills/create-component/SKILL.md",
+      "computedHash": "767845dfd3f068da97d2d013467e8d8d31dc3f5bddc834333977c6e193c48b22"
+    },
+    "create-site": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services/skills/create-site/SKILL.md",
+      "computedHash": "ed44f73ff2d0f10fb7f74c431e0094bd04931042fdf820a691bfdc1faa72ddca"
+    },
+    "cwv-optimizer": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services-content-ops/skills/cwv-optimizer/SKILL.md",
+      "computedHash": "92e5eb2342ecd5e946d9199b06969de0c18df4d1216c89b747d9f68249a5dde8"
+    },
+    "da-auth": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services/skills/da-auth/SKILL.md",
+      "computedHash": "eb709eaf187ebd1e578a3ba2cee5a131b29c64fa5361bb6c973bc1516a76bda7"
+    },
+    "da-content": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services/skills/da-content/SKILL.md",
+      "computedHash": "9c47d549efba47d505d4187d6170cd4cb0c7ddbca403928c8d516296e533a7e9"
+    },
+    "deploy": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/stardust/skills/deploy/SKILL.md",
+      "computedHash": "95f90220c6b1fa24a920c4cf53eb9478f87373e51e141013238ca175b380d1e3"
+    },
+    "diff": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/stardust/skills/diff/SKILL.md",
+      "computedHash": "f938b9f0532f9979ef7cdde5025b204bf0597de590aa3ccd6a4a6706cd5ac5a8"
+    },
+    "direct": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/stardust/skills/direct/SKILL.md",
+      "computedHash": "403dc2dd1e911c0ecda103b3bc1c9ee9b6e2afe68422fe85cd533517fa90f886"
+    },
+    "dispatcher": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/cloud-service/skills/dispatcher/SKILL.md",
+      "computedHash": "df4e73b31ee59dee04870ffd7d7a81fd642bf8c1ccc709635fa9e15889a886d1"
+    },
+    "docs-search": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services/skills/docs-search/SKILL.md",
+      "computedHash": "2738aea39237619ecf3db9f0889ecb228a8ddbc2c5b0add8d2de125480cafa9f"
+    },
+    "domain-mask": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/web/skills/domain-mask/SKILL.md",
+      "computedHash": "1fc0986d0942131cf0b848a429a6d9eeadb823d53ece2b042530ce12481d3086"
+    },
+    "ensure-agents-md": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/cloud-service/skills/ensure-agents-md/SKILL.md",
+      "computedHash": "cb2afb1f2101bb31f1e1ae23877703985c49bb3c14108d63ea89b154134c315c"
+    },
+    "extract": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/stardust/skills/extract/SKILL.md",
+      "computedHash": "e2afa40e8fdd6271b35343b1e8812ec9c5463a268f02ea7149b845313ba5b22c"
+    },
+    "find-test-content": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services/skills/find-test-content/SKILL.md",
+      "computedHash": "cd49b63067cecd85ddc16224ec15662518062757c14d9a69ae0da8871a5ed5f6"
+    },
+    "generate-import-html": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services/skills/generate-import-html/SKILL.md",
+      "computedHash": "49333550fa34f0e9cae88df2cdfb84ddbbd6b3058d07e469bf1206f514910cb6"
+    },
+    "geo-rewrite": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services-content-ops/skills/geo-rewrite/SKILL.md",
+      "computedHash": "b905866cc347f8a8c13cc86d8105de9df9f158b69f5c811dc672009efed1ac3e"
+    },
+    "handover": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/project-management/skills/handover/SKILL.md",
+      "computedHash": "e514617c55fee6628b9d13a98541d64d74d0cb3d188d73c3b2cb838d3dd436ac"
+    },
+    "handover-admin": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/project-management/skills/handover-admin/SKILL.md",
+      "computedHash": "06d2330b633d8b05c4403a75f74a0b4c01c1328f26ed2fff8d71a3a7cbf9359a"
+    },
+    "handover-author": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/project-management/skills/handover-author/SKILL.md",
+      "computedHash": "605307b33d489057dc91ff006a00846c19db29733e6227449d2af7576459980d"
+    },
+    "handover-developer": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/project-management/skills/handover-developer/SKILL.md",
+      "computedHash": "84bd177e6ef542fa394deba93fe1b6a671f8dc55a11e0a16582c48458f2c52b1"
+    },
+    "heading-optimizer": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services-content-ops/skills/heading-optimizer/SKILL.md",
+      "computedHash": "3bc790ce21d88675b6ce69b3346978d0b6269bc6a20adfbeef54d9b59bc6c0c8"
+    },
+    "identify-page-structure": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services/skills/identify-page-structure/SKILL.md",
+      "computedHash": "30b29a8d65db8aa729575d3f4df17c382c578f4b24507ac5691f80941b7343a5"
+    },
+    "image-seo": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services-content-ops/skills/image-seo/SKILL.md",
+      "computedHash": "6ab22ee5cc8530d36250cb12b3f1dfb10483f4e377e456e35e1606002fc3243c"
+    },
+    "internal-linking": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services-content-ops/skills/internal-linking/SKILL.md",
+      "computedHash": "0eb79111d1f53e945f8b8fc26e0adf01869a0ff87e1687ef2f09cbd1469bb899"
+    },
+    "link-rot-scanner": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services-content-ops/skills/link-rot-scanner/SKILL.md",
+      "computedHash": "bcf058d89c3ba0b2edd7f05b9bd78ebceec6e2e366934b173124843c35953468"
+    },
+    "migrate": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/stardust/skills/migrate/SKILL.md",
+      "computedHash": "a58666d1ef47d8ae6b34f00346125ebf329eca9d31413b1f1ad734b88c304e03"
+    },
+    "migration": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/cloud-service/skills/migration/SKILL.md",
+      "computedHash": "0dcde28089f9824a5b72fed414682af82727fee815a441648cac60d62634e1d4"
+    },
+    "ops": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/project-management/skills/ops/SKILL.md",
+      "computedHash": "9b1d768d40ae09348872508c3ff0808d394228b5e3088c73643fa2ed6253f452"
+    },
+    "page-collect": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/web/skills/page-collect/SKILL.md",
+      "computedHash": "fbfc558685c4fa6d3fbff8913312386f92ff42ff456a2ccd7c4fdd5b00ee0f89"
+    },
+    "page-decomposition": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services/skills/page-decomposition/SKILL.md",
+      "computedHash": "7ca3993138d3acad554970891f77fa3927ce03879e4a5b22561aabac0fab625f"
+    },
+    "page-import": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services/skills/page-import/SKILL.md",
+      "computedHash": "be9d91256b48ef601d25a3bb33861a2f70ce6dddf7d2dda0fb70e572bbcd47e4"
+    },
+    "page-langs": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/web/skills/page-langs/SKILL.md",
+      "computedHash": "0740c33e8e8c02746c4a52c152624a811054ffefbca071336bb2ed20846fe6cd"
+    },
+    "page-prep": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/web/skills/page-prep/SKILL.md",
+      "computedHash": "fbf5c70a57a21365b47c17c416cf26b7287d3d3ac85f4980059acda0b50adadb"
+    },
+    "page-reduce": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/web/skills/page-reduce/SKILL.md",
+      "computedHash": "1ddae7d37cd7f67252d8814d43f94110166b9532143c6eb6c3f36e6630cd5632"
+    },
+    "page-tree": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/web/skills/page-tree/SKILL.md",
+      "computedHash": "396275598e6124d0960552352087181479896af8def4a63240d1a8e3fe64f94e"
+    },
+    "prepare-migration": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/stardust/skills/prepare-migration/SKILL.md",
+      "computedHash": "f2240393d69b0d9ae81221df1d9e909f5672e572452f3751ddf4ae696f405bbc"
+    },
+    "preview-import": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services/skills/preview-import/SKILL.md",
+      "computedHash": "572e29bc186463a5ec5300422a6a1c3abe956a624e8eb05785e185f6b9b8e456"
+    },
+    "product-page-seo": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services-content-ops/skills/product-page-seo/SKILL.md",
+      "computedHash": "2e5188870bddd4b4d35b1f2b4da18ad8d5763a955b5eb31ecf3ced234e316427"
+    },
+    "prototype": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/stardust/skills/prototype/SKILL.md",
+      "computedHash": "ae3fc84db78a22abf627c9f16e434b90afbd65ad6bb5dff4e63090bb2df9649c"
+    },
+    "qa": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/stardust/skills/qa/SKILL.md",
+      "computedHash": "a60286f0c2c6b6ceb84c9b708bb2e66b9393d7351ebd4169751b51a6435c03b5"
+    },
+    "replica": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/stardust/skills/replica/SKILL.md",
+      "computedHash": "408ac81d980a8bacb60137c2f44969e633eb3a721ca0e5ff6d1930fb371f9072"
+    },
+    "reskin": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/stardust/skills/reskin/SKILL.md",
+      "computedHash": "84d8cd0d7f4d3f9a25a90ddfc2fbd1dceae1e9c4c434f0fe8de26bda8e0be1a8"
+    },
+    "rollout": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/stardust/skills/rollout/SKILL.md",
+      "computedHash": "8b48bd07638c811141a594a427b6c3b7d77fedf95cea3a52b486fbe3cbeaf8d9"
+    },
+    "run-featured-workflow": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/creative-cloud/run-workflow/skills/run-featured-workflow/SKILL.md",
+      "computedHash": "1482eef9865100f4ac7b4779199f567e8c9984b61ed062c63ced34eeb0fb6ddb"
+    },
+    "run-workflow": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/creative-cloud/run-workflow/skills/run-workflow/SKILL.md",
+      "computedHash": "4ea68ca46e3cd6fbc7c3b5378e5a32f95d3d2ce4dca2efa8b68cbfb801fbbafa"
+    },
+    "scrape-webpage": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services/skills/scrape-webpage/SKILL.md",
+      "computedHash": "73dbb6476017d225b7b7bb3c0be2e2a8b5c43ce83eb3e54a97b8bcc2cf5ba066"
+    },
+    "sitemap-audit": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services-content-ops/skills/sitemap-audit/SKILL.md",
+      "computedHash": "e08455d8f67896bf8ceed7aeecdf649a8de2ffd65b4faad60ae97f6d25c4447e"
+    },
+    "slicc-handoff": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services/skills/slicc-handoff/SKILL.md",
+      "computedHash": "27d86a4cd5168a2b0f1e0c083d3127dbb3d13d655ada7b32bd2091dddb82bfad"
+    },
+    "snowflake": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services/skills/snowflake/SKILL.md",
+      "computedHash": "da4a9dcaf3ba4b37a7bec7cd38df92f7d8a5fab5dfbd16740b1f1fa4cbcbabb2"
+    },
+    "stardust": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/stardust/skills/stardust/SKILL.md",
+      "computedHash": "4230d322cb35ec34b6dc281ef2f55a984f0d6cbf8169545a4da9ee4684b271b8"
+    },
+    "structured-data": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services-content-ops/skills/structured-data/SKILL.md",
+      "computedHash": "2e0084b21baf6ba5a90af69611cf6b06aa6c9596d66fb526f996e94b5b2b9b26"
+    },
+    "testing-blocks": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services/skills/testing-blocks/SKILL.md",
+      "computedHash": "fbbedf16a8ff8a49cb683fe5a002eb5bfda997af7afa70ab3292ce98b4839bdf"
+    },
+    "ue-component-model": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/edge-delivery-services/skills/ue-component-model/SKILL.md",
+      "computedHash": "fb8455657224edc7c77a037f692e6a48f93790583d42dae0426d9822b60de031"
+    },
+    "uplift": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/stardust/skills/uplift/SKILL.md",
+      "computedHash": "88ff50fb242830d31fcc7b5a9dbd4fefe27c9574bb91f6a48ce5e3c33f35a017"
+    },
+    "wf-planning-solution-architect": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/workfront/skills/wf-planning-solution-architect/SKILL.md",
+      "computedHash": "bbf3d480e4776d32a4fde9d8bf3dabd8c2da10117f701999baa853bd1dbca8a0"
+    },
+    "whitepaper": {
+      "source": "adobe/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/aem/project-management/skills/whitepaper/SKILL.md",
+      "computedHash": "f175c0bb31f622913ea49d9bf30432470e8704f5c56dc81d73c28c89f86f1df6"
+    }
+  }
+}

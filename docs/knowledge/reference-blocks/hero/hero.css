@@ -1,0 +1,420 @@
+/* Hero Block Styles */
+
+/* Mobile-first responsive design with basic CSS */
+
+/* ============================================================================
+   BLOCK CONTAINER
+   ============================================================================ */
+.hero {
+  display: flex;
+  flex-direction: column;
+  background-color: #fff;
+  color: #1a1a1a;
+  min-height: 100vh;
+  position: relative;
+}
+
+@media (width >= 768px) {
+  .hero {
+    flex-direction: row;
+    min-height: auto;
+    max-height: 600px;
+  }
+}
+
+@media (width >= 1024px) {
+  .hero {
+    max-height: 700px;
+  }
+}
+
+@media (width >= 1440px) {
+  .hero {
+    max-height: 800px;
+  }
+}
+
+/* ============================================================================
+   CONTENT AREA (Left side on desktop)
+   ============================================================================ */
+.hero-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 3rem;
+  flex: 1;
+  order: 2;
+}
+
+@media (width >= 768px) {
+  .hero-content {
+    order: 1;
+    padding: 4rem;
+    justify-content: center;
+  }
+}
+
+@media (width >= 1440px) {
+  .hero-content {
+    padding: 4rem 4rem 4rem 5rem;
+  }
+}
+
+/* ============================================================================
+   EYEBROW / TAGLINE
+   ============================================================================ */
+.hero-eyebrow {
+  font-size: 0.75rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #4a4a4a;
+  margin: 0 0 1.5rem;
+  line-height: 1.2;
+}
+
+.hero-eyebrow strong {
+  font-weight: 700;
+}
+
+.hero-eyebrow em {
+  font-style: italic;
+}
+
+@media (width >= 768px) {
+  .hero-eyebrow {
+    margin-bottom: 2rem;
+  }
+}
+
+/* ============================================================================
+   HEADLINE
+   ============================================================================ */
+.hero-headline {
+  font-family: Georgia, serif;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0 0 2rem;
+  color: #1a1a1a;
+}
+
+@media (width >= 768px) {
+  .hero-headline {
+    font-size: 2.25rem;
+    margin-bottom: 3rem;
+  }
+}
+
+@media (width >= 1024px) {
+  .hero-headline {
+    font-size: 3rem;
+  }
+}
+
+.hero-headline-emphasis {
+  font-weight: 700;
+  display: block;
+  font-size: 1.15em;
+}
+
+/* ============================================================================
+   DESCRIPTION / BODY TEXT
+   ============================================================================ */
+.hero-description {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: #4a4a4a;
+  margin: 0 0 3rem;
+  max-width: 500px;
+}
+
+@media (width >= 768px) {
+  .hero-description {
+    margin-bottom: 3rem;
+  }
+}
+
+/* ============================================================================
+   DISCLAIMER
+   ============================================================================ */
+.hero-disclaimer {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #4a4a4a;
+  margin: 0;
+  max-width: 450px;
+  position: absolute;
+  bottom: 1.5rem;
+  left: 3rem;
+}
+
+@media (width >= 768px) {
+  .hero-disclaimer {
+    position: static;
+    margin-top: 3rem;
+  }
+}
+
+/* ============================================================================
+   CTA FORM SECTION
+   ============================================================================ */
+.hero-cta-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 3rem 0 0;
+}
+
+@media (width >= 768px) {
+  .hero-cta-section {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 1.5rem;
+    margin-top: 2rem;
+  }
+}
+
+/* ============================================================================
+   LOCATION INPUT
+   ============================================================================ */
+.hero-location-input {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (width >= 768px) {
+  .hero-location-input {
+    max-width: 200px;
+  }
+}
+
+@media (width >= 1024px) {
+  .hero-location-input {
+    max-width: 250px;
+  }
+}
+
+.hero-location-input input {
+  width: 100%;
+  padding: 1rem 1.5rem;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+  background-color: #fff;
+  color: #1a1a1a;
+  transition: border-color 0.2s ease-in-out;
+}
+
+.hero-location-input input::placeholder {
+  color: #4a4a4a;
+  opacity: 0.7;
+}
+
+.hero-location-input input:focus {
+  outline: none;
+  border-color: #000;
+  box-shadow: 0 0 0 3px rgb(0 0 0 / 10%);
+}
+
+/* ============================================================================
+   CTA BUTTON
+   ============================================================================ */
+.hero-cta-button {
+  padding: 1rem 3rem;
+  background-color: #000;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.hero-cta-button:hover {
+  background-color: #2a2a2a;
+}
+
+.hero-cta-button:active {
+  transform: scale(0.98);
+}
+
+.hero-cta-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (width >= 768px) {
+  .hero-cta-button {
+    align-self: flex-start;
+  }
+}
+
+/* ============================================================================
+   IMAGE AREA (Right side on desktop)
+   ============================================================================ */
+.hero-image-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  order: 1;
+  background-color: #f5f5f5;
+  min-height: 400px;
+  overflow: hidden;
+}
+
+@media (width >= 768px) {
+  .hero-image-wrapper {
+    order: 2;
+    min-height: 600px;
+  }
+}
+
+@media (width >= 1024px) {
+  .hero-image-wrapper {
+    min-height: 700px;
+  }
+}
+
+@media (width >= 1440px) {
+  .hero-image-wrapper {
+    min-height: 800px;
+  }
+}
+
+.hero-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+/* ============================================================================
+   RESPONSIVE IMAGE HANDLING
+   ============================================================================ */
+.hero-image-mobile {
+  display: block;
+}
+
+@media (width >= 768px) {
+  .hero-image-mobile {
+    display: none;
+  }
+}
+
+.hero-image-desktop {
+  display: none;
+}
+
+@media (width >= 768px) {
+  .hero-image-desktop {
+    display: block;
+  }
+}
+
+/* ============================================================================
+   STYLE VARIANTS
+   ============================================================================ */
+
+/* Dark Theme Variant */
+.hero.dark {
+  background-color: #1a1a1a;
+  color: #fff;
+}
+
+.hero.dark .hero-image-wrapper {
+  background-color: #2a2a2a;
+}
+
+.hero.dark .hero-cta-button {
+  background-color: #fff;
+  color: #1a1a1a;
+}
+
+.hero.dark .hero-cta-button:hover {
+  background-color: #f0f0f0;
+  color: #1a1a1a;
+}
+
+.hero.dark .hero-location-input input {
+  background-color: #2a2a2a;
+  color: #fff;
+}
+
+.hero.dark .hero-location-input input::placeholder {
+  color: #999;
+}
+
+/* Light Theme Variant */
+.hero.light {
+  background-color: #fff;
+  color: #1a1a1a;
+}
+
+.hero.light .hero-cta-button {
+  background-color: #06c;
+}
+
+.hero.light .hero-cta-button:hover {
+  background-color: #0052a3;
+}
+
+/* Gradient Background Variant */
+.hero.gradient {
+  background: linear-gradient(135deg, #faf8f5 0%, #f5f5f5 100%);
+}
+
+.hero.gradient .hero-content {
+  background: linear-gradient(135deg, rgb(255 255 255 / 90%) 0%, rgb(245 245 245 / 90%) 100%);
+}
+
+/* ============================================================================
+   ACCESSIBILITY & UTILITY
+   ============================================================================ */
+.hero-hidden {
+  display: none;
+}
+
+.hero-visible {
+  display: block;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .hero-cta-button {
+    transition: none;
+  }
+
+  .hero-cta-button:active {
+    transform: none;
+  }
+
+  .hero-location-input input {
+    transition: none;
+  }
+}
+
+/* Print styles */
+@media print {
+  .hero {
+    min-height: auto;
+    max-height: none;
+    break-inside: avoid;
+  }
+
+  .hero-cta-button {
+    display: none;
+  }
+}

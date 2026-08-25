@@ -4,18 +4,21 @@ import com.adobe.aem.modernizer.ai.ChatRequest;
 import com.adobe.aem.modernizer.ai.ChatResponse;
 import com.adobe.aem.modernizer.ai.TokenUsage;
 import com.adobe.aem.modernizer.util.JsonUtil;
-import okhttp3.*;
 
-import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Google Gemini Provider implementation.
  */
 public class GeminiProvider implements AiProvider {
 
-    private final OkHttpClient httpClient;
+    private final HttpClient httpClient;
     private final String baseUrl;
 
     public GeminiProvider() {
@@ -24,9 +27,8 @@ public class GeminiProvider implements AiProvider {
 
     public GeminiProvider(String baseUrl) {
         this.baseUrl = baseUrl;
-        this.httpClient = new OkHttpClient.Builder()
-                .connectTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(60, TimeUnit.SECONDS)
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(30))
                 .build();
     }
 
@@ -61,29 +63,35 @@ public class GeminiProvider implements AiProvider {
         String jsonBody = JsonUtil.toJson(bodyMap);
         String url = baseUrl + "/models/" + targetModel + ":generateContent?key=" + apiKey;
 
-        Request httpRequest = new Request.Builder()
-                .url(url)
+        HttpRequest httpRequest = HttpRequest.newBuilder()
+                .uri(URI.create(url))
                 .header("Content-Type", "application/json")
-                .post(RequestBody.create(jsonBody, MediaType.get("application/json")))
+                .timeout(Duration.ofSeconds(60))
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
                 .build();
 
-        try (Response httpResponse = httpClient.newCall(httpRequest).execute()) {
-            if (!httpResponse.isSuccessful()) {
-                String errBody = httpResponse.body() != null ? httpResponse.body().string() : "";
-                throw new AiProviderException("Gemini HTTP " + httpResponse.code() + ": " + errBody);
+        try {
+            HttpResponse<String> httpResponse = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (httpResponse.statusCode() < 200 || httpResponse.statusCode() >= 300) {
+                String errBody = httpResponse.body() != null ? httpResponse.body() : "";
+                throw new AiProviderException("Gemini HTTP " + httpResponse.statusCode() + ": " + errBody);
             }
-            String respBody = httpResponse.body() != null ? httpResponse.body().string() : "{}";
+            String respBody = httpResponse.body() != null ? httpResponse.body() : "{}";
             Map<?, ?> parsed = JsonUtil.fromJson(respBody, Map.class);
-            List<?> candidates = (List<?>) parsed.get("candidates");
+            List<?> candidates = (parsed != null && parsed.get("candidates") instanceof List)
+                    ? (List<?>) parsed.get("candidates") : null;
             String resultText = "";
             if (candidates != null && !candidates.isEmpty()) {
                 Map<?, ?> firstCand = (Map<?, ?>) candidates.get(0);
-                Map<?, ?> c = (Map<?, ?>) firstCand.get("content");
+                Map<?, ?> c = (firstCand != null && firstCand.get("content") instanceof Map)
+                        ? (Map<?, ?>) firstCand.get("content") : null;
                 if (c != null) {
-                    List<?> parts = (List<?>) c.get("parts");
+                    List<?> parts = (c.get("parts") instanceof List) ? (List<?>) c.get("parts") : null;
                     if (parts != null && !parts.isEmpty()) {
-                        Map<?, ?> p = (Map<?, ?>) parts.get(0);
-                        resultText = (String) p.get("text");
+                        Map<?, ?> p = (parts.get(0) instanceof Map) ? (Map<?, ?>) parts.get(0) : null;
+                        if (p != null && p.get("text") instanceof String) {
+                            resultText = (String) p.get("text");
+                        }
                     }
                 }
             }
@@ -91,7 +99,7 @@ public class GeminiProvider implements AiProvider {
             ChatResponse response = new ChatResponse(resultText, "gemini", targetModel);
             response.setTokenUsage(new TokenUsage(64, 64));
             return response;
-        } catch (IOException e) {
+        } catch (Exception e) {
             throw new AiProviderException("Gemini request failed: " + e.getMessage(), e);
         }
     }

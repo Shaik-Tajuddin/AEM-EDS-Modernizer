@@ -228,7 +228,10 @@ class ProvidersAndComprehensiveCoverageTest {
 
         // Migration Run
         JobRecord migJob = orchestrator.runMigration(proj, "operator");
-        assertThat(migJob.getState()).isEqualTo("COMPLETED");
+        assertThat(migJob.getState()).isIn("READY_TO_PUBLISH", "COMPLETED");
+
+        JobRecord pushJob = orchestrator.pushToGitHub(proj, "operator");
+        assertThat(pushJob.getState()).isEqualTo("COMPLETED");
 
         // Null checks
         assertThatThrownBy(() -> orchestrator.runDryRun(null, "admin"))

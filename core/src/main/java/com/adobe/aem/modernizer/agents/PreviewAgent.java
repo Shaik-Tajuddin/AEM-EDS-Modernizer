@@ -61,10 +61,13 @@ public class PreviewAgent implements Agent {
         LOG.info("PreviewAgent pushing generated files to branch: {}", branch);
 
         if (gitHub != null) {
-            gitHub.createBranch(branch);
+            GitHubClient gh = (gitHub instanceof com.adobe.aem.modernizer.connectors.RealGitHubClient && ctx.getProject() != null)
+                    ? ((com.adobe.aem.modernizer.connectors.RealGitHubClient) gitHub).forProject(ctx.getProject())
+                    : gitHub;
+            gh.createBranch(branch);
             List<GeneratedFileRecord> files = (store != null) ? store.getGeneratedFiles(ctx.getJob().getId()) : null;
             if (files != null && !files.isEmpty()) {
-                gitHub.commitFiles(branch, files, "feat: modernizer automated migration preview");
+                gh.commitFiles(branch, files, "feat: modernizer automated migration preview");
             }
         }
 

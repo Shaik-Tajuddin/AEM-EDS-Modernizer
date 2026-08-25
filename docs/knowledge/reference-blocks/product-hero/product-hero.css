@@ -1,0 +1,147 @@
+/* Product Hero Block — basic CSS, no variables, no SCSS */
+
+.product-hero {
+  position: relative;
+  background: linear-gradient(135deg, #5a6896 0%, #8b95c1 50%, #6b7aa1 100%);
+  overflow: hidden;
+  min-height: 400px;
+}
+
+.product-hero-inner {
+  display: flex;
+  align-items: center;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  min-height: 400px;
+}
+
+/* ---- Image section ---- */
+.product-hero-image {
+  flex: 1 1 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.product-hero-image picture,
+.product-hero-image img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ---- Content section ---- */
+.product-hero-content {
+  flex: 1 1 50%;
+  padding: 2rem 1rem 2rem 3rem;
+  color: #ffffff;
+}
+
+.product-hero-heading {
+  margin-bottom: 0.5rem;
+}
+
+.product-hero-heading h1,
+.product-hero-heading h2,
+.product-hero-heading p {
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #ffffff;
+  margin: 0;
+}
+
+.product-hero-subheading {
+  margin-bottom: 2rem;
+}
+
+.product-hero-subheading h2,
+.product-hero-subheading h3,
+.product-hero-subheading p {
+  font-size: 2.25rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #ffffff;
+  margin: 0;
+}
+
+/* ---- CTA buttons ---- */
+.product-hero-cta {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.product-hero-cta-primary {
+  display: inline-block;
+  padding: 0.625rem 1.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 24px;
+  background: transparent;
+  color: #ffffff;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.2s, border-color 0.2s;
+  cursor: pointer;
+}
+
+.product-hero-cta-primary:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: #ffffff;
+}
+
+.product-hero-cta-secondary {
+  display: inline-block;
+  padding: 0.625rem 0;
+  color: #ffffff;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+
+.product-hero-cta-secondary:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* ---- Responsive: stack on mobile ---- */
+@media (max-width: 767px) {
+  .product-hero-inner {
+    flex-direction: column;
+    text-align: center;
+    padding: 1.5rem 1rem;
+    min-height: auto;
+  }
+
+  .product-hero-image {
+    flex: none;
+    width: 100%;
+    margin-bottom: 1.5rem;
+  }
+
+  .product-hero-content {
+    padding: 0;
+    flex: none;
+    width: 100%;
+  }
+
+  .product-hero-heading h1,
+  .product-hero-heading h2,
+  .product-hero-heading p {
+    font-size: 2rem;
+  }
+
+  .product-hero-subheading h2,
+  .product-hero-subheading h3,
+  .product-hero-subheading p {
+    font-size: 1.5rem;
+  }
+
+  .product-hero-cta {
+    justify-content: center;
+  }
+}

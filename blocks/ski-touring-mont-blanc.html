@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ski Touring Mont Blanc | WKND Adventures</title>
+    <link rel="stylesheet" href="/styles/styles.css" />
+    <link rel="stylesheet" href="/blocks/breadcrumb/breadcrumb.css" />
+    <link rel="stylesheet" href="/blocks/carousel/carousel.css" />
+    <link rel="stylesheet" href="/blocks/tabs/tabs.css" />
+    <link rel="stylesheet" href="/blocks/cards/cards.css" />
+    <link rel="stylesheet" href="/blocks/hero/hero.css" />
+    <style>
+      :root {
+        --color-primary: #f97316;
+        --color-primary-hover: #ea580c;
+        --color-dark: #0f172a;
+        --color-text: #334155;
+        --color-bg-light: #f8fafc;
+        --color-border: #e2e8f0;
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        color: var(--color-text);
+        background: #ffffff;
+        line-height: 1.6;
+      }
+      main {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 24px 20px 80px;
+      }
+      .page-banner {
+        background: #0f172a;
+        color: #fff;
+        padding: 12px 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.85rem;
+      }
+      .page-banner a { color: #38bdf8; text-decoration: none; font-weight: 600; }
+      .adventure-layout {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 40px;
+        margin-top: 24px;
+      }
+      @media (min-width: 900px) {
+        .adventure-layout {
+          grid-template-columns: 2fr 1fr;
+        }
+      }
+      /* EDS Block Table simulation for DA representation */
+      .da-block-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 24px 0;
+        border: 2px solid #0284c7;
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .da-block-table th {
+        background: #0284c7;
+        color: #ffffff;
+        font-weight: 700;
+        text-align: left;
+        padding: 10px 16px;
+        font-size: 0.95rem;
+      }
+      .da-block-table td {
+        border-top: 1px solid #e0f2fe;
+        padding: 12px 16px;
+        background: #f0f9ff;
+        font-size: 0.9rem;
+      }
+      /* Rendered block preview styles */
+      .rendered-preview-box {
+        border: 1px solid var(--color-border);
+        border-radius: 10px;
+        padding: 24px;
+        background: #ffffff;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+        margin-bottom: 30px;
+      }
+      .section-tag {
+        display: inline-block;
+        background: #e0e7ff;
+        color: #3730a3;
+        font-weight: 700;
+        font-size: 0.75rem;
+        padding: 4px 10px;
+        border-radius: 4px;
+        margin-bottom: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .itinerary-day {
+        margin-bottom: 20px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #f1f5f9;
+      }
+      .itinerary-day h4 {
+        margin: 0 0 6px;
+        color: var(--color-dark);
+        font-size: 1.05rem;
+      }
+      .sidebar-card {
+        background: var(--color-bg-light);
+        border: 1px solid var(--color-border);
+        border-radius: 8px;
+        padding: 24px;
+        position: sticky;
+        top: 20px;
+      }
+      .sidebar-card h3 {
+        margin-top: 0;
+        font-size: 1.3rem;
+        color: var(--color-dark);
+      }
+      .spec-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px dashed #cbd5e1;
+        font-size: 0.95rem;
+      }
+      .spec-label { font-weight: 600; color: #475569; }
+      .spec-value { font-weight: 700; color: #0f172a; }
+      .btn-book {
+        display: block;
+        width: 100%;
+        text-align: center;
+        background: #f97316;
+        color: #ffffff;
+        padding: 14px;
+        border-radius: 6px;
+        font-weight: 700;
+        font-size: 1rem;
+        text-decoration: none;
+        margin-top: 20px;
+        box-sizing: border-box;
+      }
+      .tab-header-demo {
+        display: flex;
+        gap: 12px;
+        border-bottom: 2px solid #e2e8f0;
+        margin-bottom: 20px;
+      }
+      .tab-btn-demo {
+        padding: 10px 18px;
+        font-weight: 700;
+        color: #64748b;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+      }
+      .tab-btn-demo.active {
+        color: #0284c7;
+        border-color: #0284c7;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="page-banner">
+      <div><strong>AEM-EDS Modernizer</strong> &mdash; Canonical Authoring & Delivery Representation</div>
+      <div>Source: <code>/content/wknd/language-masters/en/adventures/ski-touring-mont-blanc</code></div>
+    </header>
+
+    <main>
+      <!-- Section 1: Breadcrumb Block -->
+      <section>
+        <div class="breadcrumb">
+          <div>
+            <div><a href="/en">Home</a> &gt; <a href="/en/adventures">Adventures</a> &gt; <span>Ski Touring Mont Blanc</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: Carousel Hero Block -->
+      <section style="margin: 20px 0;">
+        <div class="carousel">
+          <div>
+            <div>
+              <picture>
+                <img src="http://localhost:4502/content/dam/wknd-shared/en/adventures/ski-touring-mont-blanc/adobestock-238230356.jpeg" alt="Ski touring over glacier" style="width:100%; height:450px; object-fit:cover; border-radius:10px;" />
+              </picture>
+            </div>
+            <div>
+              <h3>Glacier Traverse at Mont Blanc</h3>
+              <p>Experience pristine powder and high-alpine ridges in the French Alps.</p>
+            </div>
+          </div>
+          <div>
+            <div>
+              <picture>
+                <img src="http://localhost:4502/content/dam/wknd-shared/en/adventures/ski-touring-mont-blanc/adobestock-21422513.jpeg" alt="Col du Passon descent" style="width:100%; height:450px; object-fit:cover; border-radius:10px;" />
+              </picture>
+            </div>
+            <div>
+              <h3>Col du Passon Descent</h3>
+              <p>A thrilling 4-hour ski tour from the Argentiere hut.</p>
+            </div>
+          </div>
+          <div>
+            <div>
+              <picture>
+                <img src="http://localhost:4502/content/dam/wknd-shared/en/adventures/ski-touring-mont-blanc/adobestock-291339093.jpeg" alt="Grand Mulets refuge ascent" style="width:100%; height:450px; object-fit:cover; border-radius:10px;" />
+              </picture>
+            </div>
+            <div>
+              <h3>Summit Ascent to Grands Mulets</h3>
+              <p>High altitude ski mountaineering at 3,051 meters.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3: Adventure Title & 2-Column Content Layout -->
+      <div class="adventure-layout">
+        <!-- Left: Main Content (Tabs: Overview, Itinerary, What to Bring) -->
+        <div>
+          <h1 style="font-size:2.4rem; color:#0f172a; margin-bottom:8px; line-height:1.2;">Ski Touring Mont Blanc</h1>
+          <p style="color:#64748b; font-size:1.1rem; margin-top:0;">Chamonix, Haute-Savoie, France</p>
+
+          <!-- Tabs Block (Authored in DA as Table / Div Block) -->
+          <div class="tabs" style="margin-top:28px;">
+            <div class="tab-header-demo">
+              <div class="tab-btn-demo active">Overview</div>
+              <div class="tab-btn-demo">Itinerary</div>
+              <div class="tab-btn-demo">What to Bring</div>
+            </div>
+
+            <!-- Tab 1: Overview Panel -->
+            <div class="rendered-preview-box">
+              <span class="section-tag">Overview</span>
+              <p>The Mont Blanc massif is the ultimate ski touring destination in Europe. With soaring granite spires and vast, heavily glaciated terrain, Chamonix is the spiritual home of steep skiing and grand high-mountain traverses.</p>
+              <p>On this five-day expedition, you will traverse iconic glaciers, conquer demanding ascents on skins, and descend legendary couloirs under the supervision of certified IFMGA mountain guides.</p>
+              
+              <h3 style="margin-top:24px; color:#0f172a;">Highlights</h3>
+              <ul>
+                <li>High alpine ski touring through the heart of the Mont Blanc range</li>
+                <li>Overnight stays in historic mountain huts (Argentière and Grand Mulets)</li>
+                <li>Comprehensive avalanche safety and crevasse rescue coaching</li>
+                <li>Unrivaled 2,000m vertical powder descents to the valley floor</li>
+              </ul>
+            </div>
+
+            <!-- Tab 2: Itinerary Panel -->
+            <div class="rendered-preview-box">
+              <span class="section-tag">Itinerary</span>
+              
+              <div class="itinerary-day">
+                <h4>Day 1: Arrival in Chamonix</h4>
+                <p>Meet our lead mountain guides at the chalet in Chamonix in the afternoon. Comprehensive briefing on weather forecasts, snowpack stability, route logistics, avalanche transceiver testing, and mandatory gear checks.</p>
+              </div>
+
+              <div class="itinerary-day">
+                <h4>Day 2: Grands Montets Warm-up & Avalanche Rescue Drill</h4>
+                <p>Ascent via Grands Montets cable car to test touring gear on steep glaciated terrain. Afternoon workshop on companion rescue, beacon searches, probe technique, and snow pit analysis.</p>
+              </div>
+
+              <div class="itinerary-day">
+                <h4>Day 3: Col du Tour Noir Traverse</h4>
+                <p>Depart from the Argentière hut across Glacier des Améthystes toward Col du Tour Noir (3,535m). Spectacular 4-hour skinning ascent followed by an exhilarating glacier descent.</p>
+              </div>
+
+              <div class="itinerary-day">
+                <h4>Day 4: Col du Passon & Descent to Le Tour</h4>
+                <p>Early alpine start over the Col du Passon with crampons and ice axes over the summit couloir. A 1,500m untracked descent into the scenic village of Le Tour.</p>
+              </div>
+
+              <div class="itinerary-day">
+                <h4>Day 5: Grand Mulets Ascent & Valley Return</h4>
+                <p>Aiguille du Midi cable car to the Grand Mulets refuge route. High altitude touring with panoramic vistas across the Bossons glacier before returning to Chamonix for celebratory dinner.</p>
+              </div>
+            </div>
+
+            <!-- Tab 3: What to Bring Panel -->
+            <div class="rendered-preview-box">
+              <span class="section-tag">What to Bring</span>
+              <p>When selecting clothing and technical gear for Mont Blanc ski touring, prioritize <strong>lightweight, breathable, and weather-proof</strong> layers:</p>
+              
+              <h4>Technical Gear</h4>
+              <ul>
+                <li>All-mountain touring skis with pin/tech bindings and fitted skins</li>
+                <li>Ski touring boots with walk-mode articulation</li>
+                <li>3-antenna digital avalanche transceiver, 240cm+ probe, and metal shovel</li>
+                <li>Lightweight alpine harness, 2 locking carabiners, and ice axe</li>
+                <li>Boot crampons compatible with your touring boots</li>
+              </ul>
+
+              <h4>Apparel & Layering</h4>
+              <ul>
+                <li>3-Layer Gore-Tex waterproof breathable shell jacket and pants</li>
+                <li>Packable 800-fill down or Primaloft insulation jacket</li>
+                <li>Merino wool base layers (top and bottoms)</li>
+                <li>Two pairs of gloves (lightweight touring gloves + waterproof alpine mittens)</li>
+                <li>Cat 3/4 glacier sunglasses and anti-fog ski goggles</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Adventure Details Sidebar Card -->
+        <div>
+          <div class="sidebar-card">
+            <h3>Adventure Details</h3>
+            
+            <div class="spec-item">
+              <span class="spec-label">Activity</span>
+              <span class="spec-value">Ski Touring</span>
+            </div>
+            
+            <div class="spec-item">
+              <span class="spec-label">Adventure Type</span>
+              <span class="spec-value">Glacier Expedition</span>
+            </div>
+
+            <div class="spec-item">
+              <span class="spec-label">Trip Length</span>
+              <span class="spec-value">5 Days / 4 Nights</span>
+            </div>
+
+            <div class="spec-item">
+              <span class="spec-label">Difficulty</span>
+              <span class="spec-value" style="color:#ea580c;">Advanced (Level 4)</span>
+            </div>
+
+            <div class="spec-item">
+              <span class="spec-label">Group Size</span>
+              <span class="spec-value">4 &ndash; 6 Persons</span>
+            </div>
+
+            <div class="spec-item" style="border-bottom:none; margin-top:10px;">
+              <span class="spec-label" style="font-size:1.1rem;">Price</span>
+              <span class="spec-value" style="font-size:1.4rem; color:#0f172a;">$1,200 <small style="font-size:0.8rem; color:#64748b;">USD</small></span>
+            </div>
+
+            <a href="#book" class="btn-book">Book This Adventure</a>
+            <p style="text-align:center; margin:12px 0 0; font-size:0.8rem; color:#64748b;">Includes IFMGA mountain guide & hut lodging</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 4: Document Authoring (DA) Table Reference -->
+      <section style="margin-top:60px; padding-top:30px; border-top:2px solid #e2e8f0;">
+        <h2 style="color:#0f172a;">Document Authoring (DA) Canonical Markup Spec</h2>
+        <p>In Document Authoring (Word / Google Docs / DA HTML), this entire page is structured into clean tabular block sections:</p>
+
+        <table class="da-block-table">
+          <thead><tr><th colspan="2">Breadcrumb</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><code>/en/adventures</code></td>
+              <td>Ski Touring Mont Blanc</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <table class="da-block-table">
+          <thead><tr><th colspan="2">Carousel</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><img src="http://localhost:4502/content/dam/wknd-shared/en/adventures/ski-touring-mont-blanc/adobestock-238230356.jpeg" width="120" /></td>
+              <td><h3>Glacier Traverse</h3><p>Traverse high-alpine ridges in the French Alps.</p></td>
+            </tr>
+            <tr>
+              <td><img src="http://localhost:4502/content/dam/wknd-shared/en/adventures/ski-touring-mont-blanc/adobestock-21422513.jpeg" width="120" /></td>
+              <td><h3>Col du Passon</h3><p>A thrilling 4-hour ski tour from Argentiere.</p></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <table class="da-block-table">
+          <thead><tr><th colspan="2">Tabs</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Overview</td>
+              <td><p>The Mont Blanc massif is the ultimate ski touring destination...</p></td>
+            </tr>
+            <tr>
+              <td>Itinerary</td>
+              <td><p>Day 1: Arrive in Chamonix... Day 2: Grands Montets...</p></td>
+            </tr>
+            <tr>
+              <td>What to Bring</td>
+              <td><p>Technical gear: Touring skis, boots, beacon, shovel, probe...</p></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <table class="da-block-table">
+          <thead><tr><th colspan="2">Section Metadata</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>style</td>
+              <td>adventure-detail-layout</td>
+            </tr>
+            <tr>
+              <td>activity</td>
+              <td>Skiing</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+  </body>
+</html>

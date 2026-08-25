@@ -22,8 +22,11 @@ import java.io.IOException;
 /**
  * Servlet for triggering Modernizer Dry Runs (Discovery, Analysis, Estimation).
  */
-@Component(service = Servlet.class, immediate = true)
-@SlingServletPaths(value = {"/bin/aem-eds-modernizer/dryrun"})
+@Component(service = Servlet.class, immediate = true, property = {
+    "sling.servlet.paths=/bin/aem-eds-modernizer/dryrun",
+    "sling.servlet.methods=GET",
+    "sling.servlet.methods=POST"
+})
 public class DryRunServlet extends SlingAllMethodsServlet {
 
     private static final Logger LOG = LoggerFactory.getLogger(DryRunServlet.class);
@@ -39,6 +42,11 @@ public class DryRunServlet extends SlingAllMethodsServlet {
     public DryRunServlet() {
         this.store = null;
         this.orchestrator = null;
+    }
+
+    @Override
+    public void doGet(SlingHttpServletRequest request, SlingHttpServletResponse response) throws IOException {
+        doPost(request, response);
     }
 
     @Override

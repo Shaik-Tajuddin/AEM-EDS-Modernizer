@@ -45,24 +45,102 @@ public class CodeGenerationAgent implements Agent {
 
         LOG.info("CodeGenerationAgent generating styles and configuration");
 
+        int aiCallCount = 0;
         for (SiteInventory.ComponentInfo comp : inv.getComponents()) {
             String blockName = comp.getProposedEdsBlock() != null
-                    ? comp.getProposedEdsBlock()
-                    : comp.getResourceType().substring(comp.getResourceType().lastIndexOf('/') + 1);
+                    ? comp.getProposedEdsBlock().toLowerCase().replace(' ', '-')
+                    : comp.getResourceType().substring(comp.getResourceType().lastIndexOf('/') + 1).toLowerCase().replace(' ', '-');
 
-            String cssContent = "." + blockName + " {\n"
+            String cssContent = "/* " + blockName + " — scoped mobile-first styles */\n"
+                    + "." + blockName + " {\n"
                     + "  display: block;\n"
-                    + "  padding: var(--spacing-unit, 16px);\n"
-                    + "  background: var(--color-bg, #ffffff);\n"
-                    + "  color: var(--color-text, #222222);\n"
+                    + "  padding: var(--space-s, 16px);\n"
+                    + "  background: var(--color-base-background, #ffffff);\n"
+                    + "  color: var(--color-base-text, #1e293b);\n"
+                    + "  border-radius: 8px;\n"
+                    + "}\n\n"
+                    + "." + blockName + "-inner {\n"
+                    + "  display: flex;\n"
+                    + "  flex-direction: column;\n"
+                    + "  gap: var(--space-s, 14px);\n"
+                    + "}\n\n"
+                    + "." + blockName + "-title h2,\n"
+                    + "." + blockName + "-title p {\n"
+                    + "  font-size: 1.5rem;\n"
+                    + "  font-weight: 700;\n"
+                    + "  color: var(--color-heading, #0f172a);\n"
+                    + "  line-height: 1.25;\n"
+                    + "}\n\n"
+                    + "." + blockName + "-text p {\n"
+                    + "  font-size: 1rem;\n"
+                    + "  line-height: 1.6;\n"
+                    + "  color: var(--color-text-secondary, #475569);\n"
+                    + "}\n\n"
+                    + "." + blockName + "-cta .brand-cta {\n"
+                    + "  display: inline-flex;\n"
+                    + "  align-items: center;\n"
+                    + "  gap: 8px;\n"
+                    + "  padding: 10px 20px;\n"
+                    + "  background: var(--color-primary, #38bdf8);\n"
+                    + "  color: #090d16;\n"
+                    + "  text-decoration: none;\n"
+                    + "  border-radius: 6px;\n"
+                    + "  font-weight: 600;\n"
+                    + "  font-size: 0.9rem;\n"
+                    + "  transition: all 0.2s ease;\n"
+                    + "}\n\n"
+                    + "." + blockName + "-cta .brand-cta:hover {\n"
+                    + "  background: var(--color-primary-hover, #0ea5e9);\n"
+                    + "  transform: translateY(-1px);\n"
+                    + "}\n\n"
+                    + "." + blockName + "." + blockName + "-align-center {\n"
+                    + "  text-align: center;\n"
+                    + "}\n"
+                    + "." + blockName + "." + blockName + "-align-center ." + blockName + "-cta {\n"
+                    + "  display: flex;\n"
+                    + "  justify-content: center;\n"
+                    + "}\n\n"
+                    + "." + blockName + "." + blockName + "-align-right {\n"
+                    + "  text-align: right;\n"
+                    + "}\n"
+                    + "." + blockName + "." + blockName + "-align-right ." + blockName + "-cta {\n"
+                    + "  display: flex;\n"
+                    + "  justify-content: flex-end;\n"
+                    + "}\n\n"
+                    + "." + blockName + "." + blockName + "-tone-emphasis {\n"
+                    + "  background-color: var(--color-surface-emphasis, #f0f9ff);\n"
+                    + "  border: 1px solid rgba(56, 189, 248, 0.35);\n"
+                    + "}\n\n"
+                    + "@media (min-width: 768px) {\n"
+                    + "  ." + blockName + " {\n"
+                    + "    padding: var(--space-m, 24px);\n"
+                    + "  }\n"
+                    + "}\n\n"
+                    + "@media (prefers-reduced-motion: reduce) {\n"
+                    + "  ." + blockName + " * {\n"
+                    + "    transition: none !important;\n"
+                    + "  }\n"
+                    + "}\n\n"
+                    + "@media print {\n"
+                    + "  ." + blockName + " {\n"
+                    + "    page-break-inside: avoid;\n"
+                    + "  }\n"
                     + "}\n";
 
-            if (ai != null) {
+            if (ai != null && aiCallCount++ < 1) {
                 ChatRequest req = new ChatRequest(getName(), "Generate CSS styles for EDS block: " + blockName);
                 req.setTargetCapability(ModelCapability.CAP_CODE);
-                ChatResponse resp = ai.dispatch(req);
-                if (resp.getContent() != null && !resp.getContent().trim().isEmpty()) {
-                    cssContent = resp.getContent();
+                req.setPreferredProvider(ctx.getProject().getAiProvider());
+                req.setPreferredModel(ctx.getProject().getAiModel());
+                req.setProjectId(ctx.getProject().getId());
+                req.setJobId(ctx.getJob().getId());
+                try {
+                    ChatResponse resp = ai.dispatch(req);
+                    if (resp.getContent() != null && resp.getContent().contains("." + blockName)) {
+                        cssContent = resp.getContent();
+                    }
+                } catch (Exception e) {
+                    LOG.debug("AI CSS generation fallback for {}: {}", blockName, e.getMessage());
                 }
             }
 
@@ -78,6 +156,10 @@ public class CodeGenerationAgent implements Agent {
 
             if (store != null) {
                 store.saveGeneratedFile(file);
+            }
+
+            if (!ctx.isDryRun()) {
+                writeLocalFile("blocks/" + blockName + "/" + blockName + ".css", cssContent);
             }
         }
 
@@ -104,6 +186,35 @@ public class CodeGenerationAgent implements Agent {
                     getName(),
                     "Generated CSS stylesheets and fstab.yaml configuration files."
             ));
+        }
+    }
+
+    private void writeLocalFile(String relPath, String content) {
+        try {
+            java.io.File target = null;
+            String[] candidateRoots = new String[] {
+                "D:/eds personal/AEM-EDS-Modernizer",
+                "d:/eds personal/AEM-EDS-Modernizer",
+                System.getProperty("user.dir")
+            };
+            for (String root : candidateRoots) {
+                java.io.File dir = new java.io.File(root);
+                if (new java.io.File(dir, "pom.xml").exists() || new java.io.File(dir, "blocks").exists()) {
+                    target = new java.io.File(dir, relPath);
+                    break;
+                }
+            }
+            if (target == null) {
+                target = new java.io.File("D:/eds personal/AEM-EDS-Modernizer", relPath);
+            }
+            java.io.File parent = target.getParentFile();
+            if (parent != null && !parent.exists()) {
+                parent.mkdirs();
+            }
+            java.nio.file.Files.writeString(target.toPath(), content, java.nio.charset.StandardCharsets.UTF_8);
+            LOG.info("Wrote local block file: {}", target.getAbsolutePath());
+        } catch (Exception e) {
+            LOG.warn("Could not write local block file {}: {}", relPath, e.getMessage());
         }
     }
 }

@@ -222,13 +222,10 @@ class ExtraCoverageTest {
     @Test
     void testDashboardApiNoArgAndApiRouterAdditionalEndpoints() throws Exception {
         com.adobe.aem.modernizer.dashboard.servlets.DashboardApi apiNoArg = new com.adobe.aem.modernizer.dashboard.servlets.DashboardApi();
-        javax.servlet.http.HttpServletRequest req = org.mockito.Mockito.mock(javax.servlet.http.HttpServletRequest.class);
-        javax.servlet.http.HttpServletResponse resp = org.mockito.Mockito.mock(javax.servlet.http.HttpServletResponse.class);
+        org.apache.sling.api.SlingHttpServletRequest req = org.mockito.Mockito.mock(org.apache.sling.api.SlingHttpServletRequest.class);
+        org.apache.sling.api.SlingHttpServletResponse resp = org.mockito.Mockito.mock(org.apache.sling.api.SlingHttpServletResponse.class);
         
-        // Use reflection to call protected service method
-        java.lang.reflect.Method serviceMethod = javax.servlet.http.HttpServlet.class.getDeclaredMethod("service", javax.servlet.http.HttpServletRequest.class, javax.servlet.http.HttpServletResponse.class);
-        serviceMethod.setAccessible(true);
-        serviceMethod.invoke(apiNoArg, req, resp);
+        apiNoArg.doGet(req, resp);
         org.mockito.Mockito.verify(resp).sendError(503, "ApiRouter not initialized");
 
         // Test ApiRouter subroutes via route()

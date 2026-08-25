@@ -1,0 +1,87 @@
+{
+  "definitions": [
+    {
+      "title": "Product hero",
+      "id": "product-hero",
+      "plugins": {
+        "xwalk": {
+          "page": {
+            "resourceType": "core/franklin/components/block/v1/block",
+            "template": {
+              "name": "Product hero",
+              "model": "product-hero",
+              "filter": "product-hero",
+              "heading": "<h1>Galaxy S26 | S26+</h1>",
+              "subheading": "<p>Galaxy AI ✨</p>",
+              "primaryCtaText": "Buy",
+              "secondaryCtaText": "Learn more"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "models": [
+    {
+      "id": "product-hero",
+      "fields": [
+        {
+          "component": "tab",
+          "label": "General",
+          "name": "tabGeneral"
+        },
+        {
+          "component": "reference",
+          "name": "image",
+          "label": "Image",
+          "description": "Product hero background / feature image",
+          "valueType": "string",
+          "multi": false
+        },
+        {
+          "component": "richtext",
+          "name": "heading",
+          "label": "Heading",
+          "description": "Main product title (e.g. Galaxy S26 | S26+)",
+          "required": true
+        },
+        {
+          "component": "richtext",
+          "name": "subheading",
+          "label": "Subheading",
+          "description": "Secondary tagline (e.g. Galaxy AI ✨)"
+        },
+        {
+          "component": "text",
+          "name": "primaryCtaText",
+          "label": "Primary CTA text",
+          "description": "Text for the primary button (e.g. Buy)"
+        },
+        {
+          "component": "aem-content",
+          "name": "primaryCtaUrl",
+          "label": "Primary CTA link",
+          "description": "URL for the primary button"
+        },
+        {
+          "component": "text",
+          "name": "secondaryCtaText",
+          "label": "Secondary CTA text",
+          "description": "Text for the secondary link (e.g. Learn more)"
+        },
+        {
+          "component": "aem-content",
+          "name": "secondaryCtaUrl",
+          "label": "Secondary CTA link",
+          "description": "URL for the secondary link"
+        }
+      ]
+    }
+  ],
+  "filters": [
+    {
+      "id": "product-hero",
+      "components": []
+    }
+  ]
+}

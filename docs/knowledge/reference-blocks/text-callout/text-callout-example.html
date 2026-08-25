@@ -1,0 +1,60 @@
+<!--
+  text-callout-example.html
+  =========================
+  This file shows the ASSUMED AEM-generated HTML markup that the Universal Editor
+  would produce BEFORE the block’s decorate() function in text-callout.js runs.
+
+  In AEM Edge Delivery Services (EDS), content authored in the Universal Editor
+  is rendered as a flat list of <div> rows inside a block wrapper. Each field in
+  the JSON model (_text-callout.json) produces one row, EXCEPT:
+    - "tab" components  — they organise the editor UI but produce NO rows
+    - "classes" / "classes_*" fields — applied as CSS classes on the outer div
+
+  The block’s JavaScript then reads these rows by position and rebuilds the DOM.
+-->
+
+<!-- The outer div gets the block name as a class.
+     The `classes` field value (e.g. "cta-primary-filled") and `classes_textCalloutAlign`
+     value (e.g. "text-callout-align-center") are appended by the AEM runtime. -->
+<div class="text-callout cta-primary-filled">
+
+  <!-- Row 0: id (text) — optional anchor ID -->
+  <div>
+    <div>promo-callout</div>
+  </div>
+
+  <!-- Row 1: title (richtext) -->
+  <div>
+    <div><h2>Spring Sale is Here!</h2></div>
+  </div>
+
+  <!-- Row 2: text (richtext) -->
+  <div>
+    <div><p>Get up to 30% off on selected products. Limited time offer — don’t miss out!</p></div>
+  </div>
+
+  <!-- Row 3: ctaLink (aem-content) — AEM renders this as an anchor -->
+  <div>
+    <div><a href="/content/site/en/spring-sale">Shop now</a></div>
+  </div>
+
+  <!-- Row 4: ctaContent (richtext) — optional custom CTA label -->
+  <div>
+    <div><p>Shop the sale</p></div>
+  </div>
+
+</div>
+
+<!--
+  AFTER decorate() runs, the block is rebuilt into:
+
+  <div class="text-callout cta-primary-filled" id="promo-callout">
+    <div class="text-callout-inner">
+      <div class="text-callout-title"><h2>Spring Sale is Here!</h2></div>
+      <div class="text-callout-text"><p>Get up to 30% off on selected products...</p></div>
+      <div class="text-callout-cta">
+        <a href="/content/site/en/spring-sale" class="brand-cta">Shop the sale</a>
+      </div>
+    </div>
+  </div>
+-->
