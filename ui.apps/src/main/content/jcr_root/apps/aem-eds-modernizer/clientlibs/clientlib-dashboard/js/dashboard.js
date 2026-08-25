@@ -334,7 +334,22 @@ async function refreshDashboard() {
         eventsLog.innerHTML = events.map(e => {
           const time = new Date(e.timestamp || Date.now()).toLocaleTimeString();
           const ag = e.agent || e.level || 'system';
-          return `<div class="log-line"><span class="log-time">[${time}]</span><span class="log-agent">[${ag}]</span><span>${e.message || ''}</span></div>`;
+          const isAiReq = ag === 'ai-request' || (e.message && e.message.includes('📤 REQUEST:'));
+          const isAiResp = ag === 'ai-response' || (e.message && e.message.includes('📥 RESPONSE'));
+          const isAi = isAiReq || isAiResp || ag.startsWith('ai-');
+
+          let lineClass = 'log-line';
+          if (isAiReq) lineClass += ' log-ai-request';
+          else if (isAiResp) lineClass += ' log-ai-response';
+          else if (isAi) lineClass += ' log-ai';
+
+          const formattedMessage = (e.message || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/\n/g, '<br/>');
+
+          return `<div class="${lineClass}"><span class="log-time">[${time}]</span><span class="log-agent">[${ag}]</span><span class="log-msg">${formattedMessage}</span></div>`;
         }).join('');
         eventsLog.scrollTop = eventsLog.scrollHeight;
       }

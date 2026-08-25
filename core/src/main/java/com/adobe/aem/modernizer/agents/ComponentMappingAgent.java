@@ -51,6 +51,10 @@ public class ComponentMappingAgent implements Agent {
             if (ai != null) {
                 ChatRequest req = new ChatRequest(getName(), "Map AEM resourceType " + comp.getResourceType() + " to EDS block format");
                 req.setTargetCapability(ModelCapability.CAP_STRUCTURED);
+                req.setProjectId(ctx.getProject().getId());
+                req.setJobId(ctx.getJob().getId());
+                req.setPreferredProvider(ctx.getProject().getAiProvider());
+                req.setPreferredModel(ctx.getProject().getAiModel());
                 ChatResponse resp = ai.dispatch(req);
                 LOG.debug("Mapping decision for {}: {}", comp.getResourceType(), resp.getContent());
             }

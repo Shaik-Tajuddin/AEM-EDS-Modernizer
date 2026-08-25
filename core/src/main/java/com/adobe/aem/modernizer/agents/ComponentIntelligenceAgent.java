@@ -48,6 +48,10 @@ public class ComponentIntelligenceAgent implements Agent {
             if (ai != null) {
                 ChatRequest req = new ChatRequest(getName(), "Analyze AEM component " + comp.getResourceType() + " (" + comp.getTitle() + ")");
                 req.setTargetCapability(ModelCapability.CAP_STRUCTURED);
+                req.setProjectId(ctx.getProject().getId());
+                req.setJobId(ctx.getJob().getId());
+                req.setPreferredProvider(ctx.getProject().getAiProvider());
+                req.setPreferredModel(ctx.getProject().getAiModel());
                 ChatResponse resp = ai.dispatch(req);
                 LOG.debug("Analyzed component {}: {}", comp.getResourceType(), resp.getContent());
             }

@@ -28,3 +28,4 @@ bin/
 
 # Local analysis reports
 *.csv
+blocks

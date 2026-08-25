@@ -279,6 +279,56 @@ public class BlockGenerationAgent implements Agent {
                     + "- **Row 3:** `ctaLink`\n"
                     + "- **Row 4:** `ctaContent`\n";
 
+            // 5. <block-name>.css (Scoped Component Styles)
+            String cssContent = "." + blockName + " {\n"
+                    + "  margin: 28px auto;\n"
+                    + "  max-width: 1200px;\n"
+                    + "  padding: 0 16px;\n"
+                    + "}\n\n"
+                    + "." + blockName + " ." + blockName + "-inner {\n"
+                    + "  background: #ffffff;\n"
+                    + "  border-radius: 10px;\n"
+                    + "  padding: 24px;\n"
+                    + "  border: 1px solid #e2e8f0;\n"
+                    + "  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);\n"
+                    + "}\n\n"
+                    + "." + blockName + " ." + blockName + "-title h2 {\n"
+                    + "  margin: 0 0 10px;\n"
+                    + "  font-size: 1.6rem;\n"
+                    + "  color: #0f172a;\n"
+                    + "}\n\n"
+                    + "." + blockName + " ." + blockName + "-text p {\n"
+                    + "  color: #475569;\n"
+                    + "  font-size: 0.95rem;\n"
+                    + "  line-height: 1.6;\n"
+                    + "}\n\n"
+                    + "." + blockName + " ." + blockName + "-cta {\n"
+                    + "  margin-top: 16px;\n"
+                    + "}\n\n"
+                    + "." + blockName + " ." + blockName + "-cta a.brand-cta {\n"
+                    + "  display: inline-block;\n"
+                    + "  background: #f97316;\n"
+                    + "  color: #ffffff;\n"
+                    + "  font-weight: 700;\n"
+                    + "  padding: 10px 18px;\n"
+                    + "  border-radius: 6px;\n"
+                    + "  text-decoration: none;\n"
+                    + "}\n\n"
+                    + "." + blockName + "." + blockName + "-align-center {\n"
+                    + "  text-align: center;\n"
+                    + "}\n\n"
+                    + "." + blockName + "." + blockName + "-tone-emphasis ." + blockName + "-inner {\n"
+                    + "  background: #0f172a;\n"
+                    + "  color: #ffffff;\n"
+                    + "  border-color: #334155;\n"
+                    + "}\n\n"
+                    + "." + blockName + "." + blockName + "-tone-emphasis ." + blockName + "-title h2 {\n"
+                    + "  color: #ffffff;\n"
+                    + "}\n\n"
+                    + "." + blockName + "." + blockName + "-tone-emphasis ." + blockName + "-text p {\n"
+                    + "  color: #cbd5e1;\n"
+                    + "}\n";
+
             if (ai != null && aiCallCount++ < 2) {
                 ChatRequest req = new ChatRequest(getName(), "Generate EDS decorate() function and Universal Editor model for block: " + blockName);
                 req.setTargetCapability(ModelCapability.CAP_CODE);
@@ -297,17 +347,20 @@ public class BlockGenerationAgent implements Agent {
             }
 
             GeneratedFileRecord jsFile = new GeneratedFileRecord(UUID.randomUUID().toString(), ctx.getProject().getId(), ctx.getJob().getId(), "blocks/" + blockName + "/" + blockName + ".js", "BLOCK_JS", jsContent);
+            GeneratedFileRecord cssFile = new GeneratedFileRecord(UUID.randomUUID().toString(), ctx.getProject().getId(), ctx.getJob().getId(), "blocks/" + blockName + "/" + blockName + ".css", "BLOCK_CSS", cssContent);
             GeneratedFileRecord jsonFile = new GeneratedFileRecord(UUID.randomUUID().toString(), ctx.getProject().getId(), ctx.getJob().getId(), "blocks/" + blockName + "/_" + blockName + ".json", "BLOCK_MODEL_JSON", jsonContent);
             GeneratedFileRecord htmlFile = new GeneratedFileRecord(UUID.randomUUID().toString(), ctx.getProject().getId(), ctx.getJob().getId(), "blocks/" + blockName + "/" + blockName + "-example.html", "BLOCK_EXAMPLE_HTML", htmlContent);
             GeneratedFileRecord readmeFile = new GeneratedFileRecord(UUID.randomUUID().toString(), ctx.getProject().getId(), ctx.getJob().getId(), "blocks/" + blockName + "/README.md", "BLOCK_README", readmeContent);
 
             jsFile.setVirtualDiffOnly(ctx.isDryRun());
+            cssFile.setVirtualDiffOnly(ctx.isDryRun());
             jsonFile.setVirtualDiffOnly(ctx.isDryRun());
             htmlFile.setVirtualDiffOnly(ctx.isDryRun());
             readmeFile.setVirtualDiffOnly(ctx.isDryRun());
 
             if (store != null) {
                 store.saveGeneratedFile(jsFile);
+                store.saveGeneratedFile(cssFile);
                 store.saveGeneratedFile(jsonFile);
                 store.saveGeneratedFile(htmlFile);
                 store.saveGeneratedFile(readmeFile);
@@ -315,6 +368,7 @@ public class BlockGenerationAgent implements Agent {
 
             if (!ctx.isDryRun()) {
                 writeLocalFile("blocks/" + blockName + "/" + blockName + ".js", jsContent);
+                writeLocalFile("blocks/" + blockName + "/" + blockName + ".css", cssContent);
                 writeLocalFile("blocks/" + blockName + "/_" + blockName + ".json", jsonContent);
                 writeLocalFile("blocks/" + blockName + "/" + blockName + "-example.html", htmlContent);
                 writeLocalFile("blocks/" + blockName + "/README.md", readmeContent);

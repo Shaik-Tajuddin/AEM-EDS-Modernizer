@@ -3,408 +3,913 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Ski Touring Mont Blanc | WKND Adventures</title>
-    <link rel="stylesheet" href="/styles/styles.css" />
-    <link rel="stylesheet" href="/blocks/breadcrumb/breadcrumb.css" />
-    <link rel="stylesheet" href="/blocks/carousel/carousel.css" />
-    <link rel="stylesheet" href="/blocks/tabs/tabs.css" />
-    <link rel="stylesheet" href="/blocks/cards/cards.css" />
-    <link rel="stylesheet" href="/blocks/hero/hero.css" />
+    <title>Ski Touring Mont Blanc | WKND Adventures - Edge Delivery Services</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
     <style>
       :root {
         --color-primary: #f97316;
         --color-primary-hover: #ea580c;
+        --color-primary-light: #ffedd5;
         --color-dark: #0f172a;
+        --color-dark-surface: #1e293b;
         --color-text: #334155;
+        --color-text-muted: #64748b;
         --color-bg-light: #f8fafc;
         --color-border: #e2e8f0;
+        --color-accent: #0284c7;
+        --color-accent-light: #e0f2fe;
+        --radius-sm: 6px;
+        --radius-md: 10px;
+        --radius-lg: 16px;
+        --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+        --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+        --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.03);
       }
+
+      * { box-sizing: border-box; }
+
       body {
         margin: 0;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         color: var(--color-text);
-        background: #ffffff;
-        line-height: 1.6;
+        background: #f1f5f9;
+        line-height: 1.65;
+        -webkit-font-smoothing: antialiased;
       }
-      main {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 24px 20px 80px;
-      }
+
+      /* Top Header Banner */
       .page-banner {
         background: #0f172a;
-        color: #fff;
-        padding: 12px 24px;
+        color: #ffffff;
+        padding: 14px 28px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        font-size: 0.85rem;
+        flex-wrap: wrap;
+        gap: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.15);
       }
-      .page-banner a { color: #38bdf8; text-decoration: none; font-weight: 600; }
-      .adventure-layout {
+      .page-banner .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+        font-size: 0.95rem;
+        letter-spacing: 0.02em;
+      }
+      .page-banner .badge {
+        background: var(--color-primary);
+        color: #ffffff;
+        font-size: 0.72rem;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .page-banner .source-tag {
+        font-size: 0.82rem;
+        color: #94a3b8;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        background: #1e293b;
+        padding: 4px 10px;
+        border-radius: 4px;
+      }
+
+      /* View Mode Switcher */
+      .view-switcher-bar {
+        background: #ffffff;
+        border-bottom: 1px solid var(--color-border);
+        padding: 12px 28px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+      }
+      .view-pills {
+        display: flex;
+        gap: 8px;
+        background: #f1f5f9;
+        padding: 4px;
+        border-radius: 8px;
+      }
+      .view-pill {
+        border: none;
+        background: transparent;
+        padding: 8px 16px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--color-text-muted);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      .view-pill.active {
+        background: #ffffff;
+        color: var(--color-dark);
+        box-shadow: var(--shadow-sm);
+      }
+
+      /* Container */
+      .container {
+        max-width: 1200px;
+        margin: 28px auto 80px;
+        padding: 0 24px;
+      }
+
+      /* Breadcrumb Block */
+      .breadcrumb {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--color-text-muted);
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .breadcrumb a {
+        color: var(--color-text-muted);
+        text-decoration: none;
+        transition: color 0.2s;
+      }
+      .breadcrumb a:hover { color: var(--color-primary); }
+      .breadcrumb .separator { color: #cbd5e1; }
+      .breadcrumb .current { color: var(--color-dark); font-weight: 700; }
+
+      /* Carousel Hero Block */
+      .carousel-wrapper {
+        position: relative;
+        background: #000;
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        box-shadow: var(--shadow-lg);
+        margin-bottom: 32px;
+      }
+      .carousel-slides {
+        display: flex;
+        transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        width: 300%;
+      }
+      .carousel-slide {
+        position: relative;
+        width: 33.333333%;
+        height: 480px;
+        flex-shrink: 0;
+      }
+      .carousel-slide img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .carousel-overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(15,23,42,0.1) 0%, rgba(15,23,42,0.85) 100%);
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        padding: 40px;
+        color: #ffffff;
+      }
+      .carousel-overlay .pill {
+        align-self: flex-start;
+        background: rgba(249, 115, 22, 0.95);
+        color: #ffffff;
+        font-weight: 800;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 4px 10px;
+        border-radius: 4px;
+        margin-bottom: 12px;
+      }
+      .carousel-overlay h2 {
+        margin: 0 0 8px;
+        font-size: 2rem;
+        font-family: "Space Grotesk", sans-serif;
+        color: #ffffff;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+      }
+      .carousel-overlay p {
+        margin: 0;
+        font-size: 1.05rem;
+        color: #e2e8f0;
+        max-width: 650px;
+      }
+      .carousel-btn {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background: rgba(15, 23, 42, 0.6);
+        color: #fff;
+        border: 1px solid rgba(255,255,255,0.2);
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        backdrop-filter: blur(4px);
+        transition: all 0.2s;
+        z-index: 10;
+      }
+      .carousel-btn:hover {
+        background: var(--color-primary);
+        border-color: var(--color-primary);
+      }
+      .carousel-btn.prev { left: 20px; }
+      .carousel-btn.next { right: 20px; }
+      .carousel-indicators {
+        position: absolute;
+        bottom: 20px;
+        right: 40px;
+        display: flex;
+        gap: 8px;
+        z-index: 10;
+      }
+      .carousel-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.4);
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .carousel-dot.active {
+        width: 28px;
+        border-radius: 5px;
+        background: var(--color-primary);
+      }
+
+      /* 2-Column Main Layout */
+      .adventure-grid {
         display: grid;
         grid-template-columns: 1fr;
-        gap: 40px;
-        margin-top: 24px;
+        gap: 36px;
       }
-      @media (min-width: 900px) {
-        .adventure-layout {
-          grid-template-columns: 2fr 1fr;
+      @media (min-width: 960px) {
+        .adventure-grid {
+          grid-template-columns: 1fr 360px;
         }
       }
-      /* EDS Block Table simulation for DA representation */
+
+      /* Main Article & Tabs Block */
+      .main-content {
+        background: #ffffff;
+        border-radius: var(--radius-lg);
+        padding: 36px;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--color-border);
+      }
+      .page-headline {
+        margin: 0 0 6px;
+        font-size: 2.3rem;
+        font-weight: 800;
+        color: var(--color-dark);
+        font-family: "Space Grotesk", sans-serif;
+        line-height: 1.15;
+      }
+      .location-subheading {
+        margin: 0 0 28px;
+        color: var(--color-text-muted);
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      /* Tabs Block UI */
+      .tabs-nav {
+        display: flex;
+        gap: 8px;
+        border-bottom: 2px solid var(--color-border);
+        margin-bottom: 28px;
+      }
+      .tab-trigger {
+        border: none;
+        background: transparent;
+        font-family: inherit;
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--color-text-muted);
+        padding: 12px 20px;
+        cursor: pointer;
+        position: relative;
+        margin-bottom: -2px;
+        transition: color 0.2s;
+      }
+      .tab-trigger:hover {
+        color: var(--color-dark);
+      }
+      .tab-trigger.active {
+        color: var(--color-primary);
+        border-bottom: 2px solid var(--color-primary);
+      }
+      .tab-panel {
+        display: none;
+        animation: fadeIn 0.25s ease-in-out;
+      }
+      .tab-panel.active { display: block; }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(4px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      /* Tab Content Elements */
+      .highlight-list {
+        list-style: none;
+        padding: 0;
+        margin: 20px 0 0;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      @media (min-width: 600px) {
+        .highlight-list { grid-template-columns: 1fr 1fr; }
+      }
+      .highlight-item {
+        background: var(--color-bg-light);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        padding: 14px 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--color-dark);
+      }
+      .highlight-item .icon {
+        color: var(--color-primary);
+        font-size: 1.2rem;
+        flex-shrink: 0;
+      }
+
+      /* Itinerary Timeline */
+      .itinerary-timeline {
+        position: relative;
+        padding-left: 28px;
+        border-left: 2px solid #e2e8f0;
+        margin-top: 20px;
+      }
+      .timeline-step {
+        position: relative;
+        margin-bottom: 28px;
+      }
+      .timeline-step:last-child { margin-bottom: 0; }
+      .timeline-step::before {
+        content: "";
+        position: absolute;
+        left: -35px;
+        top: 4px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--color-primary);
+        border: 3px solid #ffffff;
+        box-shadow: 0 0 0 2px var(--color-primary);
+      }
+      .timeline-step h4 {
+        margin: 0 0 6px;
+        font-size: 1.1rem;
+        color: var(--color-dark);
+        font-weight: 700;
+      }
+      .timeline-step p {
+        margin: 0;
+        font-size: 0.95rem;
+        color: var(--color-text);
+      }
+
+      /* Sidebar Card Block */
+      .sidebar {
+        position: sticky;
+        top: 80px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      .spec-card {
+        background: #ffffff;
+        border-radius: var(--radius-lg);
+        padding: 28px;
+        border: 1px solid var(--color-border);
+        box-shadow: var(--shadow-md);
+      }
+      .spec-card h3 {
+        margin: 0 0 20px;
+        font-size: 1.35rem;
+        font-weight: 800;
+        color: var(--color-dark);
+        font-family: "Space Grotesk", sans-serif;
+        border-bottom: 2px solid var(--color-border);
+        padding-bottom: 12px;
+      }
+      .spec-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 0;
+        border-bottom: 1px dashed #e2e8f0;
+        font-size: 0.95rem;
+      }
+      .spec-row:last-of-type {
+        border-bottom: none;
+      }
+      .spec-row .label {
+        font-weight: 600;
+        color: var(--color-text-muted);
+      }
+      .spec-row .val {
+        font-weight: 700;
+        color: var(--color-dark);
+      }
+      .difficulty-badge {
+        background: #fee2e2;
+        color: #b91c1c;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+      .price-box {
+        background: var(--color-bg-light);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        padding: 18px;
+        margin: 20px 0 16px;
+        text-align: center;
+      }
+      .price-amount {
+        font-size: 2.2rem;
+        font-weight: 800;
+        color: var(--color-dark);
+        font-family: "Space Grotesk", sans-serif;
+      }
+      .price-unit {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--color-text-muted);
+      }
+      .btn-book {
+        display: block;
+        width: 100%;
+        background: var(--color-primary);
+        color: #ffffff;
+        text-align: center;
+        padding: 16px;
+        border-radius: var(--radius-md);
+        font-weight: 800;
+        font-size: 1.05rem;
+        text-decoration: none;
+        box-shadow: 0 4px 12px rgba(249, 115, 22, 0.35);
+        transition: all 0.2s;
+      }
+      .btn-book:hover {
+        background: var(--color-primary-hover);
+        box-shadow: 0 6px 16px rgba(249, 115, 22, 0.45);
+        transform: translateY(-1px);
+      }
+      .guide-notice {
+        margin: 14px 0 0;
+        text-align: center;
+        font-size: 0.8rem;
+        color: var(--color-text-muted);
+      }
+
+      /* Document Authoring (DA) Spec Section */
+      #da-mode-view {
+        display: none;
+      }
+      .da-spec-card {
+        background: #ffffff;
+        border-radius: var(--radius-lg);
+        padding: 32px;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--color-border);
+        margin-bottom: 24px;
+      }
+      .da-spec-card h3 {
+        margin: 0 0 8px;
+        color: var(--color-dark);
+      }
       .da-block-table {
         width: 100%;
         border-collapse: collapse;
-        margin: 24px 0;
+        margin: 18px 0 28px;
         border: 2px solid #0284c7;
-        border-radius: 6px;
+        border-radius: 8px;
         overflow: hidden;
+        box-shadow: var(--shadow-sm);
       }
       .da-block-table th {
         background: #0284c7;
         color: #ffffff;
         font-weight: 700;
         text-align: left;
-        padding: 10px 16px;
-        font-size: 0.95rem;
+        padding: 12px 18px;
+        font-size: 1rem;
+        letter-spacing: 0.02em;
       }
       .da-block-table td {
         border-top: 1px solid #e0f2fe;
-        padding: 12px 16px;
+        padding: 14px 18px;
         background: #f0f9ff;
-        font-size: 0.9rem;
-      }
-      /* Rendered block preview styles */
-      .rendered-preview-box {
-        border: 1px solid var(--color-border);
-        border-radius: 10px;
-        padding: 24px;
-        background: #ffffff;
-        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
-        margin-bottom: 30px;
-      }
-      .section-tag {
-        display: inline-block;
-        background: #e0e7ff;
-        color: #3730a3;
-        font-weight: 700;
-        font-size: 0.75rem;
-        padding: 4px 10px;
-        border-radius: 4px;
-        margin-bottom: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-      }
-      .itinerary-day {
-        margin-bottom: 20px;
-        padding-bottom: 16px;
-        border-bottom: 1px solid #f1f5f9;
-      }
-      .itinerary-day h4 {
-        margin: 0 0 6px;
-        color: var(--color-dark);
-        font-size: 1.05rem;
-      }
-      .sidebar-card {
-        background: var(--color-bg-light);
-        border: 1px solid var(--color-border);
-        border-radius: 8px;
-        padding: 24px;
-        position: sticky;
-        top: 20px;
-      }
-      .sidebar-card h3 {
-        margin-top: 0;
-        font-size: 1.3rem;
-        color: var(--color-dark);
-      }
-      .spec-item {
-        display: flex;
-        justify-content: space-between;
-        padding: 10px 0;
-        border-bottom: 1px dashed #cbd5e1;
         font-size: 0.95rem;
+        vertical-align: top;
       }
-      .spec-label { font-weight: 600; color: #475569; }
-      .spec-value { font-weight: 700; color: #0f172a; }
-      .btn-book {
-        display: block;
-        width: 100%;
-        text-align: center;
-        background: #f97316;
-        color: #ffffff;
-        padding: 14px;
-        border-radius: 6px;
-        font-weight: 700;
-        font-size: 1rem;
-        text-decoration: none;
-        margin-top: 20px;
-        box-sizing: border-box;
+      .da-block-table tr:nth-child(even) td {
+        background: #ffffff;
       }
-      .tab-header-demo {
-        display: flex;
-        gap: 12px;
-        border-bottom: 2px solid #e2e8f0;
-        margin-bottom: 20px;
-      }
-      .tab-btn-demo {
-        padding: 10px 18px;
-        font-weight: 700;
-        color: #64748b;
-        cursor: pointer;
-        border-bottom: 2px solid transparent;
-        margin-bottom: -2px;
-      }
-      .tab-btn-demo.active {
-        color: #0284c7;
-        border-color: #0284c7;
+      .da-block-table code {
+        background: #e2e8f0;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        color: #0f172a;
       }
     </style>
   </head>
   <body>
+    <!-- Top Header -->
     <header class="page-banner">
-      <div><strong>AEM-EDS Modernizer</strong> &mdash; Canonical Authoring & Delivery Representation</div>
-      <div>Source: <code>/content/wknd/language-masters/en/adventures/ski-touring-mont-blanc</code></div>
+      <div class="brand">
+        <span>🏔️ WKND Adventures</span>
+        <span class="badge">Edge Delivery Services</span>
+      </div>
+      <div class="source-tag">
+        JCR Source: /content/wknd/language-masters/en/adventures/ski-touring-mont-blanc
+      </div>
     </header>
 
-    <main>
-      <!-- Section 1: Breadcrumb Block -->
-      <section>
-        <div class="breadcrumb">
-          <div>
-            <div><a href="/en">Home</a> &gt; <a href="/en/adventures">Adventures</a> &gt; <span>Ski Touring Mont Blanc</span></div>
-          </div>
-        </div>
-      </section>
+    <!-- Interactive Mode Switcher -->
+    <div class="view-switcher-bar">
+      <div>
+        <strong>Modernizer Preview Mode</strong>
+      </div>
+      <div class="view-pills">
+        <button class="view-pill active" id="btn-live-view" onclick="switchView('live')">🎨 Rendered Site Preview</button>
+        <button class="view-pill" id="btn-da-view" onclick="switchView('da')">📝 Document Authoring (DA) Tables</button>
+      </div>
+    </div>
 
-      <!-- Section 2: Carousel Hero Block -->
-      <section style="margin: 20px 0;">
-        <div class="carousel">
-          <div>
-            <div>
-              <picture>
-                <img src="http://localhost:4502/content/dam/wknd-shared/en/adventures/ski-touring-mont-blanc/adobestock-238230356.jpeg" alt="Ski touring over glacier" style="width:100%; height:450px; object-fit:cover; border-radius:10px;" />
-              </picture>
-            </div>
-            <div>
-              <h3>Glacier Traverse at Mont Blanc</h3>
-              <p>Experience pristine powder and high-alpine ridges in the French Alps.</p>
-            </div>
-          </div>
-          <div>
-            <div>
-              <picture>
-                <img src="http://localhost:4502/content/dam/wknd-shared/en/adventures/ski-touring-mont-blanc/adobestock-21422513.jpeg" alt="Col du Passon descent" style="width:100%; height:450px; object-fit:cover; border-radius:10px;" />
-              </picture>
-            </div>
-            <div>
-              <h3>Col du Passon Descent</h3>
-              <p>A thrilling 4-hour ski tour from the Argentiere hut.</p>
-            </div>
-          </div>
-          <div>
-            <div>
-              <picture>
-                <img src="http://localhost:4502/content/dam/wknd-shared/en/adventures/ski-touring-mont-blanc/adobestock-291339093.jpeg" alt="Grand Mulets refuge ascent" style="width:100%; height:450px; object-fit:cover; border-radius:10px;" />
-              </picture>
-            </div>
-            <div>
-              <h3>Summit Ascent to Grands Mulets</h3>
-              <p>High altitude ski mountaineering at 3,051 meters.</p>
-            </div>
-          </div>
-        </div>
-      </section>
+    <div class="container">
+      <!-- LIVE RENDERED VIEW -->
+      <div id="live-mode-view">
+        <!-- 1. Breadcrumb Block -->
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="/en">Home</a>
+          <span class="separator">/</span>
+          <a href="/en/adventures">Adventures</a>
+          <span class="separator">/</span>
+          <span class="current">Ski Touring Mont Blanc</span>
+        </nav>
 
-      <!-- Section 3: Adventure Title & 2-Column Content Layout -->
-      <div class="adventure-layout">
-        <!-- Left: Main Content (Tabs: Overview, Itinerary, What to Bring) -->
-        <div>
-          <h1 style="font-size:2.4rem; color:#0f172a; margin-bottom:8px; line-height:1.2;">Ski Touring Mont Blanc</h1>
-          <p style="color:#64748b; font-size:1.1rem; margin-top:0;">Chamonix, Haute-Savoie, France</p>
+        <!-- 2. Carousel Hero Block -->
+        <section class="carousel-wrapper">
+          <div class="carousel-slides" id="carousel-track">
+            <!-- Slide 1 -->
+            <div class="carousel-slide">
+              <img
+                src="https://images.unsplash.com/photo-1551524559-8af4e6624178?auto=format&fit=crop&w=1600&q=80"
+                onerror="this.src='http://localhost:4502/content/dam/wknd-shared/en/adventures/ski-touring-mont-blanc/adobestock-238230356.jpeg'"
+                alt="Ski touring over glacier"
+              />
+              <div class="carousel-overlay">
+                <span class="pill">Haute-Savoie, France</span>
+                <h2>Glacier Traverse at Mont Blanc</h2>
+                <p>Experience pristine powder and high-alpine ridges in the heart of the French Alps.</p>
+              </div>
+            </div>
 
-          <!-- Tabs Block (Authored in DA as Table / Div Block) -->
-          <div class="tabs" style="margin-top:28px;">
-            <div class="tab-header-demo">
-              <div class="tab-btn-demo active">Overview</div>
-              <div class="tab-btn-demo">Itinerary</div>
-              <div class="tab-btn-demo">What to Bring</div>
+            <!-- Slide 2 -->
+            <div class="carousel-slide">
+              <img
+                src="https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=1600&q=80"
+                onerror="this.src='http://localhost:4502/content/dam/wknd-shared/en/adventures/ski-touring-mont-blanc/adobestock-21422513.jpeg'"
+                alt="Col du Passon descent"
+              />
+              <div class="carousel-overlay">
+                <span class="pill">Argentière Basin</span>
+                <h2>Col du Passon Descent</h2>
+                <p>A thrilling 4-hour high-altitude ski tour departing from the iconic Argentière hut.</p>
+              </div>
+            </div>
+
+            <!-- Slide 3 -->
+            <div class="carousel-slide">
+              <img
+                src="https://images.unsplash.com/photo-1486870591958-9b9d0d1dda99?auto=format&fit=crop&w=1600&q=80"
+                onerror="this.src='http://localhost:4502/content/dam/wknd-shared/en/adventures/ski-touring-mont-blanc/adobestock-291339093.jpeg'"
+                alt="Grands Mulets refuge ascent"
+              />
+              <div class="carousel-overlay">
+                <span class="pill">Elevation 3,051m</span>
+                <h2>Summit Ascent to Grands Mulets</h2>
+                <p>Challenging alpine ski mountaineering across dramatic seracs and crevasses.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Carousel Controls -->
+          <button class="carousel-btn prev" onclick="moveSlide(-1)" aria-label="Previous Slide">‹</button>
+          <button class="carousel-btn next" onclick="moveSlide(1)" aria-label="Next Slide">›</button>
+
+          <!-- Carousel Dots -->
+          <div class="carousel-indicators">
+            <div class="carousel-dot active" onclick="setSlide(0)"></div>
+            <div class="carousel-dot" onclick="setSlide(1)"></div>
+            <div class="carousel-dot" onclick="setSlide(2)"></div>
+          </div>
+        </section>
+
+        <!-- 3. Adventure Layout: Tabs & Sidebar -->
+        <div class="adventure-grid">
+          <!-- Main Content with Tabs Block -->
+          <div class="main-content">
+            <h1 class="page-headline">Ski Touring Mont Blanc</h1>
+            <div class="location-subheading">📍 Chamonix &bull; Haute-Savoie &bull; France</div>
+
+            <!-- Tabs Block Navigation -->
+            <div class="tabs-nav">
+              <button class="tab-trigger active" onclick="switchTab(0)">Overview</button>
+              <button class="tab-trigger" onclick="switchTab(1)">Itinerary</button>
+              <button class="tab-trigger" onclick="switchTab(2)">What to Bring</button>
             </div>
 
             <!-- Tab 1: Overview Panel -->
-            <div class="rendered-preview-box">
-              <span class="section-tag">Overview</span>
+            <div class="tab-panel active" id="tab-0">
               <p>The Mont Blanc massif is the ultimate ski touring destination in Europe. With soaring granite spires and vast, heavily glaciated terrain, Chamonix is the spiritual home of steep skiing and grand high-mountain traverses.</p>
               <p>On this five-day expedition, you will traverse iconic glaciers, conquer demanding ascents on skins, and descend legendary couloirs under the supervision of certified IFMGA mountain guides.</p>
-              
-              <h3 style="margin-top:24px; color:#0f172a;">Highlights</h3>
-              <ul>
-                <li>High alpine ski touring through the heart of the Mont Blanc range</li>
-                <li>Overnight stays in historic mountain huts (Argentière and Grand Mulets)</li>
-                <li>Comprehensive avalanche safety and crevasse rescue coaching</li>
-                <li>Unrivaled 2,000m vertical powder descents to the valley floor</li>
-              </ul>
+
+              <h3 style="margin-top:28px; color:var(--color-dark); font-family:'Space Grotesk',sans-serif;">Expedition Highlights</h3>
+              <div class="highlight-list">
+                <div class="highlight-item"><span class="icon">⛷️</span> 2,000m vertical untracked descents</div>
+                <div class="highlight-item"><span class="icon">🏔️</span> Overnight in Argentière & Grand Mulets huts</div>
+                <div class="highlight-item"><span class="icon">🛡️</span> IFMGA certified lead mountain guides</div>
+                <div class="highlight-item"><span class="icon">❄️</span> Crevasse rescue & avalanche safety coaching</div>
+              </div>
             </div>
 
             <!-- Tab 2: Itinerary Panel -->
-            <div class="rendered-preview-box">
-              <span class="section-tag">Itinerary</span>
-              
-              <div class="itinerary-day">
-                <h4>Day 1: Arrival in Chamonix</h4>
-                <p>Meet our lead mountain guides at the chalet in Chamonix in the afternoon. Comprehensive briefing on weather forecasts, snowpack stability, route logistics, avalanche transceiver testing, and mandatory gear checks.</p>
-              </div>
-
-              <div class="itinerary-day">
-                <h4>Day 2: Grands Montets Warm-up & Avalanche Rescue Drill</h4>
-                <p>Ascent via Grands Montets cable car to test touring gear on steep glaciated terrain. Afternoon workshop on companion rescue, beacon searches, probe technique, and snow pit analysis.</p>
-              </div>
-
-              <div class="itinerary-day">
-                <h4>Day 3: Col du Tour Noir Traverse</h4>
-                <p>Depart from the Argentière hut across Glacier des Améthystes toward Col du Tour Noir (3,535m). Spectacular 4-hour skinning ascent followed by an exhilarating glacier descent.</p>
-              </div>
-
-              <div class="itinerary-day">
-                <h4>Day 4: Col du Passon & Descent to Le Tour</h4>
-                <p>Early alpine start over the Col du Passon with crampons and ice axes over the summit couloir. A 1,500m untracked descent into the scenic village of Le Tour.</p>
-              </div>
-
-              <div class="itinerary-day">
-                <h4>Day 5: Grand Mulets Ascent & Valley Return</h4>
-                <p>Aiguille du Midi cable car to the Grand Mulets refuge route. High altitude touring with panoramic vistas across the Bossons glacier before returning to Chamonix for celebratory dinner.</p>
+            <div class="tab-panel" id="tab-1">
+              <div class="itinerary-timeline">
+                <div class="timeline-step">
+                  <h4>Day 1: Arrival & Safety Briefing in Chamonix</h4>
+                  <p>Meet guides at chalet. Gear checks, avalanche transceiver beacon drills, and weather/snowpack assessment.</p>
+                </div>
+                <div class="timeline-step">
+                  <h4>Day 2: Grands Montets Warm-up & Glacier Skills</h4>
+                  <p>Cable car ascent to 3,275m. Shake-out tour on Glacier des Rognons and companion rescue refresher.</p>
+                </div>
+                <div class="timeline-step">
+                  <h4>Day 3: Col du Tour Noir Skinning Ascent (3,535m)</h4>
+                  <p>Early alpine start from Argentière hut across Glacier des Améthystes with 4-hour skinning climb and powder run.</p>
+                </div>
+                <div class="timeline-step">
+                  <h4>Day 4: Col du Passon & Le Tour Descent</h4>
+                  <p>Bootpacking couloir with crampons and ice axe, followed by an exhilarating 1,500m descent to Le Tour.</p>
+                </div>
+                <div class="timeline-step">
+                  <h4>Day 5: Grands Mulets Ascent & Valley Celebration</h4>
+                  <p>High altitude ski touring overlooking the Bossons glacier before returning to Chamonix for celebratory dinner.</p>
+                </div>
               </div>
             </div>
 
             <!-- Tab 3: What to Bring Panel -->
-            <div class="rendered-preview-box">
-              <span class="section-tag">What to Bring</span>
-              <p>When selecting clothing and technical gear for Mont Blanc ski touring, prioritize <strong>lightweight, breathable, and weather-proof</strong> layers:</p>
+            <div class="tab-panel" id="tab-2">
+              <p>Technical alpine touring requires lightweight, breathable, and waterproof layering designed for extreme alpine weather:</p>
               
-              <h4>Technical Gear</h4>
-              <ul>
-                <li>All-mountain touring skis with pin/tech bindings and fitted skins</li>
-                <li>Ski touring boots with walk-mode articulation</li>
-                <li>3-antenna digital avalanche transceiver, 240cm+ probe, and metal shovel</li>
-                <li>Lightweight alpine harness, 2 locking carabiners, and ice axe</li>
-                <li>Boot crampons compatible with your touring boots</li>
+              <h4 style="margin:20px 0 10px; color:var(--color-dark);">Required Technical Gear</h4>
+              <ul style="padding-left:20px; line-height:1.8;">
+                <li>Touring skis with pin/tech bindings, fitted climbing skins, and ski crampons (harscheisen)</li>
+                <li>Touring boots with walk-mode articulation and Vibram soles</li>
+                <li>Digital 3-antenna avalanche transceiver, 240cm+ avalanche probe, and metal blade shovel</li>
+                <li>Lightweight alpine harness, 2 locking carabiners, and 45cm steel ice axe</li>
+                <li>10 or 12-point boot crampons fitted to your touring boots</li>
               </ul>
 
-              <h4>Apparel & Layering</h4>
-              <ul>
-                <li>3-Layer Gore-Tex waterproof breathable shell jacket and pants</li>
-                <li>Packable 800-fill down or Primaloft insulation jacket</li>
-                <li>Merino wool base layers (top and bottoms)</li>
-                <li>Two pairs of gloves (lightweight touring gloves + waterproof alpine mittens)</li>
-                <li>Cat 3/4 glacier sunglasses and anti-fog ski goggles</li>
+              <h4 style="margin:20px 0 10px; color:var(--color-dark);">Apparel & Layering</h4>
+              <ul style="padding-left:20px; line-height:1.8;">
+                <li>3-Layer Gore-Tex waterproof breathable shell jacket and bib pants</li>
+                <li>Packable 800-fill down or Primaloft active insulation hoody</li>
+                <li>Merino wool thermal base layers (top and bottom)</li>
+                <li>Two pairs of gloves (windproof touring gloves + insulated waterproof mittens)</li>
+                <li>Cat 3/4 glacier sunglasses and anti-fog low-light ski goggles</li>
               </ul>
             </div>
           </div>
-        </div>
 
-        <!-- Right: Adventure Details Sidebar Card -->
-        <div>
-          <div class="sidebar-card">
-            <h3>Adventure Details</h3>
-            
-            <div class="spec-item">
-              <span class="spec-label">Activity</span>
-              <span class="spec-value">Ski Touring</span>
-            </div>
-            
-            <div class="spec-item">
-              <span class="spec-label">Adventure Type</span>
-              <span class="spec-value">Glacier Expedition</span>
-            </div>
+          <!-- Sidebar Cards Block -->
+          <aside class="sidebar">
+            <div class="spec-card">
+              <h3>Adventure Details</h3>
 
-            <div class="spec-item">
-              <span class="spec-label">Trip Length</span>
-              <span class="spec-value">5 Days / 4 Nights</span>
-            </div>
+              <div class="spec-row">
+                <span class="label">Activity</span>
+                <span class="val">Ski Touring</span>
+              </div>
 
-            <div class="spec-item">
-              <span class="spec-label">Difficulty</span>
-              <span class="spec-value" style="color:#ea580c;">Advanced (Level 4)</span>
-            </div>
+              <div class="spec-row">
+                <span class="label">Adventure Type</span>
+                <span class="val">Glacier Expedition</span>
+              </div>
 
-            <div class="spec-item">
-              <span class="spec-label">Group Size</span>
-              <span class="spec-value">4 &ndash; 6 Persons</span>
-            </div>
+              <div class="spec-row">
+                <span class="label">Trip Length</span>
+                <span class="val">5 Days / 4 Nights</span>
+              </div>
 
-            <div class="spec-item" style="border-bottom:none; margin-top:10px;">
-              <span class="spec-label" style="font-size:1.1rem;">Price</span>
-              <span class="spec-value" style="font-size:1.4rem; color:#0f172a;">$1,200 <small style="font-size:0.8rem; color:#64748b;">USD</small></span>
-            </div>
+              <div class="spec-row">
+                <span class="label">Difficulty</span>
+                <span class="val"><span class="difficulty-badge">Advanced (Level 4)</span></span>
+              </div>
 
-            <a href="#book" class="btn-book">Book This Adventure</a>
-            <p style="text-align:center; margin:12px 0 0; font-size:0.8rem; color:#64748b;">Includes IFMGA mountain guide & hut lodging</p>
-          </div>
+              <div class="spec-row">
+                <span class="label">Group Size</span>
+                <span class="val">4 &ndash; 6 Persons</span>
+              </div>
+
+              <div class="price-box">
+                <div class="price-amount">$1,200</div>
+                <div class="price-unit">USD per person</div>
+              </div>
+
+              <a href="#book-adventure" class="btn-book">Book This Adventure</a>
+              <p class="guide-notice">Includes IFMGA mountain guide, avalanche safety kit & mountain hut stays</p>
+            </div>
+          </aside>
         </div>
       </div>
 
-      <!-- Section 4: Document Authoring (DA) Table Reference -->
-      <section style="margin-top:60px; padding-top:30px; border-top:2px solid #e2e8f0;">
-        <h2 style="color:#0f172a;">Document Authoring (DA) Canonical Markup Spec</h2>
-        <p>In Document Authoring (Word / Google Docs / DA HTML), this entire page is structured into clean tabular block sections:</p>
+      <!-- DOCUMENT AUTHORING (DA) MARKUP VIEW -->
+      <div id="da-mode-view">
+        <div class="da-spec-card">
+          <h3>Document Authoring (DA) Table Representation</h3>
+          <p>In AEM Edge Delivery Services with Document Authoring (Word, Google Docs, or DA Live), authors write and edit this exact adventure page using the canonical tables below:</p>
 
-        <table class="da-block-table">
-          <thead><tr><th colspan="2">Breadcrumb</th></tr></thead>
-          <tbody>
-            <tr>
-              <td><code>/en/adventures</code></td>
-              <td>Ski Touring Mont Blanc</td>
-            </tr>
-          </tbody>
-        </table>
+          <!-- Breadcrumb Table -->
+          <table class="da-block-table">
+            <thead><tr><th colspan="2">Breadcrumb</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><code>/en/adventures</code></td>
+                <td>Ski Touring Mont Blanc</td>
+              </tr>
+            </tbody>
+          </table>
 
-        <table class="da-block-table">
-          <thead><tr><th colspan="2">Carousel</th></tr></thead>
-          <tbody>
-            <tr>
-              <td><img src="http://localhost:4502/content/dam/wknd-shared/en/adventures/ski-touring-mont-blanc/adobestock-238230356.jpeg" width="120" /></td>
-              <td><h3>Glacier Traverse</h3><p>Traverse high-alpine ridges in the French Alps.</p></td>
-            </tr>
-            <tr>
-              <td><img src="http://localhost:4502/content/dam/wknd-shared/en/adventures/ski-touring-mont-blanc/adobestock-21422513.jpeg" width="120" /></td>
-              <td><h3>Col du Passon</h3><p>A thrilling 4-hour ski tour from Argentiere.</p></td>
-            </tr>
-          </tbody>
-        </table>
+          <!-- Carousel Table -->
+          <table class="da-block-table">
+            <thead><tr><th colspan="2">Carousel</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><img src="https://images.unsplash.com/photo-1551524559-8af4e6624178?auto=format&fit=crop&w=240&q=80" width="160" style="border-radius:4px;" /></td>
+                <td>
+                  <h3>Glacier Traverse at Mont Blanc</h3>
+                  <p>Experience pristine powder and high-alpine ridges in the French Alps.</p>
+                </td>
+              </tr>
+              <tr>
+                <td><img src="https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=240&q=80" width="160" style="border-radius:4px;" /></td>
+                <td>
+                  <h3>Col du Passon Descent</h3>
+                  <p>A thrilling 4-hour ski tour from the Argentière hut.</p>
+                </td>
+              </tr>
+              <tr>
+                <td><img src="https://images.unsplash.com/photo-1486870591958-9b9d0d1dda99?auto=format&fit=crop&w=240&q=80" width="160" style="border-radius:4px;" /></td>
+                <td>
+                  <h3>Summit Ascent to Grands Mulets</h3>
+                  <p>Challenging alpine ski mountaineering across dramatic seracs.</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
 
-        <table class="da-block-table">
-          <thead><tr><th colspan="2">Tabs</th></tr></thead>
-          <tbody>
-            <tr>
-              <td>Overview</td>
-              <td><p>The Mont Blanc massif is the ultimate ski touring destination...</p></td>
-            </tr>
-            <tr>
-              <td>Itinerary</td>
-              <td><p>Day 1: Arrive in Chamonix... Day 2: Grands Montets...</p></td>
-            </tr>
-            <tr>
-              <td>What to Bring</td>
-              <td><p>Technical gear: Touring skis, boots, beacon, shovel, probe...</p></td>
-            </tr>
-          </tbody>
-        </table>
+          <!-- Tabs Table -->
+          <table class="da-block-table">
+            <thead><tr><th colspan="2">Tabs</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Overview</td>
+                <td>
+                  <p>The Mont Blanc massif is the ultimate ski touring destination in Europe...</p>
+                  <ul>
+                    <li>2,000m vertical untracked descents</li>
+                    <li>Overnight in Argentière & Grand Mulets huts</li>
+                  </ul>
+                </td>
+              </tr>
+              <tr>
+                <td>Itinerary</td>
+                <td>
+                  <p><strong>Day 1:</strong> Arrival in Chamonix<br/><strong>Day 2:</strong> Grands Montets Warm-up<br/><strong>Day 3:</strong> Col du Tour Noir</p>
+                </td>
+              </tr>
+              <tr>
+                <td>What to Bring</td>
+                <td>
+                  <p>Touring skis with pin bindings, skins, avalanche transceiver, shovel, probe, harness, crampons.</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
 
-        <table class="da-block-table">
-          <thead><tr><th colspan="2">Section Metadata</th></tr></thead>
-          <tbody>
-            <tr>
-              <td>style</td>
-              <td>adventure-detail-layout</td>
-            </tr>
-            <tr>
-              <td>activity</td>
-              <td>Skiing</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
-    </main>
+          <!-- Cards / Sidebar Table -->
+          <table class="da-block-table">
+            <thead><tr><th colspan="2">Cards (Adventure-Details)</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Activity</td>
+                <td>Ski Touring</td>
+              </tr>
+              <tr>
+                <td>Difficulty</td>
+                <td>Advanced (Level 4)</td>
+              </tr>
+              <tr>
+                <td>Trip Length</td>
+                <td>5 Days / 4 Nights</td>
+              </tr>
+              <tr>
+                <td>Price</td>
+                <td>$1,200 USD</td>
+              </tr>
+              <tr>
+                <td>CTA</td>
+                <td><a href="#book">Book This Adventure</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Client-Side Interactivity -->
+    <script>
+      // Carousel Logic
+      let currentSlide = 0;
+      const track = document.getElementById('carousel-track');
+      const dots = document.querySelectorAll('.carousel-dot');
+
+      function setSlide(index) {
+        currentSlide = index;
+        if (currentSlide > 2) currentSlide = 0;
+        if (currentSlide < 0) currentSlide = 2;
+        track.style.transform = `translateX(-${currentSlide * 33.333333}%)`;
+        dots.forEach((dot, i) => {
+          dot.classList.toggle('active', i === currentSlide);
+        });
+      }
+
+      function moveSlide(dir) {
+        setSlide(currentSlide + dir);
+      }
+
+      // Auto play carousel every 6 seconds
+      setInterval(() => {
+        setSlide(currentSlide + 1);
+      }, 6000);
+
+      // Tabs Logic
+      function switchTab(index) {
+        document.querySelectorAll('.tab-trigger').forEach((btn, i) => {
+          btn.classList.toggle('active', i === index);
+        });
+        document.querySelectorAll('.tab-panel').forEach((panel, i) => {
+          panel.classList.toggle('active', i === index);
+        });
+      }
+
+      // View Mode Switcher Logic (Live Preview vs DA Tables)
+      function switchView(mode) {
+        const liveView = document.getElementById('live-mode-view');
+        const daView = document.getElementById('da-mode-view');
+        const btnLive = document.getElementById('btn-live-view');
+        const btnDa = document.getElementById('btn-da-view');
+
+        if (mode === 'live') {
+          liveView.style.display = 'block';
+          daView.style.display = 'none';
+          btnLive.classList.add('active');
+          btnDa.classList.remove('active');
+        } else {
+          liveView.style.display = 'none';
+          daView.style.display = 'block';
+          btnLive.classList.remove('active');
+          btnDa.classList.add('active');
+        }
+      }
+    </script>
   </body>
 </html>

@@ -177,14 +177,27 @@ public class AiGateway {
                 duration);
 
         if (store != null && request.getProjectId() != null && request.getJobId() != null) {
-            String snippet = (request.getPrompt() != null && request.getPrompt().length() > 60)
-                    ? request.getPrompt().substring(0, 60) + "..." : request.getPrompt();
+            String promptText = request.getPrompt() != null ? request.getPrompt() : "";
+            String responseText = response.getContent() != null ? response.getContent() : "";
+
+            // 1. Record AI Request Event
             store.recordEvent(new com.adobe.aem.modernizer.persistence.model.JobEventRecord(
                     java.util.UUID.randomUUID().toString(),
                     request.getProjectId(),
                     request.getJobId(),
-                    "ai-" + providerName,
-                    "🤖 [AI:" + providerName + "] (model: " + modelName + ") " + snippet + " -> Completed in " + duration + "ms"
+                    "ai-request",
+                    "🤖 [AI:" + providerName + ":" + modelName + "] 📤 REQUEST:\n" + promptText
+            ));
+
+            // 2. Record AI Response Event
+            store.recordEvent(new com.adobe.aem.modernizer.persistence.model.JobEventRecord(
+                    java.util.UUID.randomUUID().toString(),
+                    request.getProjectId(),
+                    request.getJobId(),
+                    "ai-response",
+                    "🤖 [AI:" + providerName + ":" + modelName + "] 📥 RESPONSE (" + duration + "ms | " 
+                            + response.getTokenUsage().getPromptTokens() + " in / " 
+                            + response.getTokenUsage().getCompletionTokens() + " out tokens):\n" + responseText
             ));
         }
 

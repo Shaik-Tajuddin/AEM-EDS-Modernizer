@@ -69,6 +69,23 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 .log-line { margin-bottom: 5px; line-height: 1.5; word-break: break-all; }
 .log-time { color: var(--text-dim); margin-right: 8px; }
 .log-agent { color: var(--primary); font-weight: 700; margin-right: 8px; }
+.log-msg { white-space: pre-wrap; word-break: break-word; }
+.log-line.log-ai-request {
+  background: rgba(56, 189, 248, 0.09);
+  border-left: 3px solid var(--primary);
+  padding: 8px 12px;
+  margin: 6px 0;
+  border-radius: 4px;
+  color: #bae6fd;
+}
+.log-line.log-ai-response {
+  background: rgba(16, 185, 129, 0.09);
+  border-left: 3px solid var(--accent);
+  padding: 8px 12px;
+  margin: 6px 0;
+  border-radius: 4px;
+  color: #a7f3d0;
+}
 .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface-card); border: 1px solid var(--surface-border); color: var(--text); padding: 14px 20px; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); z-index: 1000; font-size: 0.9rem; display: none; }
 .toast.show { display: block; animation: slideIn 0.3s ease; }
 @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }

@@ -18,41 +18,61 @@ public final class MockDataFactory {
         inv.setExcludedPages(0);
 
         String root = (contentRoot != null && !contentRoot.isEmpty()) ? contentRoot : "/content/wknd";
+        String scope = (pageScope != null && !pageScope.isEmpty()) ? pageScope : root;
 
-        List<String> pageNames = Arrays.asList(
-                "home", "adventures", "magazine", "about-us", "contact-us",
-                "adventures/riverside-camping", "adventures/ski-touring-mont-blanc",
-                "adventures/downhill-mountain-biking", "adventures/surf-camp-bali",
-                "magazine/san-diego-travel", "magazine/western-australia",
-                "magazine/arctic-surfing", "magazine/fly-fishing-amazon",
-                "faq", "privacy-policy"
-        );
+        boolean isSinglePage = scope.endsWith("ski-touring-mont-blanc")
+                || (!scope.endsWith("/*") && !scope.equals("/content/wknd") && !scope.equals("/content/wknd/us/en") && scope.contains("/adventures/"));
 
-        List<SiteInventory.PageInfo> pages = new ArrayList<>();
-        int total = Math.max(count, pageNames.size());
-        for (int i = 0; i < total; i++) {
-            String subPath = (i < pageNames.size()) ? pageNames.get(i) : ("page-" + i);
-            String path = root + "/" + subPath;
-            String title = formatTitle(subPath);
+        if (isSinglePage) {
+            inv.setTotalPages(1);
+            inv.setEligiblePages(1);
+            inv.setExcludedPages(0);
 
-            SiteInventory.PageInfo p = new SiteInventory.PageInfo(path, title, "/conf/wknd/settings/wcm/templates/article-page");
-            List<String> crt = new ArrayList<>();
-            crt.add("wknd/components/hero");
-            crt.add("wknd/components/text");
-            crt.add("wknd/components/image");
-            if (i % 2 == 0) crt.add("wknd/components/teaser");
-            if (i % 3 == 0) crt.add("wknd/components/carousel");
-            if (i % 4 == 0) crt.add("wknd/components/tabs");
-            p.setComponentResourceTypes(crt);
+            SiteInventory.PageInfo p = new SiteInventory.PageInfo(
+                    scope.replace(".html", ""),
+                    "Ski Touring Mont Blanc",
+                    "/conf/wknd/settings/wcm/templates/adventure-page"
+            );
+            p.setComponentResourceTypes(Arrays.asList(
+                    "wknd/components/breadcrumb",
+                    "wknd/components/carousel",
+                    "wknd/components/tabs",
+                    "wknd/components/cards"
+            ));
+            p.setAssetPaths(Arrays.asList(
+                    "/content/dam/wknd-shared/en/adventures/ski-touring-mont-blanc/adobestock-238230356.jpeg",
+                    "/content/dam/wknd-shared/en/adventures/ski-touring-mont-blanc/adobestock-21422513.jpeg",
+                    "/content/dam/wknd-shared/en/adventures/ski-touring-mont-blanc/adobestock-291339093.jpeg"
+            ));
+            inv.setPages(Collections.singletonList(p));
 
-            List<String> ap = new ArrayList<>();
-            ap.add("/content/dam/wknd/en/adventures/hero-" + (i % 5) + ".jpg");
-            ap.add("/content/dam/wknd/en/magazine/cover-" + (i % 3) + ".png");
-            p.setAssetPaths(ap);
+            List<SiteInventory.ComponentInfo> components = new ArrayList<>();
+            components.add(new SiteInventory.ComponentInfo("wknd/components/breadcrumb", "Breadcrumb", "WKND Structure"));
+            components.add(new SiteInventory.ComponentInfo("wknd/components/carousel", "Carousel", "WKND Content"));
+            components.add(new SiteInventory.ComponentInfo("wknd/components/tabs", "Tabs", "WKND Content"));
+            components.add(new SiteInventory.ComponentInfo("wknd/components/cards", "Cards List", "WKND Content"));
+            inv.setComponents(components);
 
-            pages.add(p);
+            List<SiteInventory.TemplateInfo> templates = new ArrayList<>();
+            templates.add(new SiteInventory.TemplateInfo("/conf/wknd/settings/wcm/templates/adventure-page", "Adventure Page"));
+            inv.setTemplates(templates);
+
+            List<SiteInventory.ContentFragmentInfo> cfs = new ArrayList<>();
+            cfs.add(new SiteInventory.ContentFragmentInfo("/content/dam/wknd-shared/en/adventures/ski-touring-mont-blanc/ski-touring-mont-blanc", "adventure-model", "Ski Touring Mont Blanc"));
+            inv.setContentFragments(cfs);
+
+            List<SiteInventory.AssetInfo> assets = new ArrayList<>();
+            assets.add(new SiteInventory.AssetInfo("/content/dam/wknd-shared/en/adventures/ski-touring-mont-blanc/adobestock-238230356.jpeg", "image/jpeg"));
+            assets.add(new SiteInventory.AssetInfo("/content/dam/wknd-shared/en/adventures/ski-touring-mont-blanc/adobestock-21422513.jpeg", "image/jpeg"));
+            assets.add(new SiteInventory.AssetInfo("/content/dam/wknd-shared/en/adventures/ski-touring-mont-blanc/adobestock-291339093.jpeg", "image/jpeg"));
+            inv.setAssets(assets);
+
+            List<SiteInventory.MsmLiveCopyInfo> liveCopies = new ArrayList<>();
+            liveCopies.add(new SiteInventory.MsmLiveCopyInfo("/content/wknd/language-masters/en/adventures/ski-touring-mont-blanc", "/content/wknd/us/en/adventures/ski-touring-mont-blanc"));
+            inv.setLiveCopies(liveCopies);
+
+            return inv;
         }
-        inv.setPages(pages);
 
         // Distinct Components
         List<SiteInventory.ComponentInfo> components = new ArrayList<>();
