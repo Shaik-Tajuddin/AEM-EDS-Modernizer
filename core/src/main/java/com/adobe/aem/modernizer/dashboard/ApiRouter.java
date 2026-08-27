@@ -14,6 +14,9 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 
 /**
@@ -183,9 +186,21 @@ public class ApiRouter {
                     }
 
                     if ("files".equalsIgnoreCase(sub)) {
-                        Optional<JobRecord> latest = store != null ? store.getLatestJob(projectId) : Optional.empty();
-                        List<GeneratedFileRecord> files = (latest.isPresent() && store != null)
-                                ? store.getGeneratedFiles(latest.get().getId()) : Collections.emptyList();
+                        List<GeneratedFileRecord> files = new ArrayList<>();
+                        if (store != null) {
+                            Optional<JobRecord> latest = store.getLatestJob(projectId);
+                            if (latest.isPresent()) {
+                                files.addAll(store.getGeneratedFiles(latest.get().getId()));
+                            }
+                            if (files.isEmpty()) {
+                                for (JobRecord j : store.listJobs(projectId)) {
+                                    files.addAll(store.getGeneratedFiles(j.getId()));
+                                }
+                            }
+                        }
+                        if (files.isEmpty()) {
+                            files.addAll(scanLocalBlockFiles(projectId));
+                        }
                         return JsonUtil.toJson(files);
                     }
 
@@ -220,6 +235,22 @@ public class ApiRouter {
                     if ("clarifications".equalsIgnoreCase(sub)) {
                         return JsonUtil.toJson(store != null ? store.getClarificationsForProject(projectId) : Collections.emptyList());
                     }
+
+                    // ─────────────────────────────────────────────────────────────
+                    // Antigravity Middleware routes
+                    // ─────────────────────────────────────────────────────────────
+
+                    // GET /projects/{id}/components-pending
+                    // Returns component list that Antigravity should generate blocks for.
+                    if ("components-pending".equalsIgnoreCase(sub) && "GET".equalsIgnoreCase(method)) {
+                        return handleComponentsPending(projectId);
+                    }
+
+                    // POST /projects/{id}/blocks
+                    // Accepts generated block file content from Antigravity and persists it.
+                    if ("blocks".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
+                        return handleBlocksPost(body, resp);
+                    }
                 }
             }
 
@@ -230,5 +261,216 @@ public class ApiRouter {
             if (resp != null) resp.setStatus(500);
             return "{\"error\":\"" + e.getMessage() + "\"}";
         }
+    }
+
+    /**
+     * Returns components from the latest inventory that still need Antigravity block generation.
+     * A component is "pending" when no generated file exists yet for its proposed block name.
+     */
+    private String handleComponentsPending(String projectId) {
+        if (store == null) return "[]";
+        Optional<JobRecord> latestJob = store.getLatestJob(projectId);
+        if (!latestJob.isPresent()) return "[]";
+
+        Optional<SiteInventory> invOpt = store.getInventory(latestJob.get().getId());
+        if (!invOpt.isPresent() || invOpt.get().getComponents() == null) return "[]";
+
+        String jobId = latestJob.get().getId();
+        List<GeneratedFileRecord> existing = store.getGeneratedFiles(jobId);
+        Set<String> generatedBlocks = new HashSet<>();
+        for (GeneratedFileRecord f : existing) {
+            if (f.getPath() != null && f.getPath().startsWith("blocks/")) {
+                // e.g. "blocks/hero/hero.js" → block name = "hero"
+                String[] parts = f.getPath().split("/");
+                if (parts.length >= 2) generatedBlocks.add(parts[1]);
+            }
+        }
+
+        List<Map<String, Object>> pending = new ArrayList<>();
+        for (SiteInventory.ComponentInfo comp : invOpt.get().getComponents()) {
+            String blockName = comp.getProposedEdsBlock() != null
+                    ? comp.getProposedEdsBlock().toLowerCase().replace(' ', '-')
+                    : comp.getResourceType().substring(comp.getResourceType().lastIndexOf('/') + 1).toLowerCase();
+
+            if (!generatedBlocks.contains(blockName)) {
+                Map<String, Object> entry = new LinkedHashMap<>();
+                entry.put("resourceType", comp.getResourceType());
+                entry.put("proposedBlockName", blockName);
+                entry.put("title", comp.getTitle());
+                entry.put("occurrenceCount", comp.getOccurrenceCount());
+                entry.put("capabilityClassification", comp.getCapabilityClassification());
+                entry.put("projectId", projectId);
+                entry.put("jobId", jobId);
+                // Attach sample page paths so Antigravity can call getPageContent
+                List<String> samplePages = new ArrayList<>();
+                for (SiteInventory.PageInfo page : invOpt.get().getPages()) {
+                    if (page.getComponentResourceTypes() != null
+                            && page.getComponentResourceTypes().contains(comp.getResourceType())) {
+                        samplePages.add(page.getPath());
+                        if (samplePages.size() >= 3) break;
+                    }
+                }
+                entry.put("samplePagePaths", samplePages);
+                pending.add(entry);
+            }
+        }
+        LOG.info("[Antigravity] components-pending for project {}: {} components", projectId, pending.size());
+        return JsonUtil.toJson(pending);
+    }
+
+    /**
+     * Accepts generated block files from Antigravity, saves to Store and writes to disk.
+     *
+     * Expected body:
+     * {
+     *   "projectId": "wknd-site",
+     *   "jobId": "job-abc",
+     *   "blockName": "hero",
+     *   "files": {
+     *     "js": "...",
+     *     "css": "...",
+     *     "model_json": "...",
+     *     "example_html": "...",
+     *     "readme": "..."
+     *   }
+     * }
+     */
+    @SuppressWarnings("unchecked")
+    private String handleBlocksPost(String body, HttpServletResponse resp) {
+        if (body == null || body.trim().isEmpty()) {
+            if (resp != null) resp.setStatus(400);
+            return "{\"error\":\"Empty request body\"}";
+        }
+        Map<?, ?> payload = JsonUtil.fromJson(body, Map.class);
+        if (payload == null) {
+            if (resp != null) resp.setStatus(400);
+            return "{\"error\":\"Invalid JSON body\"}";
+        }
+
+        String projectId = (String) payload.get("projectId");
+        String jobId = (String) payload.get("jobId");
+        String blockName = (String) payload.get("blockName");
+        Map<?, ?> files = (payload.get("files") instanceof Map) ? (Map<?, ?>) payload.get("files") : null;
+
+        if (projectId == null || blockName == null || files == null) {
+            if (resp != null) resp.setStatus(400);
+            return "{\"error\":\"Missing required fields: projectId, blockName, files\"}";
+        }
+
+        // Resolve jobId — use latest if not provided
+        if (jobId == null && store != null) {
+            jobId = store.getLatestJob(projectId).map(JobRecord::getId).orElse("job-antigravity");
+        }
+        if (jobId == null) jobId = "job-antigravity";
+
+        List<String> saved = new ArrayList<>();
+        String[][] fileMap = {
+            {"js",           "blocks/" + blockName + "/" + blockName + ".js",          "BLOCK_JS"},
+            {"css",          "blocks/" + blockName + "/" + blockName + ".css",         "BLOCK_CSS"},
+            {"model_json",   "blocks/" + blockName + "/_" + blockName + ".json",       "BLOCK_MODEL_JSON"},
+            {"example_html", "blocks/" + blockName + "/" + blockName + "-example.html","BLOCK_EXAMPLE_HTML"},
+            {"readme",       "blocks/" + blockName + "/README.md",                     "BLOCK_README"}
+        };
+
+        for (String[] fm : fileMap) {
+            String key = fm[0], relPath = fm[1], type = fm[2];
+            Object content = files.get(key);
+            if (content == null || content.toString().trim().isEmpty()) continue;
+            String text = content.toString();
+
+            // Persist to Store
+            if (store != null) {
+                GeneratedFileRecord rec = new GeneratedFileRecord(
+                        UUID.randomUUID().toString(), projectId, jobId, relPath, type, text);
+                store.saveGeneratedFile(rec);
+            }
+
+            // Write to local disk so the EDS project has the actual files
+            writeBlockFile(relPath, text);
+            saved.add(relPath);
+        }
+
+        // Record an event in the job timeline
+        if (store != null) {
+            store.recordEvent(new JobEventRecord(
+                    UUID.randomUUID().toString(), projectId, jobId, "antigravity-block",
+                    "✨ [Antigravity] Generated block `" + blockName + "` — " + saved.size() + " files saved: " + saved));
+        }
+
+        LOG.info("[Antigravity] Received block '{}' for project '{}': {} files saved", blockName, projectId, saved.size());
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("status", "SAVED");
+        result.put("blockName", blockName);
+        result.put("savedFiles", saved);
+        return JsonUtil.toJson(result);
+    }
+
+    /** Writes a block file to the local EDS repo root. */
+    private void writeBlockFile(String relPath, String content) {
+        String[] candidateRoots = {
+            "D:/eds personal/AEM-EDS-Modernizer",
+            "d:/eds personal/AEM-EDS-Modernizer",
+            System.getProperty("user.dir")
+        };
+        for (String root : candidateRoots) {
+            java.io.File dir = new java.io.File(root);
+            if (new java.io.File(dir, "pom.xml").exists() || new java.io.File(dir, "blocks").exists()) {
+                try {
+                    Path target = dir.toPath().resolve(relPath);
+                    Files.createDirectories(target.getParent());
+                    Files.writeString(target, content, StandardCharsets.UTF_8);
+                    LOG.info("[Antigravity] Wrote block file: {}", target);
+                } catch (Exception e) {
+                    LOG.warn("[Antigravity] Could not write block file {}: {}", relPath, e.getMessage());
+                }
+                return;
+            }
+        }
+    }
+
+    private List<GeneratedFileRecord> scanLocalBlockFiles(String projectId) {
+        List<GeneratedFileRecord> list = new ArrayList<>();
+        try {
+            String[] candidateRoots = new String[] {
+                "D:/eds personal/AEM-EDS-Modernizer",
+                "d:/eds personal/AEM-EDS-Modernizer",
+                System.getProperty("user.dir")
+            };
+            java.io.File blocksDir = null;
+            for (String root : candidateRoots) {
+                java.io.File d = new java.io.File(root, "blocks");
+                if (d.exists() && d.isDirectory()) {
+                    blocksDir = d;
+                    break;
+                }
+            }
+            if (blocksDir != null && blocksDir.listFiles() != null) {
+                for (java.io.File bFolder : blocksDir.listFiles()) {
+                    if (bFolder.isDirectory()) {
+                        java.io.File[] files = bFolder.listFiles();
+                        if (files != null) {
+                            for (java.io.File f : files) {
+                                if (f.isFile()) {
+                                    String rel = "blocks/" + bFolder.getName() + "/" + f.getName();
+                                    String content = java.nio.file.Files.readString(f.toPath(), java.nio.charset.StandardCharsets.UTF_8);
+                                    String type = "BLOCK_SOURCE";
+                                    if (f.getName().endsWith(".js")) type = "BLOCK_JS";
+                                    else if (f.getName().endsWith(".css")) type = "BLOCK_CSS";
+                                    else if (f.getName().startsWith("_") && f.getName().endsWith(".json")) type = "BLOCK_MODEL_JSON";
+                                    else if (f.getName().endsWith(".html")) type = "BLOCK_EXAMPLE_HTML";
+                                    else if (f.getName().equalsIgnoreCase("readme.md")) type = "BLOCK_README";
+
+                                    GeneratedFileRecord rec = new GeneratedFileRecord(UUID.randomUUID().toString(), projectId, "job-disk", rel, type, content);
+                                    list.add(rec);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            LOG.warn("Could not scan local block files: {}", e.getMessage());
+        }
+        return list;
     }
 }

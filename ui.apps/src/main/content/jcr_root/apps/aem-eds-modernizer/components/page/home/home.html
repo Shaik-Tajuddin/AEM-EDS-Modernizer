@@ -152,20 +152,28 @@
             <div class="form-group">
               <label class="form-label">AI Provider Preference</label>
               <select id="cfg-aiProvider" class="form-control" onchange="onProviderChange()">
-                <option value="anthropic">Anthropic Claude (Recommended)</option>
-                <option value="openai">OpenAI (GPT-4o)</option>
-                <option value="gemini">Google Gemini (1.5 Pro)</option>
-                <option value="ollama">Ollama (Local / Offline)</option>
+                <option value="antigravity">✨ Antigravity IDE Agent (No API Key Needed)</option>
+                <option value="anthropic">Anthropic Claude (API Key Required)</option>
+                <option value="openai">OpenAI (GPT-4o, API Key Required)</option>
+                <option value="gemini">Google Gemini (1.5 Pro, API Key Required)</option>
+                <option value="ollama">Ollama (Local — Slow)</option>
               </select>
+              <div id="antigravity-banner" style="display:none; margin-top:10px; padding:12px 16px; background:linear-gradient(135deg,#1e1b4b,#312e81); border-radius:8px; border:1px solid #6366f1; color:#e0e7ff; font-size:0.85rem; line-height:1.6;">
+                <strong style="color:#a5b4fc;">✨ Antigravity Mode Active</strong><br>
+                Block generation is handled by the <strong>Antigravity IDE agent</strong>.<br>
+                1. Run a <strong>Dry Run</strong> to discover your components.<br>
+                2. Then tell the agent: <code style="background:#1e1b4b;padding:2px 5px;border-radius:3px;">&quot;Generate EDS blocks for project [id]&quot;</code><br>
+                Antigravity will use <strong>MCP</strong> to fetch real AEM component fields and generate contextually accurate blocks.
+              </div>
             </div>
-            <div class="form-group">
+            <div class="form-group" id="ai-model-group">
               <label class="form-label">Target AI Model</label>
               <input type="text" id="cfg-aiModel" class="form-control" value="${model.activeProject.aiModel}" placeholder="model identifier">
             </div>
-            <div class="form-group">
+            <div class="form-group" id="ai-budget-group">
               <label class="form-label">Max AI Budget Limit (USD)</label>
               <input type="number" id="cfg-maxBudget" class="form-control" value="${model.activeProject.maxBudgetUsd}" step="10">
-              <div class="form-hint">Hard ceiling to prevent unexpected API spending</div>
+              <div class="form-hint">Hard ceiling to prevent unexpected API spending (not applicable for Antigravity)</div>
             </div>
             <div class="form-group">
               <label class="form-label">Max Self-Repair Attempts (Bounded Loop)</label>

@@ -1,30 +1,34 @@
-let currentProjectId = 'wknd-site';
+let currentProjectId = "wknd-site";
 let projectsList = [];
 
 let csrfTokenPromise = null;
 function getCsrfToken() {
   if (!csrfTokenPromise) {
-    csrfTokenPromise = fetch('/libs/granite/csrf/token.json')
-      .then(r => r.json())
-      .then(d => (d && d.token) ? d.token : '')
-      .catch(() => '');
+    csrfTokenPromise = fetch("/libs/granite/csrf/token.json")
+      .then((r) => r.json())
+      .then((d) => (d && d.token ? d.token : ""))
+      .catch(() => "");
   }
   return csrfTokenPromise;
 }
 
 const api = async (path, opts = {}) => {
-  const cleanPath = path.startsWith('/') ? path.substring(1) : path;
-  const url = '/bin/aem-eds-modernizer/api?path=' + encodeURIComponent(cleanPath);
-  
-  const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
-  if (opts.method && opts.method.toUpperCase() !== 'GET') {
+  const cleanPath = path.startsWith("/") ? path.substring(1) : path;
+  const url =
+    "/bin/aem-eds-modernizer/api?path=" + encodeURIComponent(cleanPath);
+
+  const headers = Object.assign(
+    { "Content-Type": "application/json" },
+    opts.headers || {},
+  );
+  if (opts.method && opts.method.toUpperCase() !== "GET") {
     const token = await getCsrfToken();
     if (token) {
-      headers['CSRF-Token'] = token;
+      headers["CSRF-Token"] = token;
     }
   }
   opts.headers = headers;
-  
+
   const res = await fetch(url, opts);
   if (!res.ok) {
     const errText = await res.text();
@@ -34,137 +38,186 @@ const api = async (path, opts = {}) => {
 };
 
 function showToast(msg) {
-  const t = document.getElementById('toast');
+  const t = document.getElementById("toast");
   if (!t) return;
   t.innerText = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 3500);
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 3500);
 }
 
 function showTab(tabId) {
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
-  const btn = Array.from(document.querySelectorAll('.nav-tab')).find(b => b.getAttribute('onclick') && b.getAttribute('onclick').includes(tabId));
-  if (btn) btn.classList.add('active');
-  const target = document.getElementById('tab-' + tabId);
-  if (target) target.style.display = 'block';
+  document
+    .querySelectorAll(".nav-tab")
+    .forEach((t) => t.classList.remove("active"));
+  document
+    .querySelectorAll(".tab-content")
+    .forEach((c) => (c.style.display = "none"));
+  const btn = Array.from(document.querySelectorAll(".nav-tab")).find(
+    (b) =>
+      b.getAttribute("onclick") && b.getAttribute("onclick").includes(tabId),
+  );
+  if (btn) btn.classList.add("active");
+  const target = document.getElementById("tab-" + tabId);
+  if (target) target.style.display = "block";
 }
 
 function setPipelineStep(stepId, state) {
-  const el = document.getElementById('step-' + stepId);
+  const el = document.getElementById("step-" + stepId);
   if (el) {
-    if (state === 'done') { el.className = 'step-item done'; }
-    else if (state === 'active') { el.className = 'step-item active'; }
-    else { el.className = 'step-item'; }
+    if (state === "done") {
+      el.className = "step-item done";
+    } else if (state === "active") {
+      el.className = "step-item active";
+    } else {
+      el.className = "step-item";
+    }
   }
 }
 
 function log(agent, msg) {
-  const term = document.getElementById('terminal');
-  const eventsLog = document.getElementById('events-log');
+  const term = document.getElementById("terminal");
+  const eventsLog = document.getElementById("events-log");
   const time = new Date().toLocaleTimeString();
   const line = `<div class="log-line"><span class="log-time">[${time}]</span><span class="log-agent">[${agent}]</span><span>${msg}</span></div>`;
-  if (term) { term.innerHTML += line; term.scrollTop = term.scrollHeight; }
-  if (eventsLog) { eventsLog.innerHTML += line; eventsLog.scrollTop = eventsLog.scrollHeight; }
+  if (term) {
+    term.innerHTML += line;
+    term.scrollTop = term.scrollHeight;
+  }
+  if (eventsLog) {
+    eventsLog.innerHTML += line;
+    eventsLog.scrollTop = eventsLog.scrollHeight;
+  }
 }
 
 function onProviderChange() {
-  const provider = document.getElementById('cfg-aiProvider').value;
-  const modelInput = document.getElementById('cfg-aiModel');
-  if (!modelInput) return;
-  if (provider === 'anthropic') modelInput.value = 'claude-3-5-sonnet-20241022';
-  else if (provider === 'openai') modelInput.value = 'gpt-4o';
-  else if (provider === 'gemini') modelInput.value = 'gemini-1.5-pro';
-  else if (provider === 'ollama') modelInput.value = 'qwen3:8b';
+  const provider = document.getElementById("cfg-aiProvider").value;
+  const modelInput = document.getElementById("cfg-aiModel");
+  const banner = document.getElementById("antigravity-banner");
+  const modelGroup = document.getElementById("ai-model-group");
+  const budgetGroup = document.getElementById("ai-budget-group");
+
+  // Toggle Antigravity banner + hide irrelevant fields
+  const isAntigravity = provider === "antigravity";
+  if (banner) banner.style.display = isAntigravity ? "block" : "none";
+  if (modelGroup) modelGroup.style.display = isAntigravity ? "none" : "";
+  if (budgetGroup) budgetGroup.style.display = isAntigravity ? "none" : "";
+  if (modelInput && !isAntigravity) {
+    if (provider === "anthropic")
+      modelInput.value = "claude-3-5-sonnet-20241022";
+    else if (provider === "openai") modelInput.value = "gpt-4o";
+    else if (provider === "gemini") modelInput.value = "gemini-1.5-pro";
+    else if (provider === "ollama") modelInput.value = "qwen3:8b";
+  }
+  if (modelInput && isAntigravity) modelInput.value = "";
 }
 
 function loadWkndPreset() {
-  document.getElementById('cfg-id').value = 'wknd-site';
-  document.getElementById('cfg-name').value = 'WKND Site Modernization';
-  document.getElementById('cfg-authorUrl').value = 'http://localhost:4502';
-  document.getElementById('cfg-publishUrl').value = 'http://localhost:4503';
-  document.getElementById('cfg-contentRoot').value = '/content/wknd';
-  document.getElementById('cfg-pageScope').value = '/content/wknd/*';
-  document.getElementById('cfg-repoUrl').value = 'https://github.com/my-org/wknd-eds';
-  document.getElementById('cfg-branch').value = 'main';
-  document.getElementById('cfg-markerProp').value = 'edsModernize';
-  document.getElementById('cfg-markerVal').value = 'true';
-  document.getElementById('cfg-authoringStrategy').value = 'UNIVERSAL_EDITOR';
-  document.getElementById('cfg-aiProvider').value = 'anthropic';
-  document.getElementById('cfg-aiModel').value = 'claude-3-5-sonnet-20241022';
-  document.getElementById('cfg-maxBudget').value = '100.00';
-  document.getElementById('cfg-maxRepair').value = '5';
-  showToast('Loaded WKND Site Configuration Preset');
+  document.getElementById("cfg-id").value = "wknd-site";
+  document.getElementById("cfg-name").value = "WKND Site Modernization";
+  document.getElementById("cfg-authorUrl").value = "http://localhost:4502";
+  document.getElementById("cfg-publishUrl").value = "http://localhost:4503";
+  document.getElementById("cfg-contentRoot").value =
+    "/content/wknd/language-masters/en/adventures/ski-touring-mont-blanc";
+  document.getElementById("cfg-pageScope").value = "/content/wknd/*";
+  document.getElementById("cfg-repoUrl").value =
+    "https://github.com/my-org/wknd-eds";
+  document.getElementById("cfg-branch").value = "main";
+  document.getElementById("cfg-markerProp").value = "edsModernize";
+  document.getElementById("cfg-markerVal").value = "true";
+  document.getElementById("cfg-authoringStrategy").value = "UNIVERSAL_EDITOR";
+  document.getElementById("cfg-aiProvider").value = "antigravity";
+  document.getElementById("cfg-aiModel").value = "";
+  document.getElementById("cfg-maxBudget").value = "0.00";
+  document.getElementById("cfg-maxRepair").value = "5";
+  onProviderChange(); // trigger banner and field visibility
+  showToast("Loaded WKND Site Configuration Preset (✨ Antigravity mode)");
 }
 
 function clearForm() {
-  document.getElementById('cfg-id').value = 'project-' + Math.random().toString(36).substring(2,7);
-  document.getElementById('cfg-name').value = '';
-  document.getElementById('cfg-authorUrl').value = 'http://localhost:4502';
-  document.getElementById('cfg-publishUrl').value = '';
-  document.getElementById('cfg-contentRoot').value = '/content/';
-  document.getElementById('cfg-pageScope').value = '';
-  document.getElementById('cfg-repoUrl').value = '';
-  document.getElementById('cfg-figmaUrl').value = '';
+  document.getElementById("cfg-id").value =
+    "project-" + Math.random().toString(36).substring(2, 7);
+  document.getElementById("cfg-name").value = "";
+  document.getElementById("cfg-authorUrl").value = "http://localhost:4502";
+  document.getElementById("cfg-publishUrl").value = "";
+  document.getElementById("cfg-contentRoot").value = "/content/";
+  document.getElementById("cfg-pageScope").value = "";
+  document.getElementById("cfg-repoUrl").value = "";
+  document.getElementById("cfg-figmaUrl").value = "";
 }
 
 async function saveProjectConfig() {
   const payload = {
-    id: document.getElementById('cfg-id').value.trim() || 'project-1',
-    name: document.getElementById('cfg-name').value.trim() || 'Untitled Project',
-    aemAuthorUrl: document.getElementById('cfg-authorUrl').value.trim(),
-    aemPublishUrl: document.getElementById('cfg-publishUrl').value.trim(),
-    contentRoot: document.getElementById('cfg-contentRoot').value.trim(),
-    pageScope: document.getElementById('cfg-pageScope').value.trim(),
-    edsGitRepoUrl: document.getElementById('cfg-repoUrl').value.trim(),
-    edsBranch: document.getElementById('cfg-branch').value.trim(),
-    figmaUrl: document.getElementById('cfg-figmaUrl').value.trim(),
-    markerProperty: document.getElementById('cfg-markerProp').value.trim(),
-    markerValue: document.getElementById('cfg-markerVal').value.trim(),
-    authoringStrategy: document.getElementById('cfg-authoringStrategy').value,
-    aiProvider: document.getElementById('cfg-aiProvider').value,
-    aiModel: document.getElementById('cfg-aiModel').value.trim(),
-    maxBudgetUsd: parseFloat(document.getElementById('cfg-maxBudget').value) || 100.0,
-    maxRepairAttempts: parseInt(document.getElementById('cfg-maxRepair').value, 10) || 5
+    id: document.getElementById("cfg-id").value.trim() || "project-1",
+    name:
+      document.getElementById("cfg-name").value.trim() || "Untitled Project",
+    aemAuthorUrl: document.getElementById("cfg-authorUrl").value.trim(),
+    aemPublishUrl: document.getElementById("cfg-publishUrl").value.trim(),
+    contentRoot: document.getElementById("cfg-contentRoot").value.trim(),
+    pageScope: document.getElementById("cfg-pageScope").value.trim(),
+    edsGitRepoUrl: document.getElementById("cfg-repoUrl").value.trim(),
+    edsBranch: document.getElementById("cfg-branch").value.trim(),
+    figmaUrl: document.getElementById("cfg-figmaUrl").value.trim(),
+    markerProperty: document.getElementById("cfg-markerProp").value.trim(),
+    markerValue: document.getElementById("cfg-markerVal").value.trim(),
+    authoringStrategy: document.getElementById("cfg-authoringStrategy").value,
+    aiProvider: document.getElementById("cfg-aiProvider").value,
+    aiModel: document.getElementById("cfg-aiModel").value.trim(),
+    maxBudgetUsd:
+      parseFloat(document.getElementById("cfg-maxBudget").value) || 100.0,
+    maxRepairAttempts:
+      parseInt(document.getElementById("cfg-maxRepair").value, 10) || 5,
   };
 
-  log('connection', `Saving project '${payload.name}' (${payload.id}) & verifying AEM endpoint...`);
+  log(
+    "connection",
+    `Saving project '${payload.name}' (${payload.id}) & verifying AEM endpoint...`,
+  );
   try {
-    const saved = await api('projects', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+    const saved = await api("projects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
     currentProjectId = saved.id;
-    log('connection', `Project saved successfully: ContentRoot=${payload.contentRoot}, EDS Repo=${payload.edsGitRepoUrl}`);
+    log(
+      "connection",
+      `Project saved successfully: ContentRoot=${payload.contentRoot}, EDS Repo=${payload.edsGitRepoUrl}`,
+    );
     showToast(`Project '${saved.name}' Saved & Connected!`);
-    document.getElementById('btn-dryrun').disabled = false;
-    setPipelineStep('connect', 'done');
-    setPipelineStep('dryrun', 'active');
+    document.getElementById("btn-dryrun").disabled = false;
+    setPipelineStep("connect", "done");
+    setPipelineStep("dryrun", "active");
     await loadProjectsList();
-    showTab('overview');
+    showTab("overview");
   } catch (err) {
-    log('error', `Failed to save project: ${err.message}`);
-    showToast('Error saving project');
+    log("error", `Failed to save project: ${err.message}`);
+    showToast("Error saving project");
   }
 }
 
 async function loadProjectsList() {
   try {
-    projectsList = await api('projects');
-    const select = document.getElementById('project-select');
+    projectsList = await api("projects");
+    const select = document.getElementById("project-select");
     if (select && projectsList && projectsList.length > 0) {
-      select.innerHTML = projectsList.map(p => `<option value="${p.id}" ${p.id === currentProjectId ? 'selected' : ''}>${p.name || p.id}</option>`).join('')
-        + '<option value="new">+ Create New Project...</option>';
+      select.innerHTML =
+        projectsList
+          .map(
+            (p) =>
+              `<option value="${p.id}" ${p.id === currentProjectId ? "selected" : ""}>${p.name || p.id}</option>`,
+          )
+          .join("") + '<option value="new">+ Create New Project...</option>';
     }
-  } catch (e) { console.log(e); }
+  } catch (e) {
+    console.log(e);
+  }
 }
 
 async function onProjectSelectChange() {
-  const val = document.getElementById('project-select').value;
-  if (val === 'new') {
+  const val = document.getElementById("project-select").value;
+  if (val === "new") {
     clearForm();
-    showTab('setup');
+    showTab("setup");
   } else {
     currentProjectId = val;
     await populateFormFromProject(val);
@@ -173,95 +226,122 @@ async function onProjectSelectChange() {
 }
 
 async function populateFormFromProject(id) {
-  const p = projectsList.find(x => x.id === id) || await api(`projects/${id}`);
+  const p =
+    projectsList.find((x) => x.id === id) || (await api(`projects/${id}`));
   if (p) {
-    document.getElementById('cfg-id').value = p.id || '';
-    document.getElementById('cfg-name').value = p.name || '';
-    document.getElementById('cfg-authorUrl').value = p.aemAuthorUrl || 'http://localhost:4502';
-    document.getElementById('cfg-publishUrl').value = p.aemPublishUrl || '';
-    document.getElementById('cfg-contentRoot').value = p.contentRoot || '/content/wknd';
-    document.getElementById('cfg-pageScope').value = p.pageScope || '';
-    document.getElementById('cfg-repoUrl').value = p.edsGitRepoUrl || '';
-    document.getElementById('cfg-branch').value = p.edsBranch || 'main';
-    document.getElementById('cfg-figmaUrl').value = p.figmaUrl || '';
-    document.getElementById('cfg-markerProp').value = p.markerProperty || 'edsModernize';
-    document.getElementById('cfg-markerVal').value = p.markerValue || 'true';
-    document.getElementById('cfg-authoringStrategy').value = p.authoringStrategy || 'UNIVERSAL_EDITOR';
-    document.getElementById('cfg-aiProvider').value = p.aiProvider || 'anthropic';
-    document.getElementById('cfg-aiModel').value = p.aiModel || 'claude-3-5-sonnet-20241022';
-    document.getElementById('cfg-maxBudget').value = p.maxBudgetUsd || 100.0;
-    document.getElementById('cfg-maxRepair').value = p.maxRepairAttempts || 5;
+    document.getElementById("cfg-id").value = p.id || "";
+    document.getElementById("cfg-name").value = p.name || "";
+    document.getElementById("cfg-authorUrl").value =
+      p.aemAuthorUrl || "http://localhost:4502";
+    document.getElementById("cfg-publishUrl").value = p.aemPublishUrl || "";
+    document.getElementById("cfg-contentRoot").value =
+      p.contentRoot || "/content/wknd";
+    document.getElementById("cfg-pageScope").value = p.pageScope || "";
+    document.getElementById("cfg-repoUrl").value = p.edsGitRepoUrl || "";
+    document.getElementById("cfg-branch").value = p.edsBranch || "main";
+    document.getElementById("cfg-figmaUrl").value = p.figmaUrl || "";
+    document.getElementById("cfg-markerProp").value =
+      p.markerProperty || "edsModernize";
+    document.getElementById("cfg-markerVal").value = p.markerValue || "true";
+    document.getElementById("cfg-authoringStrategy").value =
+      p.authoringStrategy || "UNIVERSAL_EDITOR";
+    document.getElementById("cfg-aiProvider").value =
+      p.aiProvider || "anthropic";
+    document.getElementById("cfg-aiModel").value =
+      p.aiModel || "claude-3-5-sonnet-20241022";
+    document.getElementById("cfg-maxBudget").value = p.maxBudgetUsd || 100.0;
+    document.getElementById("cfg-maxRepair").value = p.maxRepairAttempts || 5;
   }
 }
 
 let generatedFiles = [];
 let blockFilesMap = {};
 let activeBlockName = null;
-let activeFileTab = 'demo';
+let activeFileTab = "demo";
 
 async function runDryRun() {
-  const btn = document.getElementById('btn-dryrun');
+  const btn = document.getElementById("btn-dryrun");
   if (btn) btn.disabled = true;
-  setPipelineStep('connect', 'done');
-  setPipelineStep('dryrun', 'active');
-  log('orchestrator', `Starting Mandatory Dry Run for project '${currentProjectId}'...`);
+  setPipelineStep("connect", "done");
+  setPipelineStep("dryrun", "active");
+  log(
+    "orchestrator",
+    `Starting Mandatory Dry Run for project '${currentProjectId}'...`,
+  );
   try {
-    const job = await api(`projects/${currentProjectId}/dryrun`, { method: 'POST' });
-    log('orchestrator', `Dry Run execution completed with state: ${job.state}`);
-    setPipelineStep('dryrun', 'done');
-    setPipelineStep('build', 'active');
+    const job = await api(`projects/${currentProjectId}/dryrun`, {
+      method: "POST",
+    });
+    log("orchestrator", `Dry Run execution completed with state: ${job.state}`);
+    setPipelineStep("dryrun", "done");
+    setPipelineStep("build", "active");
     await refreshDashboard();
-    const btnMigrate = document.getElementById('btn-migrate');
+    const btnMigrate = document.getElementById("btn-migrate");
     if (btnMigrate) btnMigrate.disabled = false;
-    showToast('Dry Run Completed! Discovered pages and mapped components.');
+    showToast("Dry Run Completed! Discovered pages and mapped components.");
   } catch (err) {
-    log('error', `Dry run failed: ${err.message}`);
+    log("error", `Dry run failed: ${err.message}`);
   } finally {
     if (btn) btn.disabled = false;
   }
 }
 
 async function runMigration() {
-  const btnMigrate = document.getElementById('btn-migrate');
+  const btnMigrate = document.getElementById("btn-migrate");
   if (btnMigrate) btnMigrate.disabled = true;
-  setPipelineStep('dryrun', 'done');
-  setPipelineStep('build', 'active');
-  log('orchestrator', `Building & Generating EDS Block Quad & Content for project '${currentProjectId}'...`);
+  setPipelineStep("dryrun", "done");
+  setPipelineStep("build", "active");
+  log(
+    "orchestrator",
+    `Building & Generating EDS Block Quad & Content for project '${currentProjectId}'...`,
+  );
   try {
-    const job = await api(`projects/${currentProjectId}/migrate`, { method: 'POST' });
-    log('orchestrator', `Block Generation finished with state: ${job.state}`);
-    setPipelineStep('build', 'done');
-    setPipelineStep('validate', 'active');
+    const job = await api(`projects/${currentProjectId}/migrate`, {
+      method: "POST",
+    });
+    log("orchestrator", `Block Generation finished with state: ${job.state}`);
+    setPipelineStep("build", "done");
+    setPipelineStep("validate", "active");
     await refreshDashboard();
-    
+
     // Enable the final Commit & Push button so the operator has time to inspect blocks
-    const btnPublish = document.getElementById('btn-publish');
+    const btnPublish = document.getElementById("btn-publish");
     if (btnPublish) btnPublish.disabled = false;
 
-    showTab('components');
-    showToast('⚡ Blocks Generated! Please inspect and validate them before committing to Git.');
+    showTab("components");
+    showToast(
+      "⚡ Blocks Generated! Please inspect and validate them before committing to Git.",
+    );
   } catch (err) {
-    log('error', `Generation failed: ${err.message}`);
+    log("error", `Generation failed: ${err.message}`);
   } finally {
     if (btnMigrate) btnMigrate.disabled = false;
   }
 }
 
 async function runPushToGit() {
-  const btnPublish = document.getElementById('btn-publish');
+  const btnPublish = document.getElementById("btn-publish");
   if (btnPublish) btnPublish.disabled = true;
-  setPipelineStep('validate', 'done');
-  setPipelineStep('publish', 'active');
-  log('publishing', `🚀 Committing and Pushing generated blocks & models to remote Git repository...`);
+  setPipelineStep("validate", "done");
+  setPipelineStep("publish", "active");
+  log(
+    "publishing",
+    `🚀 Committing and Pushing generated blocks & models to remote Git repository...`,
+  );
   try {
-    const job = await api(`projects/${currentProjectId}/publish`, { method: 'POST' });
-    log('publishing', `Successfully committed blocks to preview branch and opened Pull Request! State: ${job.state}`);
-    setPipelineStep('publish', 'done');
+    const job = await api(`projects/${currentProjectId}/publish`, {
+      method: "POST",
+    });
+    log(
+      "publishing",
+      `Successfully committed blocks to preview branch and opened Pull Request! State: ${job.state}`,
+    );
+    setPipelineStep("publish", "done");
     await refreshDashboard();
-    showToast('🚀 Successfully committed and pushed blocks to GitHub!');
+    showToast("🚀 Successfully committed and pushed blocks to GitHub!");
   } catch (err) {
-    log('error', `Git push failed: ${err.message}`);
-    showToast('Error pushing to Git: ' + err.message);
+    log("error", `Git push failed: ${err.message}`);
+    showToast("Error pushing to Git: " + err.message);
   } finally {
     if (btnPublish) btnPublish.disabled = false;
   }
@@ -271,9 +351,12 @@ async function refreshDashboard() {
   try {
     const inv = await api(`projects/${currentProjectId}/inventory`);
     if (inv && inv.pages) {
-      document.getElementById('stat-pages').innerText = inv.pages.length;
-      document.getElementById('stat-eligible').innerText = (inv.eligiblePages || inv.pages.length) + ' eligible';
-      document.getElementById('stat-components').innerText = inv.components ? inv.components.length : 0;
+      document.getElementById("stat-pages").innerText = inv.pages.length;
+      document.getElementById("stat-eligible").innerText =
+        (inv.eligiblePages || inv.pages.length) + " eligible";
+      document.getElementById("stat-components").innerText = inv.components
+        ? inv.components.length
+        : 0;
       renderPagesTable(inv.pages);
       renderComponentsTable(inv.components);
     }
@@ -291,12 +374,17 @@ async function refreshDashboard() {
   try {
     const plan = await api(`projects/${currentProjectId}/plan`);
     if (plan) {
-      document.getElementById('stat-cost').innerText = '$' + (plan.costExpected || 0).toFixed(2);
-      document.getElementById('stat-requests').innerText = (plan.aiRequestsExpected || 0) + ' AI calls estimated';
-      document.getElementById('stat-time').innerText = (plan.timeExpectedSec || 0) + 's';
-      document.getElementById('stat-range').innerText = `Lo: ${(plan.timeOptimisticSec||0)}s | Hi: ${(plan.timePessimisticSec||0)}s`;
+      document.getElementById("stat-cost").innerText =
+        "$" + (plan.costExpected || 0).toFixed(2);
+      document.getElementById("stat-requests").innerText =
+        (plan.aiRequestsExpected || 0) + " AI calls estimated";
+      document.getElementById("stat-time").innerText =
+        (plan.timeExpectedSec || 0) + "s";
+      document.getElementById("stat-range").innerText =
+        `Lo: ${plan.timeOptimisticSec || 0}s | Hi: ${plan.timePessimisticSec || 0}s`;
       if (plan.derivationTrail) {
-        document.getElementById('estimate-trail').innerText = plan.derivationTrail.join('\n');
+        document.getElementById("estimate-trail").innerText =
+          plan.derivationTrail.join("\n");
       }
     }
   } catch (e) {}
@@ -329,28 +417,36 @@ async function refreshDashboard() {
   try {
     const events = await api(`projects/${currentProjectId}/events`);
     if (events && Array.isArray(events)) {
-      const eventsLog = document.getElementById('events-log');
+      const eventsLog = document.getElementById("events-log");
       if (eventsLog) {
-        eventsLog.innerHTML = events.map(e => {
-          const time = new Date(e.timestamp || Date.now()).toLocaleTimeString();
-          const ag = e.agent || e.level || 'system';
-          const isAiReq = ag === 'ai-request' || (e.message && e.message.includes('📤 REQUEST:'));
-          const isAiResp = ag === 'ai-response' || (e.message && e.message.includes('📥 RESPONSE'));
-          const isAi = isAiReq || isAiResp || ag.startsWith('ai-');
+        eventsLog.innerHTML = events
+          .map((e) => {
+            const time = new Date(
+              e.timestamp || Date.now(),
+            ).toLocaleTimeString();
+            const ag = e.agent || e.level || "system";
+            const isAiReq =
+              ag === "ai-request" ||
+              (e.message && e.message.includes("📤 REQUEST:"));
+            const isAiResp =
+              ag === "ai-response" ||
+              (e.message && e.message.includes("📥 RESPONSE"));
+            const isAi = isAiReq || isAiResp || ag.startsWith("ai-");
 
-          let lineClass = 'log-line';
-          if (isAiReq) lineClass += ' log-ai-request';
-          else if (isAiResp) lineClass += ' log-ai-response';
-          else if (isAi) lineClass += ' log-ai';
+            let lineClass = "log-line";
+            if (isAiReq) lineClass += " log-ai-request";
+            else if (isAiResp) lineClass += " log-ai-response";
+            else if (isAi) lineClass += " log-ai";
 
-          const formattedMessage = (e.message || '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/\n/g, '<br/>');
+            const formattedMessage = (e.message || "")
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;")
+              .replace(/\n/g, "<br/>");
 
-          return `<div class="${lineClass}"><span class="log-time">[${time}]</span><span class="log-agent">[${ag}]</span><span class="log-msg">${formattedMessage}</span></div>`;
-        }).join('');
+            return `<div class="${lineClass}"><span class="log-time">[${time}]</span><span class="log-agent">[${ag}]</span><span class="log-msg">${formattedMessage}</span></div>`;
+          })
+          .join("");
         eventsLog.scrollTop = eventsLog.scrollHeight;
       }
     }
@@ -361,38 +457,46 @@ function processBlockFiles(files) {
   blockFilesMap = {};
   if (!files || files.length === 0) return;
 
-  files.forEach(f => {
-    const path = f.path || '';
-    if (path.startsWith('blocks/')) {
-      const parts = path.split('/');
+  files.forEach((f) => {
+    const path = f.path || "";
+    if (path.startsWith("blocks/")) {
+      const parts = path.split("/");
       if (parts.length >= 3) {
         const bName = parts[1];
         const fileName = parts[parts.length - 1];
         if (!blockFilesMap[bName]) {
           blockFilesMap[bName] = { name: bName, files: {} };
         }
-        if (fileName.endsWith('.js')) blockFilesMap[bName].files.js = f;
-        else if (fileName.endsWith('.css')) blockFilesMap[bName].files.css = f;
-        else if (fileName.startsWith('_') && fileName.endsWith('.json')) blockFilesMap[bName].files.json = f;
-        else if (fileName.endsWith('-example.html') || fileName.endsWith('.html')) blockFilesMap[bName].files.demo = f;
-        else if (fileName.equalsIgnoreCase('README.md') || fileName.toLowerCase() === 'readme.md') blockFilesMap[bName].files.readme = f;
+        if (fileName.endsWith(".js")) blockFilesMap[bName].files.js = f;
+        else if (fileName.endsWith(".css")) blockFilesMap[bName].files.css = f;
+        else if (fileName.startsWith("_") && fileName.endsWith(".json"))
+          blockFilesMap[bName].files.json = f;
+        else if (
+          fileName.endsWith("-example.html") ||
+          fileName.endsWith(".html")
+        )
+          blockFilesMap[bName].files.demo = f;
+        else if (fileName.toLowerCase() === "readme.md")
+          blockFilesMap[bName].files.readme = f;
       }
     }
   });
 }
 
 function renderBlockList() {
-  const container = document.getElementById('block-items-container');
-  const countBadge = document.getElementById('blocks-count-badge');
-  const totalCount = document.getElementById('block-list-total');
+  const container = document.getElementById("block-items-container");
+  const countBadge = document.getElementById("blocks-count-badge");
+  const totalCount = document.getElementById("block-list-total");
   const blockNames = Object.keys(blockFilesMap);
 
-  if (countBadge) countBadge.innerText = `${blockNames.length} Blocks Generated`;
+  if (countBadge)
+    countBadge.innerText = `${blockNames.length} Blocks Generated`;
   if (totalCount) totalCount.innerText = blockNames.length;
 
   if (!container) return;
   if (blockNames.length === 0) {
-    container.innerHTML = '<div style="padding:16px; color:var(--text-dim); font-size:0.85rem; text-align:center;">Run Dry Run or Generate Blocks to populate.</div>';
+    container.innerHTML =
+      '<div style="padding:16px; color:var(--text-dim); font-size:0.85rem; text-align:center;">Run Dry Run or Generate Blocks to populate.</div>';
     return;
   }
 
@@ -400,18 +504,20 @@ function renderBlockList() {
     activeBlockName = blockNames[0];
   }
 
-  container.innerHTML = blockNames.map(name => {
-    const b = blockFilesMap[name];
-    const fileCount = Object.keys(b.files || {}).length;
-    const isActive = (name === activeBlockName);
-    return `<div class="block-item ${isActive ? 'active' : ''}" onclick="selectBlock('${name}')">
+  container.innerHTML = blockNames
+    .map((name) => {
+      const b = blockFilesMap[name];
+      const fileCount = Object.keys(b.files || {}).length;
+      const isActive = name === activeBlockName;
+      return `<div class="block-item ${isActive ? "active" : ""}" onclick="selectBlock('${name}')">
       <div class="block-item-title">
         <span>🧱</span>
         <span>${name}</span>
       </div>
       <span class="block-item-badge">${fileCount} files</span>
     </div>`;
-  }).join('');
+    })
+    .join("");
 
   renderActiveBlockDetail();
 }
@@ -423,11 +529,11 @@ function selectBlock(name) {
 
 function switchBlockFileTab(tabName) {
   activeFileTab = tabName;
-  ['demo', 'json', 'js', 'css', 'readme'].forEach(t => {
-    const el = document.getElementById('filetab-' + t);
+  ["demo", "json", "js", "css", "readme"].forEach((t) => {
+    const el = document.getElementById("filetab-" + t);
     if (el) {
-      if (t === tabName) el.classList.add('active');
-      else el.classList.remove('active');
+      if (t === tabName) el.classList.add("active");
+      else el.classList.remove("active");
     }
   });
   renderActiveBlockDetail();
@@ -438,23 +544,27 @@ function renderActiveBlockDetail() {
   const b = blockFilesMap[activeBlockName];
   const fileObj = (b.files || {})[activeFileTab];
 
-  const pathEl = document.getElementById('block-file-path');
-  const codeContainer = document.getElementById('block-view-code');
-  const codeContent = document.getElementById('block-code-content');
-  const demoContainer = document.getElementById('block-view-demo');
-  const demoRendered = document.getElementById('block-demo-rendered');
+  const pathEl = document.getElementById("block-file-path");
+  const codeContainer = document.getElementById("block-view-code");
+  const codeContent = document.getElementById("block-code-content");
+  const demoContainer = document.getElementById("block-view-demo");
+  const demoRendered = document.getElementById("block-demo-rendered");
 
   if (pathEl) {
-    pathEl.innerText = fileObj ? fileObj.path : `blocks/${activeBlockName}/[not found]`;
+    pathEl.innerText = fileObj
+      ? fileObj.path
+      : `blocks/${activeBlockName}/[not found]`;
   }
 
-  if (activeFileTab === 'demo') {
-    if (codeContainer) codeContainer.style.display = 'none';
-    if (demoContainer) demoContainer.style.display = 'block';
+  if (activeFileTab === "demo") {
+    if (codeContainer) codeContainer.style.display = "none";
+    if (demoContainer) demoContainer.style.display = "block";
 
-    const htmlContent = (b.files && b.files.demo) ? b.files.demo.content : '';
-    const cssContent = (b.files && b.files.css) ? b.files.css.content : '';
-    const titleCase = activeBlockName.charAt(0).toUpperCase() + activeBlockName.slice(1).replace('-', ' ');
+    const htmlContent = b.files && b.files.demo ? b.files.demo.content : "";
+    const cssContent = b.files && b.files.css ? b.files.css.content : "";
+    const titleCase =
+      activeBlockName.charAt(0).toUpperCase() +
+      activeBlockName.slice(1).replace("-", " ");
 
     if (demoRendered) {
       demoRendered.innerHTML = `
@@ -508,83 +618,130 @@ function renderActiveBlockDetail() {
       `;
     }
   } else {
-    if (demoContainer) demoContainer.style.display = 'none';
-    if (codeContainer) codeContainer.style.display = 'flex';
+    if (demoContainer) demoContainer.style.display = "none";
+    if (codeContainer) codeContainer.style.display = "flex";
 
     if (codeContent) {
-      codeContent.innerText = fileObj ? fileObj.content : `// No ${activeFileTab} file generated for block '${activeBlockName}' yet.`;
+      codeContent.innerText = fileObj
+        ? fileObj.content
+        : `// No ${activeFileTab} file generated for block '${activeBlockName}' yet.`;
     }
   }
 }
 
 function copyActiveCode() {
-  const codeContent = document.getElementById('block-code-content');
+  const codeContent = document.getElementById("block-code-content");
   if (codeContent && codeContent.innerText) {
-    navigator.clipboard.writeText(codeContent.innerText).then(() => {
-      showToast('📋 Code copied to clipboard!');
-    }).catch(() => {
-      showToast('Failed to copy code');
-    });
+    navigator.clipboard
+      .writeText(codeContent.innerText)
+      .then(() => {
+        showToast("📋 Code copied to clipboard!");
+      })
+      .catch(() => {
+        showToast("Failed to copy code");
+      });
   }
 }
 
 function renderPagesTable(pages) {
-  const tbody = document.querySelector('#table-pages tbody');
+  const tbody = document.querySelector("#table-pages tbody");
   if (!tbody) return;
-  tbody.innerHTML = (pages && pages.length > 0)
-    ? pages.map(p => `<tr><td><code>${p.path}</code></td><td>${p.title || '-'}</td><td>${p.template || '-'}</td><td><span style="color:${p.eligible !== false ? 'var(--accent)' : 'var(--danger)'}; font-weight:700;">${p.eligible !== false ? '● ELIGIBLE' : '○ EXCLUDED'}</span></td></tr>`).join('')
-    : '<tr><td colspan="4">No pages discovered yet.</td></tr>';
+  tbody.innerHTML =
+    pages && pages.length > 0
+      ? pages
+          .map(
+            (p) =>
+              `<tr><td><code>${p.path}</code></td><td>${p.title || "-"}</td><td>${p.template || "-"}</td><td><span style="color:${p.eligible !== false ? "var(--accent)" : "var(--danger)"}; font-weight:700;">${p.eligible !== false ? "● ELIGIBLE" : "○ EXCLUDED"}</span></td></tr>`,
+          )
+          .join("")
+      : '<tr><td colspan="4">No pages discovered yet.</td></tr>';
 }
 
 function renderComponentsTable(components) {
-  const tbody = document.querySelector('#table-components tbody');
+  const tbody = document.querySelector("#table-components tbody");
   if (!tbody) return;
-  tbody.innerHTML = (components && components.length > 0)
-    ? components.map(c => `<tr><td><code>${c.resourceType}</code></td><td>${c.title || '-'}</td><td>${c.group || '-'}</td><td><b style="color:var(--primary);">${c.proposedEdsBlock || '-'}</b></td><td><span style="background:rgba(56,189,248,0.1); color:var(--primary); padding:3px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">${c.capabilityClassification || 'SUPPORTED'}</span></td></tr>`).join('')
-    : '<tr><td colspan="5">No components analyzed yet.</td></tr>';
+  tbody.innerHTML =
+    components && components.length > 0
+      ? components
+          .map(
+            (c) =>
+              `<tr><td><code>${c.resourceType}</code></td><td>${c.title || "-"}</td><td>${c.group || "-"}</td><td><b style="color:var(--primary);">${c.proposedEdsBlock || "-"}</b></td><td><span style="background:rgba(56,189,248,0.1); color:var(--primary); padding:3px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">${c.capabilityClassification || "SUPPORTED"}</span></td></tr>`,
+          )
+          .join("")
+      : '<tr><td colspan="5">No components analyzed yet.</td></tr>';
 }
 
 function renderRedirectsTable(list) {
-  const tbody = document.querySelector('#table-redirects tbody');
+  const tbody = document.querySelector("#table-redirects tbody");
   if (!tbody) return;
-  tbody.innerHTML = (list && list.length > 0)
-    ? list.map(r => `<tr><td><code>${r.sourceUrl}</code></td><td><code>${r.targetUrl}</code></td><td><span style="color:var(--accent); font-weight:700;">${r.statusCode || 301}</span></td><td>${r.conflict ? '<span style="color:var(--warn);">⚠️ Conflict</span>' : '<span style="color:var(--accent);">OK</span>'}</td></tr>`).join('')
-    : '<tr><td colspan="4">No redirects mapped.</td></tr>';
+  tbody.innerHTML =
+    list && list.length > 0
+      ? list
+          .map(
+            (r) =>
+              `<tr><td><code>${r.sourceUrl}</code></td><td><code>${r.targetUrl}</code></td><td><span style="color:var(--accent); font-weight:700;">${r.statusCode || 301}</span></td><td>${r.conflict ? '<span style="color:var(--warn);">⚠️ Conflict</span>' : '<span style="color:var(--accent);">OK</span>'}</td></tr>`,
+          )
+          .join("")
+      : '<tr><td colspan="4">No redirects mapped.</td></tr>';
 }
 
 function renderDependenciesTable(list) {
-  const tbody = document.querySelector('#table-dependencies tbody');
+  const tbody = document.querySelector("#table-dependencies tbody");
   if (!tbody) return;
-  tbody.innerHTML = (list && list.length > 0)
-    ? list.map(d => `<tr><td><code>${d.source}</code></td><td><code>${d.target}</code></td><td><span style="color:var(--primary);">${d.edgeType}</span></td><td>${d.impactLevel || 'LOW'}</td></tr>`).join('')
-    : '<tr><td colspan="4">No dependencies computed.</td></tr>';
+  tbody.innerHTML =
+    list && list.length > 0
+      ? list
+          .map(
+            (d) =>
+              `<tr><td><code>${d.source}</code></td><td><code>${d.target}</code></td><td><span style="color:var(--primary);">${d.edgeType}</span></td><td>${d.impactLevel || "LOW"}</td></tr>`,
+          )
+          .join("")
+      : '<tr><td colspan="4">No dependencies computed.</td></tr>';
 }
 
 function renderRolloutTable(list) {
-  const tbody = document.querySelector('#table-rollout tbody');
+  const tbody = document.querySelector("#table-rollout tbody");
   if (!tbody) return;
-  tbody.innerHTML = (list && list.length > 0)
-    ? list.map(s => `<tr><td>#${s.stageIndex}</td><td><b>${s.stageName}</b></td><td><span style="color:var(--accent); font-weight:700;">${s.targetTrafficPercent}%</span></td><td>${s.status}</td></tr>`).join('')
-    : '<tr><td colspan="4">No rollout stages initialized.</td></tr>';
+  tbody.innerHTML =
+    list && list.length > 0
+      ? list
+          .map(
+            (s) =>
+              `<tr><td>#${s.stageIndex}</td><td><b>${s.stageName}</b></td><td><span style="color:var(--accent); font-weight:700;">${s.targetTrafficPercent}%</span></td><td>${s.status}</td></tr>`,
+          )
+          .join("")
+      : '<tr><td colspan="4">No rollout stages initialized.</td></tr>';
 }
 
 function renderRepairsTable(list) {
-  const tbody = document.querySelector('#table-repairs tbody');
+  const tbody = document.querySelector("#table-repairs tbody");
   if (!tbody) return;
-  tbody.innerHTML = (list && list.length > 0)
-    ? list.map(r => `<tr><td><code>${r.targetPath}</code></td><td>#${r.attemptNumber}</td><td>${r.issueCategory || 'STYLE'}</td><td>${r.successful ? '<span style="color:var(--accent);">✅ Fixed</span>' : '<span style="color:var(--danger);">❌ Failed</span>'}</td></tr>`).join('')
-    : '<tr><td colspan="4">No repair attempts recorded.</td></tr>';
+  tbody.innerHTML =
+    list && list.length > 0
+      ? list
+          .map(
+            (r) =>
+              `<tr><td><code>${r.targetPath}</code></td><td>#${r.attemptNumber}</td><td>${r.issueCategory || "STYLE"}</td><td>${r.successful ? '<span style="color:var(--accent);">✅ Fixed</span>' : '<span style="color:var(--danger);">❌ Failed</span>'}</td></tr>`,
+          )
+          .join("")
+      : '<tr><td colspan="4">No repair attempts recorded.</td></tr>';
 }
 
 function renderBenchmarksTable(list) {
-  const tbody = document.querySelector('#table-benchmarks tbody');
+  const tbody = document.querySelector("#table-benchmarks tbody");
   if (!tbody) return;
-  tbody.innerHTML = (list && list.length > 0)
-    ? list.map(b => `<tr><td><b>${b.agent}</b></td><td>${b.operation}</td><td>${b.durationMs}ms</td><td>${(b.costMicros || 0).toFixed(1)}</td></tr>`).join('')
-    : '<tr><td colspan="4">No benchmark samples recorded.</td></tr>';
+  tbody.innerHTML =
+    list && list.length > 0
+      ? list
+          .map(
+            (b) =>
+              `<tr><td><b>${b.agent}</b></td><td>${b.operation}</td><td>${b.durationMs}ms</td><td>${(b.costMicros || 0).toFixed(1)}</td></tr>`,
+          )
+          .join("")
+      : '<tr><td colspan="4">No benchmark samples recorded.</td></tr>';
 }
 
-window.addEventListener('load', async () => {
+window.addEventListener("load", async () => {
   try {
     await loadProjectsList();
     if (projectsList && projectsList.length > 0) {
@@ -593,6 +750,6 @@ window.addEventListener('load', async () => {
       await refreshDashboard();
     }
   } catch (e) {
-    console.log('Dashboard init:', e);
+    console.log("Dashboard init:", e);
   }
 });

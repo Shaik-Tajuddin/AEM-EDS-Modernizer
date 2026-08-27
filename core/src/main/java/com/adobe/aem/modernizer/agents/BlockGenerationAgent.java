@@ -38,6 +38,9 @@ public class BlockGenerationAgent implements Agent {
         return MigrationState.BUILDING;
     }
 
+    /** Provider name constant that signals Antigravity IDE agent handles block generation. */
+    private static final String PROVIDER_ANTIGRAVITY = "antigravity";
+
     @Override
     public void execute(AgentContext ctx) throws com.adobe.aem.modernizer.ModernizerException {
         SiteInventory inv = ctx.getInventory();
@@ -45,7 +48,32 @@ public class BlockGenerationAgent implements Agent {
 
         LOG.info("BlockGenerationAgent generating blocks for {} components", inv.getComponents().size());
 
-        int aiCallCount = 0;
+        // ─── Antigravity Mode ────────────────────────────────────────────────────
+        // When aiProvider = "antigravity", we skip internal AI dispatch entirely.
+        // Instead we emit a pending-components event so the Antigravity IDE agent
+        // can call GET /components-pending, enrich via MCP, generate the files,
+        // and POST them back via POST /blocks.
+        // The pipeline continues with hardcoded scaffold templates so the job
+        // doesn't stall — Antigravity files will overwrite them when POSTed back.
+        boolean isAntigravity = ctx.getProject() != null
+                && PROVIDER_ANTIGRAVITY.equalsIgnoreCase(ctx.getProject().getAiProvider());
+
+        if (isAntigravity && store != null) {
+            store.recordEvent(new JobEventRecord(
+                    UUID.randomUUID().toString(),
+                    ctx.getProject().getId(),
+                    ctx.getJob().getId(),
+                    getName(),
+                    "✨ [Antigravity] " + inv.getComponents().size() + " components ready for block generation.\n"
+                    + "→ Call: GET /bin/aem-eds-modernizer/api?path=projects/" + ctx.getProject().getId() + "/components-pending\n"
+                    + "→ Antigravity will fetch real JCR dialog fields via MCP, generate block files,\n"
+                    + "  and POST them back to: POST /bin/aem-eds-modernizer/api?path=projects/" + ctx.getProject().getId() + "/blocks\n"
+                    + "Scaffolding templates are being saved now as placeholders."
+            ));
+            LOG.info("[Antigravity] mode active — scaffold templates will be saved as placeholders for {} components.",
+                    inv.getComponents().size());
+        }
+        // ────────────────────────────────────────────────────────────────────────
         for (SiteInventory.ComponentInfo comp : inv.getComponents()) {
             String blockName = comp.getProposedEdsBlock() != null
                     ? comp.getProposedEdsBlock().toLowerCase().replace(' ', '-')
@@ -329,8 +357,24 @@ public class BlockGenerationAgent implements Agent {
                     + "  color: #cbd5e1;\n"
                     + "}\n";
 
-            if (ai != null && aiCallCount++ < 2) {
-                ChatRequest req = new ChatRequest(getName(), "Generate EDS decorate() function and Universal Editor model for block: " + blockName);
+            // Skip internal AI dispatch in Antigravity mode — Antigravity generates via MCP context
+            if (ai != null && !isAntigravity) {
+                String aiPrompt = "You are an expert AEM Edge Delivery Services (EDS) architect following docs/CREATE_AEM_BLOCK.md.\n\n"
+                        + "### Architectural Contract (CREATE_AEM_BLOCK.md):\n"
+                        + "1. Required deliverables: _<block>.json (UE model), <block>.js (decorate + createBlock), <block>.css (scoped CSS), <block>-example.html, README.md.\n"
+                        + "2. No analytics imports (no dataLayer.js).\n"
+                        + "3. JavaScript must use: import { checkAndHandleNestedBlocks, replaceBlockRowsPreservingNestedBlocks, getTextFromBlockRow, getHtmlFromBlockRow, franklinBlockRow } from '../../scripts/utilities/block-helpers.js'.\n"
+                        + "4. JavaScript must export `default async function decorate(block)` and named `export function createBlock(options)`.\n"
+                        + "5. CSS must be scoped to `." + blockName + "` using design tokens.\n\n"
+                        + "### Target AEM Component Details:\n"
+                        + "- Component Name: " + titleCase + "\n"
+                        + "- AEM ResourceType: " + comp.getResourceType() + "\n"
+                        + "- Proposed EDS Block: " + blockName + "\n"
+                        + "- Variants: default, emphasis\n\n"
+                        + "### Task:\n"
+                        + "Build the complete Edge Delivery Services JavaScript decoration code `decorate(block)` and `createBlock(options)` for the `" + blockName + "` component.";
+
+                ChatRequest req = new ChatRequest(getName(), aiPrompt);
                 req.setTargetCapability(ModelCapability.CAP_CODE);
                 req.setPreferredProvider(ctx.getProject().getAiProvider());
                 req.setPreferredModel(ctx.getProject().getAiModel());
@@ -338,7 +382,7 @@ public class BlockGenerationAgent implements Agent {
                 req.setJobId(ctx.getJob().getId());
                 try {
                     ChatResponse resp = ai.dispatch(req);
-                    if (resp.getContent() != null && resp.getContent().contains("function decorate")) {
+                    if (resp.getContent() != null && (resp.getContent().contains("decorate") || resp.getContent().contains("export default"))) {
                         jsContent = resp.getContent();
                     }
                 } catch (Exception e) {

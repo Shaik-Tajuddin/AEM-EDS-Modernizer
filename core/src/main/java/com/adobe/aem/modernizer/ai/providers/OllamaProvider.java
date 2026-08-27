@@ -63,7 +63,7 @@ public class OllamaProvider implements AiProvider {
         bodyMap.put("model", targetModel);
         bodyMap.put("messages", messages);
         Map<String, Object> options = new HashMap<>();
-        options.put("num_predict", 256);
+        options.put("num_predict", 2048);
         bodyMap.put("options", options);
         bodyMap.put("stream", false);
 
@@ -72,7 +72,7 @@ public class OllamaProvider implements AiProvider {
         HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + "/api/chat"))
                 .header("Content-Type", "application/json")
-                .timeout(Duration.ofSeconds(45))
+                .timeout(Duration.ofMinutes(4))
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
                 .build();
 

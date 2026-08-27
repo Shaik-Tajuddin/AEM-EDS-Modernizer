@@ -35,29 +35,170 @@ public class MockAiProvider implements AiProvider {
     public ChatResponse chat(ChatRequest request, String model, String apiKey) {
         String agent = request.getAgentName() != null ? request.getAgentName() : "general";
         String chosenModel = model != null ? model : defaultModel;
-
         String content;
+        String prompt = request.getPrompt() != null ? request.getPrompt() : "";
+        String promptLower = prompt.toLowerCase();
+
+        // Extract target block name from prompt
+        String blockName = "content";
+        if (promptLower.contains("breadcrumb")) blockName = "breadcrumb";
+        else if (promptLower.contains("carousel")) blockName = "carousel";
+        else if (promptLower.contains("tabs")) blockName = "tabs";
+        else if (promptLower.contains("cards") || promptLower.contains("card")) blockName = "cards";
+        else if (promptLower.contains("hero")) blockName = "hero";
+        else if (promptLower.contains("title")) blockName = "title";
+        else if (promptLower.contains("teaser")) blockName = "teaser";
+
+        String titleCase = Character.toUpperCase(blockName.charAt(0)) + blockName.substring(1).replace('-', ' ');
 
         if ("component-intelligence".equalsIgnoreCase(agent) || "component-mapping".equalsIgnoreCase(agent)) {
-            content = "{\"proposedBlock\":\"hero\",\"variants\":[\"dark\",\"compact\"],\"confidence\":0.95,\"classification\":\"SUPPORTED\"}";
+            content = String.format("{\"proposedBlock\":\"%s\",\"variants\":[\"default\",\"emphasis\"],\"confidence\":0.98,\"classification\":\"SUPPORTED\"}", blockName);
         } else if ("block-generation".equalsIgnoreCase(agent)) {
-            content = "export default function decorate(block) {\n  const cols = [...block.firstElementChild.children];\n  block.classList.add(`hero-${cols.length}-cols`);\n}\n";
+            // Generates ES6 decorate() + createBlock() conforming to CREATE_AEM_BLOCK.md §4
+            if (blockName.equals("carousel")) {
+                content = "import { checkAndHandleNestedBlocks, replaceBlockRowsPreservingNestedBlocks, franklinBlockRow } from '../../scripts/utilities/block-helpers.js';\n\n"
+                        + "export default async function decorate(block) {\n"
+                        + "  await checkAndHandleNestedBlocks(block);\n"
+                        + "  const slides = [...block.children];\n"
+                        + "  const track = document.createElement('div');\n"
+                        + "  track.classList.add('carousel-track');\n"
+                        + "  slides.forEach((slide, idx) => {\n"
+                        + "    const slideEl = document.createElement('div');\n"
+                        + "    slideEl.classList.add('carousel-slide');\n"
+                        + "    if (idx === 0) slideEl.classList.add('active');\n"
+                        + "    slideEl.innerHTML = slide.innerHTML;\n"
+                        + "    track.appendChild(slideEl);\n"
+                        + "  });\n"
+                        + "  replaceBlockRowsPreservingNestedBlocks(block, track);\n"
+                        + "}\n\n"
+                        + "export function createBlock(options = {}) {\n"
+                        + "  return `<div class=\"carousel eds-block-carousel\">${franklinBlockRow(options.title || '')}</div>`;\n"
+                        + "}\n";
+            } else if (blockName.equals("tabs")) {
+                content = "import { checkAndHandleNestedBlocks, replaceBlockRowsPreservingNestedBlocks, getTextFromBlockRow, getHtmlFromBlockRow, franklinBlockRow } from '../../scripts/utilities/block-helpers.js';\n\n"
+                        + "export default async function decorate(block) {\n"
+                        + "  await checkAndHandleNestedBlocks(block);\n"
+                        + "  const rows = [...block.children];\n"
+                        + "  const tabList = document.createElement('div');\n"
+                        + "  tabList.classList.add('tabs-list');\n"
+                        + "  const panels = document.createElement('div');\n"
+                        + "  panels.classList.add('tabs-panels');\n"
+                        + "  rows.forEach((row, idx) => {\n"
+                        + "    const title = getTextFromBlockRow(row.children[0]);\n"
+                        + "    const content = getHtmlFromBlockRow(row.children[1]);\n"
+                        + "    const tabBtn = document.createElement('button');\n"
+                        + "    tabBtn.classList.add('tab-btn');\n"
+                        + "    if (idx === 0) tabBtn.classList.add('active');\n"
+                        + "    tabBtn.textContent = title;\n"
+                        + "    tabList.appendChild(tabBtn);\n"
+                        + "    const panel = document.createElement('div');\n"
+                        + "    panel.classList.add('tab-panel');\n"
+                        + "    if (idx === 0) panel.classList.add('active');\n"
+                        + "    panel.innerHTML = content;\n"
+                        + "    panels.appendChild(panel);\n"
+                        + "  });\n"
+                        + "  block.innerHTML = '';\n"
+                        + "  block.appendChild(tabList);\n"
+                        + "  block.appendChild(panels);\n"
+                        + "}\n\n"
+                        + "export function createBlock(options = {}) {\n"
+                        + "  return `<div class=\"tabs eds-block-tabs\">${franklinBlockRow(options.title || '')}</div>`;\n"
+                        + "}\n";
+            } else if (blockName.equals("breadcrumb")) {
+                content = "import { checkAndHandleNestedBlocks, replaceBlockRowsPreservingNestedBlocks, getHtmlFromBlockRow, franklinBlockRow } from '../../scripts/utilities/block-helpers.js';\n\n"
+                        + "export default async function decorate(block) {\n"
+                        + "  await checkAndHandleNestedBlocks(block);\n"
+                        + "  const nav = document.createElement('nav');\n"
+                        + "  nav.classList.add('breadcrumb-nav');\n"
+                        + "  nav.innerHTML = getHtmlFromBlockRow(block.firstElementChild) || '<a href=\"/\">Home</a>';\n"
+                        + "  replaceBlockRowsPreservingNestedBlocks(block, nav);\n"
+                        + "}\n\n"
+                        + "export function createBlock(options = {}) {\n"
+                        + "  return `<div class=\"breadcrumb eds-block-breadcrumb\">${franklinBlockRow(options.path || '')}</div>`;\n"
+                        + "}\n";
+            } else {
+                content = "import {\n"
+                        + "  checkAndHandleNestedBlocks,\n"
+                        + "  replaceBlockRowsPreservingNestedBlocks,\n"
+                        + "  getTextFromBlockRow,\n"
+                        + "  getHtmlFromBlockRow,\n"
+                        + "  coerceAuthorClasses,\n"
+                        + "  escapeHtml,\n"
+                        + "  escapeHtmlAttribute,\n"
+                        + "  franklinBlockRow,\n"
+                        + "} from '../../scripts/utilities/block-helpers.js';\n\n"
+                        + "function extractConfig(block) {\n"
+                        + "  if (!block) return {};\n"
+                        + "  const rows = [...block.children];\n"
+                        + "  return {\n"
+                        + "    id: getTextFromBlockRow(rows[0]),\n"
+                        + "    title: getHtmlFromBlockRow(rows[1]),\n"
+                        + "    text: getHtmlFromBlockRow(rows[2]),\n"
+                        + "  };\n"
+                        + "}\n\n"
+                        + "export default async function decorate(block) {\n"
+                        + "  await checkAndHandleNestedBlocks(block);\n"
+                        + "  const config = extractConfig(block);\n"
+                        + "  const inner = document.createElement('div');\n"
+                        + "  inner.classList.add('" + blockName + "-inner');\n"
+                        + "  if (config.title) {\n"
+                        + "    const h = document.createElement('div');\n"
+                        + "    h.classList.add('" + blockName + "-title');\n"
+                        + "    h.innerHTML = config.title;\n"
+                        + "    inner.appendChild(h);\n"
+                        + "  }\n"
+                        + "  if (config.text) {\n"
+                        + "    const p = document.createElement('div');\n"
+                        + "    p.classList.add('" + blockName + "-text');\n"
+                        + "    p.innerHTML = config.text;\n"
+                        + "    inner.appendChild(p);\n"
+                        + "  }\n"
+                        + "  replaceBlockRowsPreservingNestedBlocks(block, inner);\n"
+                        + "  if (config.id) block.id = config.id;\n"
+                        + "}\n\n"
+                        + "export function createBlock(options = {}) {\n"
+                        + "  const id = escapeHtml(options.id ?? '');\n"
+                        + "  const title = typeof options.title === 'string' ? options.title : '';\n"
+                        + "  const extra = coerceAuthorClasses(options.classes);\n"
+                        + "  const rootClasses = ['" + blockName + "', 'eds-block-" + blockName + "', extra].filter(Boolean).join(' ');\n"
+                        + "  return `<div class=\"${escapeHtmlAttribute(rootClasses)}\">${franklinBlockRow(id)}${franklinBlockRow(title)}</div>`;\n"
+                        + "}\n";
+            }
         } else if ("code-generation".equalsIgnoreCase(agent)) {
-            content = ".hero {\n  display: flex;\n  padding: 40px 20px;\n  background: var(--hero-bg, #f4f4f4);\n}\n";
+            // Generates Scoped CSS conforming to CREATE_AEM_BLOCK.md §5
+            content = "." + blockName + " {\n"
+                    + "  margin: var(--space-m, 32px) auto;\n"
+                    + "  max-width: 1200px;\n"
+                    + "  padding: 0 var(--space-s, 16px);\n"
+                    + "  color: var(--color-base-text, #334155);\n"
+                    + "}\n\n"
+                    + "." + blockName + " ." + blockName + "-inner {\n"
+                    + "  background: var(--color-base-background, #ffffff);\n"
+                    + "  border-radius: var(--radius-md, 10px);\n"
+                    + "  padding: var(--space-m, 24px);\n"
+                    + "  border: 1px solid var(--color-border, #e2e8f0);\n"
+                    + "}\n\n"
+                    + "." + blockName + "." + blockName + "-align-center {\n"
+                    + "  text-align: center;\n"
+                    + "}\n\n"
+                    + "." + blockName + "." + blockName + "-tone-emphasis {\n"
+                    + "  background: var(--color-dark, #0f172a);\n"
+                    + "  color: #ffffff;\n"
+                    + "}\n";
         } else if ("content-migration".equalsIgnoreCase(agent)) {
-            content = "# Welcome to WKND Adventures\n\n## Experience the Unexplored\n\nExplore breathtaking expeditions across mountain ranges and pristine waters.\n\n### Hero\n| Image | Heading | Text |\n| --- | --- | --- |\n| /content/dam/wknd/hero.jpg | WKND 2026 | Discover more |\n";
+            content = "# Ski Touring Mont Blanc\n\nChamonix, Haute-Savoie, France\n\n### Carousel\n| Image | Heading | Text |\n| --- | --- | --- |\n| /content/dam/wknd-shared/en/adventures/ski-touring-mont-blanc/adobestock-238230356.jpeg | Glacier Traverse | Powder skiing in French Alps |\n";
         } else if ("visual-validation".equalsIgnoreCase(agent) || "advanced-visual-validation".equalsIgnoreCase(agent)) {
-            content = "{\"visualScore\":0.96,\"a11yScore\":0.98,\"passed\":true,\"issues\":[]}";
+            content = "{\"visualScore\":0.98,\"a11yScore\":1.0,\"passed\":true,\"issues\":[]}";
         } else if ("self-repair".equalsIgnoreCase(agent) || "advanced-repair".equalsIgnoreCase(agent)) {
-            content = "{\"successful\":true,\"patch\":\"/* repaired padding alignment */\\n.hero { margin: 0 auto; }\",\"explanation\":\"Adjusted hero margins to fix visual spacing differential.\"}";
+            content = "{\"successful\":true,\"patch\":\"/* verified CREATE_AEM_BLOCK.md standard */\",\"explanation\":\"Validated block structure against CREATE_AEM_BLOCK.md contract.\"}";
         } else if ("figma-intelligence".equalsIgnoreCase(agent) || "figma-analysis".equalsIgnoreCase(agent)) {
-            content = "{\"tokens\":{\"--color-primary\":\"#eb1000\",\"--font-heading\":\"'Source Sans Pro', sans-serif\"},\"componentPairs\":[{\"figma\":\"Card/Adventure\",\"edsBlock\":\"cards\"}]}";
+            content = "{\"tokens\":{\"--color-primary\":\"#f97316\",\"--font-heading\":\"'Plus Jakarta Sans', sans-serif\"},\"componentPairs\":[{\"figma\":\"Card/Adventure\",\"edsBlock\":\"cards\"}]}";
         } else {
-            content = "{\"status\":\"OK\",\"message\":\"Processed by Mock AI Provider\",\"confidence\":0.92}";
+            content = "{\"status\":\"OK\",\"message\":\"Processed by AI Provider conforming to CREATE_AEM_BLOCK.md\",\"confidence\":0.96}";
         }
 
         ChatResponse response = new ChatResponse(content, providerName, chosenModel);
-        response.setTokenUsage(new TokenUsage(128, 64));
+        response.setTokenUsage(new TokenUsage(185, 96));
         response.setCostUsd(0.0);
         response.setFinishReason("stop");
         return response;
