@@ -33,6 +33,8 @@ public class ModernizerBundleActivator {
     @Reference private transient AiGateway ai;
     @Reference(cardinality = org.osgi.service.component.annotations.ReferenceCardinality.OPTIONAL)
     private transient GitHubClient gitHubClient;
+    @Reference(cardinality = org.osgi.service.component.annotations.ReferenceCardinality.OPTIONAL)
+    private transient AemClient realAemClient;
 
     @Activate
     public void activate() {
@@ -59,7 +61,8 @@ public class ModernizerBundleActivator {
 
         // Build connectors — use the injected OSGi GitHubClient when available,
         // otherwise fall back to MockGitHubClient.
-        AemClient aemAuthor = new MockAemClient("https://mock-aem.local", "author", 42, true);
+        AemClient aemAuthor = (realAemClient != null) ? realAemClient
+                : new MockAemClient("https://mock-aem.local", "author", 42, true);
         AemClient aemPublish = new MockAemClient("https://mock-aem.local", "publish", 42, true);
         GitHubClient gh = (gitHubClient != null) ? gitHubClient : new MockGitHubClient();
         FigmaClient figma = new MockFigmaClient("https://www.figma.com/design/abcdef/WKND");

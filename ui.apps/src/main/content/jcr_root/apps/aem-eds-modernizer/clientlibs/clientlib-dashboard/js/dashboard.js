@@ -32,7 +32,7 @@ const api = async (path, opts = {}) => {
   const res = await fetch(url, opts);
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(errText || `HTTP ${res.status}`);
+    throw new Error(`HTTP ${res.status}: ${(errText || "").substring(0, 200)}`);
   }
   return res.json();
 };
@@ -59,6 +59,7 @@ function showTab(tabId) {
   if (btn) btn.classList.add("active");
   const target = document.getElementById("tab-" + tabId);
   if (target) target.style.display = "block";
+  if (tabId === "chat") loadChatHistory();
 }
 
 function setPipelineStep(stepId, state) {
@@ -210,6 +211,31 @@ async function loadProjectsList() {
     }
   } catch (e) {
     console.log(e);
+  }
+}
+
+async function deleteCurrentProject() {
+  if (!currentProjectId) return;
+  const p = projectsList.find((x) => x.id === currentProjectId);
+  const label = p ? (p.name || p.id) : currentProjectId;
+  if (!confirm(`Delete project "${label}"?\n\nThis removes its saved config, jobs, inventory and generated blocks. This cannot be undone.`)) return;
+
+  try {
+    await api(`projects/${encodeURIComponent(currentProjectId)}`, { method: "DELETE" });
+    showToast(`🗑️ Project '${label}' deleted`);
+    projectsList = projectsList.filter((x) => x.id !== currentProjectId);
+    currentProjectId = (projectsList && projectsList.length > 0) ? projectsList[0].id : "wknd-site";
+    chatHistoryLoaded = false;
+    chatHistory = [];
+    await loadProjectsList();
+    if (projectsList && projectsList.length > 0) {
+      await populateFormFromProject(currentProjectId);
+      await refreshDashboard();
+    }
+    showTab("overview");
+  } catch (err) {
+    log("error", `Failed to delete project: ${err.message}`);
+    showToast("Error deleting project: " + err.message);
   }
 }
 
@@ -739,6 +765,117 @@ function renderBenchmarksTable(list) {
           )
           .join("")
       : '<tr><td colspan="4">No benchmark samples recorded.</td></tr>';
+}
+
+// ─────────────────────────────────────────────────────────────
+// Realtime Agent Chat
+// ─────────────────────────────────────────────────────────────
+let chatHistoryLoaded = false;
+let chatHistory = []; // [{role:'user'|'agent', text}] for conversational memory
+
+const CHAT_COMMANDS = [
+  { re: /run (a )?dry[ -]?run/i,     action: () => { showTab("overview"); runDryRun();      return "🔍 Starting dry run for project `" + currentProjectId + "` — watch the pipeline stepper."; } },
+  { re: /(generate blocks|run migration|generate (the )?blocks)/i, action: () => { showTab("components"); runMigration();  return "⚡ Generating blocks for project `" + currentProjectId + "`."; } },
+  { re: /(commit|push).*(git|github)|publish/i, action: () => { showTab("overview"); runPushToGit();    return "🚀 Committing and pushing blocks to Git."; } },
+  { re: /show (me )?(the )?(live )?events/i,    action: () => { showTab("events");     refreshDashboard(); return "📡 Opened the Live Events Stream tab and refreshed the data."; } },
+  { re: /show (me )?(the )?(generated )?blocks/i, action: () => { showTab("components"); refreshDashboard(); return "📦 Opened the Generated Blocks tab and refreshed the data."; } },
+  { re: /show (me )?(the )?(pages|scope|discovered)/i, action: () => { showTab("pages"); refreshDashboard(); return "📄 Opened the Pages & Scope tab."; } },
+  { re: /show (me )?(the )?estimate|cost/i,     action: () => { showTab("estimate"); refreshDashboard(); return "💰 Opened the Estimate & Cost tab."; } },
+  { re: /^refresh( dashboard)?$/i,   action: () => { refreshDashboard(); return "🔄 Dashboard refreshed."; } },
+];
+
+function tryChatCommand(msg) {
+  for (const cmd of CHAT_COMMANDS) {
+    if (cmd.re.test(msg)) {
+      let reply;
+      try { reply = cmd.action(); } catch (e) { reply = "⚠️ Could not run that action: " + e.message; }
+      return reply;
+    }
+  }
+  return null;
+}
+
+function quickChat(text) {
+  const input = document.getElementById("chat-input");
+  if (!input) return;
+  input.value = text;
+  sendChat();
+}
+
+function appendChatMessage(role, text) {
+  const wrap = document.getElementById("chat-messages");
+  if (!wrap) return;
+  const div = document.createElement("div");
+  div.className = "chat-msg " + (role === "user" ? "chat-msg-user" : "chat-msg-agent");
+  const bubble = document.createElement("div");
+  bubble.className = "chat-bubble";
+  bubble.textContent = text;
+  div.appendChild(bubble);
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+async function loadChatHistory() {
+  if (chatHistoryLoaded || !currentProjectId) return;
+  try {
+    const events = await api("/projects/" + encodeURIComponent(currentProjectId) + "/events");
+    if (Array.isArray(events)) {
+      const chatEvents = events.filter((e) => e.agent === "chat-user" || e.agent === "chat-agent");
+      if (chatEvents.length > 0) {
+        document.getElementById("chat-messages").innerHTML = "";
+        chatEvents.forEach((e) => {
+          appendChatMessage(e.agent === "chat-user" ? "user" : "agent", e.message || "");
+          chatHistory.push({ role: e.agent === "chat-user" ? "user" : "agent", text: e.message || "" });
+        });
+      }
+    }
+    chatHistoryLoaded = true;
+  } catch (e) {
+    console.log("Chat history:", e);
+  }
+}
+
+async function sendChat() {
+  const input = document.getElementById("chat-input");
+  const btn = document.getElementById("chat-send-btn");
+  const msg = (input.value || "").trim();
+  if (!msg) return;
+  input.value = "";
+  appendChatMessage("user", msg);
+  chatHistory.push({ role: "user", text: msg });
+
+  // Local interactive commands — no round trip needed
+  const commandReply = tryChatCommand(msg);
+  if (commandReply) {
+    appendChatMessage("agent", commandReply);
+    chatHistory.push({ role: "agent", text: commandReply });
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerText = "⏳ Thinking...";
+  const typing = document.createElement("div");
+  typing.className = "chat-msg chat-msg-agent chat-typing";
+  typing.innerHTML = '<div class="chat-bubble">Agent is typing…</div>';
+  document.getElementById("chat-messages").appendChild(typing);
+  try {
+    const res = await api("/projects/" + encodeURIComponent(currentProjectId) + "/chat", {
+      method: "POST",
+      body: JSON.stringify({ message: msg, history: chatHistory.slice(-10) }),
+    });
+    typing.remove();
+    appendChatMessage("agent", res.reply || "(no response)");
+    chatHistory.push({ role: "agent", text: res.reply || "" });
+  } catch (e) {
+    typing.remove();
+    const detail = e && e.message ? e.message : String(e);
+    appendChatMessage("agent", "⚠️ Error talking to the agent: " + (detail || "unknown error — check browser console & AEM logs"));
+    console.error("Chat error:", e);
+  } finally {
+    btn.disabled = false;
+    btn.innerText = "Send ➤";
+    input.focus();
+  }
 }
 
 window.addEventListener("load", async () => {

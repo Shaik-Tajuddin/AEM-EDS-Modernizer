@@ -30,6 +30,7 @@ public class ApiRouter {
 
     @Reference private transient Store store;
     @Reference private transient Orchestrator orchestrator;
+    @Reference private transient com.adobe.aem.modernizer.ai.AiGateway aiGateway;
 
     public ApiRouter() {}
 
@@ -62,7 +63,7 @@ public class ApiRouter {
         if (pathInfo == null || pathInfo.isEmpty()) {
             pathInfo = req.getRequestURI();
         }
-        
+
         if (pathInfo != null) {
             int idx = pathInfo.indexOf("/api");
             if (idx >= 0) {
@@ -242,6 +243,10 @@ public class ApiRouter {
 
                     // GET /projects/{id}/components-pending
                     // Returns component list that Antigravity should generate blocks for.
+                    if ("chat".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
+                        return handleChatPost(projectId, body, resp);
+                    }
+
                     if ("components-pending".equalsIgnoreCase(sub) && "GET".equalsIgnoreCase(method)) {
                         return handleComponentsPending(projectId);
                     }
@@ -261,6 +266,107 @@ public class ApiRouter {
             if (resp != null) resp.setStatus(500);
             return "{\"error\":\"" + e.getMessage() + "\"}";
         }
+    }
+
+    /**
+     * Realtime agent chat endpoint.
+     * POST /api/projects/{id}/chat
+     * Body: { "message": "...", "agent": "optional-agent-name", "model": "optional-model" }
+     * Responds: { "reply": "...", "provider": "...", "model": "...", "timestamp": ... }
+     */
+    @SuppressWarnings("unchecked")
+    private String handleChatPost(String projectId, String body, HttpServletResponse resp) {
+        Map<?, ?> payload = (body != null && !body.trim().isEmpty())
+                ? JsonUtil.fromJson(body, Map.class) : null;
+        String message = payload != null ? Objects.toString(payload.get("message"), null) : null;
+        if (message == null || message.trim().isEmpty()) {
+            if (resp != null) resp.setStatus(400);
+            return "{\"error\":\"Missing required field: message\"}";
+        }
+
+        String agent = payload != null ? Objects.toString(payload.get("agent"), "dashboard-assistant") : "dashboard-assistant";
+
+        // Conversation memory: recent turns from the client
+        StringBuilder historySb = new StringBuilder();
+        if (payload != null && payload.get("history") instanceof List) {
+            List<?> history = (List<?>) payload.get("history");
+            int from = Math.max(0, history.size() - 10);
+            for (int i = from; i < history.size(); i++) {
+                Object turn = history.get(i);
+                if (turn instanceof Map) {
+                    String role = Objects.toString(((Map<?, ?>) turn).get("role"), "user");
+                    String text = Objects.toString(((Map<?, ?>) turn).get("text"), "");
+                    if (!text.isEmpty()) {
+                        historySb.append("user".equals(role) ? "Operator: " : "Agent: ")
+                                .append(text).append("\n");
+                    }
+                }
+            }
+        }
+
+        // Build context-aware prompt from project state
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("You are the AEM-to-EDS Modernizer assistant, embedded in the operator dashboard.");
+        prompt.append("\nYou are conversational, proactive and helpful — like a senior migration consultant.");
+        prompt.append("\nGuidelines:");
+        prompt.append("\n- Keep answers concise (2-5 sentences) unless asked for detail.");
+        prompt.append("\n- Reference the actual project state below when relevant.");
+        prompt.append("\n- Suggest concrete next steps in the migration pipeline (Connect → Dry Run → Generate Blocks → Review → Commit & Push).");
+        prompt.append("\n- You can tell the operator to run actions like 'run dry run', 'show blocks', 'show events' — the dashboard executes them locally.");
+        prompt.append("\n\n=== PROJECT CONTEXT ===");
+        prompt.append("\nProject id: ").append(projectId);
+        if (store != null) {
+            Optional<ProjectRecord> p = store.getProject(projectId);
+            p.ifPresent(pr -> prompt.append("\nProject: ").append(pr.getName())
+                    .append("\nAEM Author URL: ").append(pr.getAemAuthorUrl())
+                    .append("\nEDS Git repo: ").append(pr.getEdsGitRepoUrl()));
+            Optional<JobRecord> latest = store.getLatestJob(projectId);
+            latest.ifPresent(j -> prompt.append("\nLatest job: ").append(j.getMode())
+                    .append(" state=").append(j.getState()));
+        }
+        prompt.append("\n\n=== RECENT CONVERSATION ===\n").append(historySb);
+        prompt.append("\n=== CURRENT MESSAGE ===\nOperator: ").append(message);
+
+        String reply;
+        String providerName = "mock";
+        String modelName = "mock-general-1";
+        try {
+            if (aiGateway != null) {
+                com.adobe.aem.modernizer.ai.ChatRequest req = new com.adobe.aem.modernizer.ai.ChatRequest(agent, prompt.toString());
+                com.adobe.aem.modernizer.ai.ChatResponse chatRes = aiGateway.dispatch(req);
+                if (chatRes != null && chatRes.getContent() != null) {
+                    reply = chatRes.getContent();
+                    providerName = chatRes.getProvider() != null ? chatRes.getProvider() : providerName;
+                    modelName = chatRes.getModelName() != null ? chatRes.getModelName() : modelName;
+                } else {
+                    reply = "(The agent returned no content.)";
+                }
+            } else {
+                reply = "(AI gateway not available — running in reduced mode.)";
+            }
+        } catch (Exception e) {
+            LOG.warn("[Chat] dispatch failed: {}", e.getMessage());
+            reply = "Sorry, the agent could not process your message: " + e.getMessage();
+        }
+
+        // Persist both sides of the conversation as job events so it survives refresh (ADR 0013)
+        if (store != null) {
+            String jobId = store.getLatestJob(projectId).map(JobRecord::getId).orElse("chat-" + projectId);
+            store.recordEvent(new JobEventRecord(
+                    UUID.randomUUID().toString(), projectId, jobId, "chat-user",
+                    message));
+            store.recordEvent(new JobEventRecord(
+                    UUID.randomUUID().toString(), projectId, jobId, "chat-agent",
+                    reply));
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("reply", reply);
+        result.put("agent", agent);
+        result.put("provider", providerName);
+        result.put("model", modelName);
+        result.put("timestamp", System.currentTimeMillis());
+        return JsonUtil.toJson(result);
     }
 
     /**

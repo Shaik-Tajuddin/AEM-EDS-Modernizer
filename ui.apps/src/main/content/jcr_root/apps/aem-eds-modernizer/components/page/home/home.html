@@ -33,6 +33,7 @@
         <button id="btn-publish" class="btn btn-accent" onclick="runPushToGit()" disabled>🚀 Commit & Push to Git</button>
       </div>
       <div class="actions-right">
+        <button id="btn-delete-project" class="btn btn-danger" title="Delete this project" onclick="deleteCurrentProject()">🗑️ Delete Project</button>
         <button class="btn btn-outline" onclick="refreshDashboard()">🔄 Refresh</button>
       </div>
     </div>
@@ -58,6 +59,7 @@
       <button class="nav-tab" onclick="showTab('repairs')">Self-Repair Log</button>
       <button class="nav-tab" onclick="showTab('benchmarks')">Benchmarks</button>
       <button class="nav-tab" onclick="showTab('events')">Live Events Stream</button>
+      <button class="nav-tab" onclick="showTab('chat')">💬 Agent Chat</button>
     </div>
 
     <!-- Tab: Overview -->
@@ -200,7 +202,7 @@
         <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:16px;">
           Inspect and validate each generated block before committing to Git: Live Demo HTML (authored in UE), Universal Editor JSON model, JavaScript decoration, CSS styles, and LLM README.
         </p>
-        
+
         <div class="block-explorer">
           <!-- Left: List of Blocks -->
           <div class="block-list">
@@ -305,6 +307,27 @@
       <div class="card">
         <div class="card-title">Agent Benchmark Performance Samples</div>
         <table id="table-benchmarks"><thead><tr><th>Agent</th><th>Operation</th><th>Duration</th><th>Cost (µ$)</th></tr></thead><tbody><tr><td colspan="4">No benchmark samples recorded.</td></tr></tbody></table>
+      </div>
+    </div>
+
+    <!-- Tab: Agent Chat -->
+    <div id="tab-chat" class="tab-content" style="display:none;">
+      <div class="card chat-card">
+        <div class="card-title">💬 Realtime Agent Chat</div>
+        <div id="chat-messages" class="chat-messages">
+          <div class="chat-msg chat-msg-agent"><div class="chat-bubble">👋 Hi! I'm the Modernizer agent. Ask me about your project, the dry run results, block generation, or anything about the migration.</div></div>
+        </div>
+        <div class="chat-input-row">
+          <input type="text" id="chat-input" class="form-control chat-input" placeholder="Type a message or a command like 'run dry run'..." onkeydown="if(event.key==='Enter')sendChat()">
+          <button id="chat-send-btn" class="btn btn-primary" onclick="sendChat()">Send ➤</button>
+        </div>
+        <div class="chat-suggestions">
+          <button class="chat-chip" onclick="quickChat('Analyze my project setup')">🔎 Analyze my project</button>
+          <button class="chat-chip" onclick="quickChat('Run a dry run')">🔍 Run dry run</button>
+          <button class="chat-chip" onclick="quickChat('Show me the generated blocks')">📦 Show blocks</button>
+          <button class="chat-chip" onclick="quickChat('Show the live events stream')">📡 Show events</button>
+          <button class="chat-chip" onclick="quickChat('What should I migrate next?')">🧭 What\'s next?</button>
+        </div>
       </div>
     </div>
 

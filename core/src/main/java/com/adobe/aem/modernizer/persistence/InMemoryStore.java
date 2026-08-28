@@ -10,14 +10,12 @@ import java.util.stream.Collectors;
 /**
  * High-performance, concurrent, in-memory implementation of the Store facade.
  */
-@Component(service = Store.class, immediate = true)
 public class InMemoryStore implements Store {
 
     private final Map<String, ProjectRecord> projects = new ConcurrentHashMap<>();
     private final Map<String, JobRecord> jobs = new ConcurrentHashMap<>();
     private final Map<String, SiteInventory> inventories = new ConcurrentHashMap<>();
-    private final Map<String, MigrationPlan> plans = new ConcurrentHashMap<>();
-    private final Map<String, List<GeneratedFileRecord>> generatedFiles = new ConcurrentHashMap<>();
+    private final Map<String, MigrationPlan> plans = new ConcurrentHashMap<>();    private final Map<String, List<GeneratedFileRecord>> generatedFiles = new ConcurrentHashMap<>();
     private final Map<String, List<ValidationResultRecord>> validationResults = new ConcurrentHashMap<>();
     private final Map<String, List<RepairAttemptRecord>> repairAttempts = new ConcurrentHashMap<>();
     private final Map<String, List<UrlRedirectRecord>> urlRedirects = new ConcurrentHashMap<>();
@@ -28,6 +26,11 @@ public class InMemoryStore implements Store {
     private final Map<String, List<ClarificationRecord>> clarifications = new ConcurrentHashMap<>();
     private final Map<String, List<CheckpointRecord>> checkpoints = new ConcurrentHashMap<>();
     private final Map<String, MigrationContractRecord> contracts = new ConcurrentHashMap<>();
+
+    protected final Map<String, JobRecord> jobsRef = this.jobs;
+    protected final Map<String, SiteInventory> inventoriesRef = this.inventories;
+    protected final Map<String, List<GeneratedFileRecord>> generatedFilesRef = this.generatedFiles;
+    protected final Map<String, List<JobEventRecord>> eventsRef = this.events;
 
     // Projects
     @Override

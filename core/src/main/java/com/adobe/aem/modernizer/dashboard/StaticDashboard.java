@@ -128,6 +128,7 @@ public final class StaticDashboard {
                 + "        <button id=\"btn-migrate\" class=\"btn btn-accent\" onclick=\"runMigration()\" disabled>🚀 Approve Contract & Migrate</button>\n"
                 + "      </div>\n"
                 + "      <div class=\"actions-right\">\n"
+                + "        <button id=\"btn-delete\" class=\"btn btn-danger\" onclick=\"deleteCurrentProject()\" disabled>🗑️ Delete</button>\n"
                 + "        <button class=\"btn btn-outline\" onclick=\"refreshDashboard()\">🔄 Refresh</button>\n"
                 + "      </div>\n"
                 + "    </div>\n"
