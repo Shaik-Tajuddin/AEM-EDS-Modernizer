@@ -1,9 +1,10 @@
 # Repo Init
 
 The `ui.config` content package contains a Repo Init script
-that creates the modernizer's service user and ACLs on first
-install. Repo Init is the AEM-recommended way to bootstrap
-JCR content from a content package.
+that registers the `eds` JCR namespace, creates the modernizer's
+service user, and sets ACLs on first install. Repo Init is the
+AEM-recommended way to bootstrap JCR content from a content
+package.
 
 ## The script
 
@@ -11,41 +12,39 @@ JCR content from a content package.
 // ui.config/.../org.apache.sling.jcr.repoinit.RepositoryInitializer~aem-eds-modernizer.cfg.json
 {
   "scripts": [
-    "create service user modernizer-service with path /home/users/system/aem-eds-modernizer\nset principal ACL for modernizer-service\n  allow jcr:read,rep:write on /content/aem-eds-modernizer\n  allow jcr:read on /apps/aem-eds-modernizer\n  allow jcr:read,rep:write on /conf/aem-eds-modernizer\nend"
+    "register namespace (eds) https://www.adobe.com/aem-eds-modernizer/1.0\n\ncreate service user modernizer-service with path /home/users/system/aem-eds-modernizer\nset principal ACL for modernizer-service\n  allow jcr:read on /content\n  allow jcr:read on /conf\n  allow jcr:read on /apps\n  allow jcr:all on /var/aem-eds-modernizer\nend"
   ]
 }
 ```
 
-## Service user
-
-The `modernizer-service` user is created with the minimum
-required permissions:
-
-- `jcr:read,rep:write` on `/content/aem-eds-modernizer` —
-  the modernizer writes job/event state under this path.
-- `jcr:read` on `/apps/aem-eds-modernizer` —
-  the modernizer reads its component definitions.
-- `jcr:read,rep:write` on `/conf/aem-eds-modernizer` —
-  `JcrStore` persists project records as `nt:unstructured`
-  nodes under `/conf/aem-eds-modernizer/<Project ID>` with
-  `eds:*` namespaced properties.
-
 ## JCR namespace registration
 
-`JcrStore` uses the `eds` namespace prefix for all project
-properties (`eds:projectId`, `eds:name`, `eds:aemAuthorUrl`,
-etc.). The namespace `eds` → `https://www.adobe.com/aem-eds-modernizer/1.0`
-is **not** declared via Repo Init (Repo Init has no namespace
-registration command). Instead, `JcrStore` registers it
-programmatically on `@Activate` using an admin session, since
-namespace registration requires the repository-wide
-`jcr:namespaceManagement` privilege that the scoped
-`modernizer-service` user does not hold.
+The `eds` namespace prefix is registered declaratively via
+Repo Init at startup:
 
-If the namespace registration fails, `JcrStore` logs an error
-and falls back to in-memory-only persistence for that
-activation cycle. The namespace is idempotent — re-registering
-an existing prefix/URI pair is a no-op.
+```
+register namespace (eds) https://www.adobe.com/aem-eds-modernizer/1.0
+```
+
+This replaces the previous programmatic registration that used an
+admin session in `JcrStore.activate()`. Repo Init runs with the
+privileges it needs, is declarative, is version-controlled, and
+passes Cloud Manager quality gates.
+
+## Service user
+
+The `modernizer-service` user is created with least privilege:
+
+- `jcr:read` on `/content` —
+  the modernizer reads the content tree for discovery.
+- `jcr:read` on `/conf` —
+  the modernizer reads context-aware configuration.
+- `jcr:read` on `/apps` —
+  the modernizer reads its component definitions.
+- `jcr:all` on `/var/aem-eds-modernizer` —
+  `JcrStore` persists project records as `nt:unstructured`
+  nodes under `/var/aem-eds-modernizer/projects/{yyyy}/{MM}/`
+  with `eds:*` namespaced properties.
 
 ## JcrStore persistence path
 
@@ -53,10 +52,17 @@ Every `saveProject()` call creates or updates an
 `nt:unstructured` node at:
 
 ```
-/conf/aem-eds-modernizer/<sanitized-project-id>
+/var/aem-eds-modernizer/projects/{yyyy}/{MM}/{escapedProjectId}
 ```
 
-with properties:
+The path is **date-sharded** by year/month (UTC) to prevent the
+flat-child Oak performance cliff that occurs with 50k+ children
+under a single parent. Node names are escaped via
+`Text.escapeIllegalJcrChars()` so project IDs containing colons,
+slashes, or spaces are safe. The original project ID is stored
+as the `eds:projectId` property.
+
+Properties on each project node:
 
 | Property                  | Type   | Description                          |
 | ------------------------- | ------ | ------------------------------------ |
@@ -81,12 +87,22 @@ with properties:
 | `eds:updatedAt`           | Long   | Last update timestamp (epoch ms)     |
 | `eds:properties`          | String | JSON-encoded additional properties   |
 
+## Why `/var` and not `/conf`
+
+| Concern | `/conf` | `/var` |
+|---------|---------|--------|
+| Package-managed | Yes — a content-package filter with `mode="replace"` deletes runtime data | No — `/var` is not package-managed |
+| Replicated to publish | Yes | No |
+| CA-config resolution | Yes — project nodes pollute the lookup path | No |
+| Semantics | Configuration authored by humans | Runtime-generated content |
+| CRX/DE browsable | Yes | Yes |
+
 ## Idempotency
 
 The Repo Init script is **idempotent**: re-running it on an
-existing install is a no-op. The `create service user` and
-`set principal ACL` commands are no-ops if the user/ACL
-already exists.
+existing install is a no-op. The `register namespace`,
+`create service user`, and `set principal ACL` commands are
+no-ops if they already exist.
 
 ## Where to find the script
 
@@ -99,3 +115,7 @@ scripts are listed. The modernizer's script is at
 
 - [OSGI_CONFIG.md](OSGI_CONFIG.md) — the OSGi configurations
   the modernizer reads.
+- [ADR-0026](../adr/0026-project-state-under-var-not-conf.md) —
+  the decision record for the `/var` move.
+- [ADR-0027](../adr/0027-repoinit-namespace-no-admin-session.md) —
+  the decision record for RepoInit namespace registration.

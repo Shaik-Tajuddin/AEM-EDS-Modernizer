@@ -46,7 +46,7 @@ and the external system adapters together.
    `AiRoutingPolicy` and the `CapabilityRegistry`.
 4. **The `Store` interface is a narrow CRUD facade.** Three
    implementations exist: `JcrStore` (highest ranking, persists to
-   `/conf/aem-eds-modernizer/` under the `eds:` JCR namespace),
+   `/var/aem-eds-modernizer/projects/{yyyy}/{MM}/` under the `eds:` JCR namespace),
    `JsonFileStore` (JSON-file snapshot for local dev), and
    `InMemoryStore` (ConcurrentHashMap, standalone fallback). The AEM
    Cloud runtime binds `JcrStore`; the standalone runtime uses

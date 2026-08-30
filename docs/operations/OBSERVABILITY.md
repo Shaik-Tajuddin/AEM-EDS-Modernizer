@@ -77,7 +77,7 @@ integration.
 ## Audit log
 
 The audit log is a stream of `JobEventRecord`s, persisted
-in JCR under `/conf/aem-eds-modernizer/` by `JcrStore`.
+in JCR under `/var/aem-eds-modernizer/` by `JcrStore`.
 See [../security/AUDIT.md](../security/AUDIT.md).
 
 ## Dashboards

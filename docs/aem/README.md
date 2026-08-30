@@ -26,7 +26,7 @@ config, and the IMS auth flow.
   the real and mock implementations, and the URL guard.
 - [REPO_INIT.md](REPO_INIT.md) — the `ui.config` package
   layout, the Repo Init scripts, and the `JcrStore` persistence
-  path under `/conf/aem-eds-modernizer/`.
+  path under `/var/aem-eds-modernizer/projects/`.
 
 ## How AEM fits in the architecture
 

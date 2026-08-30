@@ -21,8 +21,8 @@ AEM Cloud deployment and the standalone runtime, side-by-side.
                 │  Sling Servlet at:                    │
                 │  /bin/aem-eds-modernizer/api/...      │
                 │                                       │
-                │  JCR / Oak                            │
-                │  /conf/aem-eds-modernizer/<Project ID>│
+                │  JCR / Oak                                     │
+                │  /var/aem-eds-modernizer/projects/{yyyy}/{MM} │
                 │                                       │
                 └──┬────────┬────────┬────────┬────────┘
                    │        │        │        │
@@ -41,7 +41,7 @@ AEM Cloud deployment and the standalone runtime, side-by-side.
 | State machine | `core` bundle (in-process) |
 | AI gateway | `core` bundle (in-process) |
 | Connectors | `core` bundle (in-process, calls AEM Author over HTTP) |
-| State store | `JcrStore` → JCR (Oak) at `/conf/aem-eds-modernizer/<Project ID>` |
+| State store | `JcrStore` → JCR (Oak) at `/var/aem-eds-modernizer/projects/{yyyy}/{MM}` |
 | Sample data | `ui.content` (mutable baseline) |
 | Dispatcher | `dispatcher` content-package |
 
@@ -117,7 +117,7 @@ JCR for authoritative state.
 | Concern | AEM Cloud | Standalone |
 |---|---|---|
 | HTTP server | Sling Servlet + Dispatcher | JDK `HttpServer` |
-| State | JCR / Oak (`JcrStore` at `/conf/aem-eds-modernizer/`) | `ConcurrentHashMap` (+ file mirror for generated files) |
+| State | JCR / Oak (`JcrStore` at `/var/aem-eds-modernizer/projects/`) | `ConcurrentHashMap` (+ file mirror for generated files) |
 | Auth | AEM ACLs (inherits user) | None (loopback) |
 | Connectors | Real AEM/GitHub/Figma/EDS API clients | Mock implementations |
 | Browser client | Real Playwright | Mock that produces deterministic 16×16 PNGs |

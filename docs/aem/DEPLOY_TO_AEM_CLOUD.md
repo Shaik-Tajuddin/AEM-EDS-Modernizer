@@ -256,14 +256,14 @@ To switch to real mode (real AEM Author, real GitHub, real AI):
 │      ↓ (ApiRouter)                             │
 │  Orchestrator → Agents → AiGateway → MockAI    │
 │      ↓                                         │
-│  JcrStore → /conf/aem-eds-modernizer/<Project ID>        │
+│  JcrStore → /var/aem-eds-modernizer/projects/{yyyy}/{MM} │
 │                                                │
 └────────────────────────────────────────────────┘
 ```
 
 The HTL template renders the SPA inline; the SPA's `<base>` tag points
 all relative `fetch()` calls at the Sling Servlet. ACLs on
-`/content/aem-eds-modernizer` and `/conf/aem-eds-modernizer` allow
+`/content/aem-eds-modernizer` and `/var/aem-eds-modernizer` allow
 `content-authors` group members to read; `modernizer-service` (the
-bundle's run-as user) has read+write on `/conf/aem-eds-modernizer`
+bundle's run-as user) has `jcr:all` on `/var/aem-eds-modernizer`
 for project state persisted by `JcrStore`.

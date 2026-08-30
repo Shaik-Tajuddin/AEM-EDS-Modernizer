@@ -104,8 +104,9 @@ Transitions are strictly guarded and event-driven:
 
 ### 4. Project Persistence (CRX/DE Visible)
 
-- **`JcrStore`** (`core/.../persistence/JcrStore.java`) persists every project mutation as an `nt:unstructured` node under `/conf/aem-eds-modernizer/<Project ID>`, visible and browsable in CRX/DE — with `eds:*` properties (`eds:projectId`, `eds:name`, `eds:aemAuthorUrl`, etc.) and automatic restore from JCR on bundle restart.
-- On activation, `JcrStore` registers the `eds` JCR namespace (`https://www.adobe.com/aem-eds-modernizer/1.0`) using an admin session, since namespace registration requires repository-wide `jcr:namespaceManagement` that the scoped `modernizer-service` user does not hold.
+- **`JcrStore`** (`core/.../persistence/JcrStore.java`) persists every project mutation as an `nt:unstructured` node under `/var/aem-eds-modernizer/projects/{yyyy}/{MM}/{projectId}` (date-sharded, visible and browsable in CRX/DE) — with `eds:*` properties (`eds:projectId`, `eds:name`, `eds:aemAuthorUrl`, etc.) and automatic restore from JCR on bundle restart.
+- The `eds` JCR namespace is registered declaratively via Repo Init (not programmatically). The `modernizer-service` user holds least privilege: `jcr:read` on `/content`, `/conf`, `/apps`; `jcr:all` on `/var/aem-eds-modernizer`.
+- Node names are escaped via `Text.escapeIllegalJcrChars()` so project IDs containing colons, slashes, or spaces are safe.
 - Falls back to **`JsonFileStore`** (local JSON snapshot) when no `SlingRepository` is available, e.g. in the standalone runtime.
 
 ### 5. Phase 2 Advanced Capabilities

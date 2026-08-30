@@ -772,8 +772,9 @@ constructor:
 ```java
 @Component(service = Store.class, immediate = true, property = { "service.ranking:Integer=200" })
 public class JcrStore extends InMemoryStore implements Store {
-    // Persists projects as nt:unstructured under /conf/aem-eds-modernizer/<Project ID>
-    // with eds:* namespaced properties. Registers eds namespace on @Activate.
+    // Persists projects as nt:unstructured under /var/aem-eds-modernizer/projects/{yyyy}/{MM}/{projectId}
+    // with eds:* namespaced properties. Namespace registered via RepoInit.
+    // Node names escaped via Text.escapeIllegalJcrChars().
     // Falls back to InMemoryStore when no SlingRepository is available.
 }
 
@@ -1192,8 +1193,8 @@ RepairAttemptRecord, BenchmarkSampleRecord
 ```
 
 The `JcrStore` (AEM Cloud, ranking 200) persists projects under
-`/conf/aem-eds-modernizer/<Project ID>` with `eds:*` namespaced
-properties. `JsonFileStore` (ranking 100) writes JSON snapshots to
+`/var/aem-eds-modernizer/projects/{yyyy}/{MM}/{projectId}` with `eds:*` namespaced
+properties. The `eds` namespace is registered via RepoInit. `JsonFileStore` (ranking 100) writes JSON snapshots to
 disk. `InMemoryStore` (no ranking, fallback) implements all of
 these via `ConcurrentHashMap` with cross-job helpers (`repairsForProject(projectId)`,
 `benchmarksFor(agent)`, etc.).

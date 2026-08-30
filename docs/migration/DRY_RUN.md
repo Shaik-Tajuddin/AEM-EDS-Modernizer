@@ -32,7 +32,7 @@ way except the three "does not" items below.
    `PublishingAgent` produces a virtual diff only. No
    branch, no PR, no merge. The dry run's
 `GeneratedFileRecord`s are persisted via `JcrStore` to
-`/conf/aem-eds-modernizer/` (or via `JsonFileStore` /
+`/var/aem-eds-modernizer/` (or via `JsonFileStore` /
 `InMemoryStore` in standalone mode) and surfaced in the
 dashboard's `#/diff` view, but no real Git operations are
 performed.

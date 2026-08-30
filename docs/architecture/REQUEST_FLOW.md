@@ -84,8 +84,8 @@ gateway:
 
 Agents persist their output via the `Store` interface
 (`store.saveX(rec)`). In AEM Cloud, `JcrStore` writes to
-`/conf/aem-eds-modernizer/<Project ID>` in JCR with `eds:*`
-namespaced properties; in the standalone runtime,
+`/var/aem-eds-modernizer/projects/{yyyy}/{MM}/{projectId}` in JCR
+with `eds:*` namespaced properties; in the standalone runtime,
 `JsonFileStore` or `InMemoryStore` writes to a local JSON file
 or `ConcurrentHashMap`s respectively.
 

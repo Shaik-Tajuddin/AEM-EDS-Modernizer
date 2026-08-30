@@ -2,6 +2,7 @@ package com.adobe.aem.modernizer.persistence;
 
 import com.adobe.aem.modernizer.persistence.model.ProjectRecord;
 import com.adobe.aem.modernizer.util.JsonUtil;
+import org.apache.jackrabbit.util.Text;
 import org.apache.sling.jcr.api.SlingRepository;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -14,24 +15,33 @@ import javax.jcr.Node;
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import javax.jcr.Session;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
 /**
  * JCR-backed Store (crx/de visible): every mutation is persisted under
- * {@code /conf/aem-eds-modernizer/<Project ID>} as an nt:unstructured node so
- * saved projects are visible and durable in the AEM repository itself.
+ * {@code /var/aem-eds-modernizer/projects/{yyyy}/{MM}/{escapedProjectId}}
+ * as an nt:unstructured node so saved projects are visible and durable in
+ * the AEM repository itself.
  *
- * Inherits all in-memory behavior from {@link InMemoryStore}; on activation the
- * projects are reloaded from JCR so state survives bundle restarts.
+ * <p>The {@code eds} namespace is registered via Repo Init (see ui.config),
+ * not programmatically. The service user holds least privilege on
+ * {@code /var/aem-eds-modernizer} only.
+ *
+ * <p>Inherits all in-memory behavior from {@link InMemoryStore}; on activation
+ * the projects are reloaded from JCR so state survives bundle restarts.
  */
 @Component(service = Store.class, immediate = true, property = { "service.ranking:Integer=200" })
 public class JcrStore extends InMemoryStore {
 
     private static final Logger LOG = LoggerFactory.getLogger(JcrStore.class);
-    static final String ROOT_PATH = "/conf/aem-eds-modernizer";
+    static final String ROOT_PATH = "/var/aem-eds-modernizer/projects";
     private static final String PROP_PREFIX = "eds:";
-    private static final String NS_PREFIX = "eds";
-    private static final String NS_URI = "https://www.adobe.com/aem-eds-modernizer/1.0";
+
+    private static final DateTimeFormatter SHARD_FMT =
+            DateTimeFormatter.ofPattern("yyyy/MM").withZone(ZoneOffset.UTC);
 
     @Reference
     private transient SlingRepository repository;
@@ -42,32 +52,10 @@ public class JcrStore extends InMemoryStore {
     public void activate() {
         jcrAvailable = repository != null;
         if (jcrAvailable) {
-            registerNamespace();
             loadProjectsFromJcr();
             LOG.info("JcrStore activated — projects persisted under {}", ROOT_PATH);
         } else {
             LOG.warn("JcrStore activated without SlingRepository — falling back to in-memory only");
-        }
-    }
-
-    private void registerNamespace() {
-        // Namespace registration requires repository-wide jcr:namespaceManagement,
-        // which the scoped service user is not granted — use admin explicitly.
-        Session session = null;
-        try {
-            session = repository.login(new javax.jcr.SimpleCredentials("admin", "admin".toCharArray()));
-            javax.jcr.NamespaceRegistry registry = session.getWorkspace().getNamespaceRegistry();
-            for (String prefix : registry.getPrefixes()) {
-                if (NS_PREFIX.equals(prefix)) {
-                    return;
-                }
-            }
-            registry.registerNamespace(NS_PREFIX, NS_URI);
-            LOG.info("Registered JCR namespace '{}' -> {}", NS_PREFIX, NS_URI);
-        } catch (Exception e) {
-            LOG.error("Failed to register '{}' namespace: {}", NS_PREFIX, e.getMessage(), e);
-        } finally {
-            if (session != null) session.logout();
         }
     }
 
@@ -94,13 +82,32 @@ public class JcrStore extends InMemoryStore {
         }
     }
 
+    // ── Path helpers ──
+
+    /**
+     * Returns the shard parent path: {@code /var/aem-eds-modernizer/projects/{yyyy}/{MM}}.
+     */
+    static String shardPath(long epochMs) {
+        return ROOT_PATH + "/" + SHARD_FMT.format(Instant.ofEpochMilli(epochMs));
+    }
+
+    /**
+     * Escapes a project id into a valid JCR node name using Jackrabbit's
+     * {@link Text#escapeIllegalJcrChars(String)}. The original id is stored
+     * as the {@code eds:projectId} property so it can always be recovered.
+     */
+    static String escapeNodeName(String id) {
+        return Text.escapeIllegalJcrChars(id);
+    }
+
     // ── JCR persistence ──
 
     private Session login() throws RepositoryException {
-        // Prefer the dedicated service user; fall back to admin login (local SDK / author)
         try {
-            return repository.loginService(null, null);
+            return repository.loginService("modernizer-service", null);
         } catch (Exception e) {
+            // Fallback for local AEM SDK where service-user mapping may not be configured.
+            // In AEMaaCS, loginService always succeeds; this branch is local-dev only.
             LOG.debug("loginService unavailable ({}), falling back to admin login", e.getMessage());
             return repository.login(new javax.jcr.SimpleCredentials("admin", "admin".toCharArray()));
         }
@@ -110,10 +117,9 @@ public class JcrStore extends InMemoryStore {
         Session session = null;
         try {
             session = login();
-            Node root = ensureRoot(session);
-            // Node name must be JCR-safe; sanitize the project id
-            String nodeName = sanitize(project.getId());
-            Node node = root.hasNode(nodeName) ? root.getNode(nodeName) : root.addNode(nodeName, "nt:unstructured");
+            Node shard = ensureShard(session, project.getCreatedAt());
+            String nodeName = escapeNodeName(project.getId());
+            Node node = shard.hasNode(nodeName) ? shard.getNode(nodeName) : shard.addNode(nodeName, "nt:unstructured");
             node.setProperty("jcr:title", project.getName() != null ? project.getName() : project.getId());
             node.setProperty(PROP_PREFIX + "projectId", project.getId());
             setString(node, project, "name");
@@ -149,11 +155,11 @@ public class JcrStore extends InMemoryStore {
         Session session = null;
         try {
             session = login();
-            String path = ROOT_PATH + "/" + sanitize(id);
-            if (session.nodeExists(path)) {
-                session.removeItem(path);
+            String nodePath = findProjectPath(session, id);
+            if (nodePath != null) {
+                session.removeItem(nodePath);
                 session.save();
-                LOG.info("Deleted project node {}", path);
+                LOG.info("Deleted project node {}", nodePath);
             }
         } catch (Exception e) {
             LOG.error("Failed to delete project '{}' from JCR: {}", id, e.getMessage(), e);
@@ -168,47 +174,8 @@ public class JcrStore extends InMemoryStore {
             session = login();
             if (!session.nodeExists(ROOT_PATH)) return;
             Node root = session.getNode(ROOT_PATH);
-            NodeIterator it = root.getNodes();
             int loaded = 0;
-            while (it.hasNext()) {
-                Node node = it.nextNode();
-                try {
-                    if (!"nt:unstructured".equals(node.getPrimaryNodeType().getName())) continue;
-                    if (!node.hasProperty(PROP_PREFIX + "projectId")) continue;
-                    ProjectRecord p = new ProjectRecord();
-                    p.setId(node.getProperty(PROP_PREFIX + "projectId").getString());
-                    p.setName(getString(node, "name"));
-                    p.setAemAuthorUrl(getString(node, "aemAuthorUrl"));
-                    p.setAemPublishUrl(getString(node, "aemPublishUrl"));
-                    p.setContentRoot(getString(node, "contentRoot"));
-                    p.setPageScope(getString(node, "pageScope"));
-                    p.setEdsGitRepoUrl(getString(node, "edsGitRepoUrl"));
-                    p.setEdsBranch(getString(node, "edsBranch"));
-                    p.setFigmaUrl(getString(node, "figmaUrl"));
-                    p.setMarkerProperty(getString(node, "markerProperty"));
-                    p.setMarkerValue(getString(node, "markerValue"));
-                    p.setAuthoringStrategy(orDefault(getString(node, "authoringStrategy"), "UNIVERSAL_EDITOR"));
-                    p.setAiProvider(getString(node, "aiProvider"));
-                    p.setAiModel(getString(node, "aiModel"));
-                    p.setMaxBudgetUsd(node.hasProperty(PROP_PREFIX + "maxBudgetUsd")
-                            ? node.getProperty(PROP_PREFIX + "maxBudgetUsd").getDouble() : 100.0);
-                    p.setMaxRepairAttempts(node.hasProperty(PROP_PREFIX + "maxRepairAttempts")
-                            ? (int) node.getProperty(PROP_PREFIX + "maxRepairAttempts").getLong() : 5);
-                    p.setCreatedAt(node.hasProperty(PROP_PREFIX + "createdAt")
-                            ? node.getProperty(PROP_PREFIX + "createdAt").getLong() : System.currentTimeMillis());
-                    p.setUpdatedAt(node.hasProperty(PROP_PREFIX + "updatedAt")
-                            ? node.getProperty(PROP_PREFIX + "updatedAt").getLong() : System.currentTimeMillis());
-                    if (node.hasProperty(PROP_PREFIX + "properties")) {
-                        Map<String, Object> props = JsonUtil.fromJson(
-                                node.getProperty(PROP_PREFIX + "properties").getString(), Map.class);
-                        if (props != null) p.setProperties(props);
-                    }
-                    super.saveProject(p);
-                    loaded++;
-                } catch (Exception perNode) {
-                    LOG.warn("Skipping unparsable project node {}: {}", node.getPath(), perNode.getMessage());
-                }
-            }
+            loaded += loadFromTree(session, root);
             if (loaded > 0) LOG.info("Restored {} project(s) from JCR {}", loaded, ROOT_PATH);
         } catch (Exception e) {
             LOG.error("Failed to load projects from JCR: {}", e.getMessage(), e);
@@ -217,14 +184,110 @@ public class JcrStore extends InMemoryStore {
         }
     }
 
-    private Node ensureRoot(Session session) throws RepositoryException {
-        if (session.nodeExists(ROOT_PATH)) return session.getNode(ROOT_PATH);
-        // /conf already exists in AEM — only create missing levels
-        Node rootNode = session.getRootNode();
-        Node conf = rootNode.hasNode("conf") ? rootNode.getNode("conf") : rootNode.addNode("conf", "sling:Folder");
-        return conf.hasNode("aem-eds-modernizer")
-                ? conf.getNode("aem-eds-modernizer")
-                : conf.addNode("aem-eds-modernizer", "sling:Folder");
+    /**
+     * Recursively walk the year/month shard tree to find project nodes.
+     */
+    private int loadFromTree(Session session, Node parent) throws RepositoryException {
+        int loaded = 0;
+        NodeIterator it = parent.getNodes();
+        while (it.hasNext()) {
+            Node child = it.nextNode();
+            if (child.hasProperty(PROP_PREFIX + "projectId")) {
+                try {
+                    ProjectRecord p = nodeToRecord(child);
+                    super.saveProject(p);
+                    loaded++;
+                } catch (Exception perNode) {
+                    LOG.warn("Skipping unparsable project node {}: {}", child.getPath(), perNode.getMessage());
+                }
+            } else {
+                loaded += loadFromTree(session, child);
+            }
+        }
+        return loaded;
+    }
+
+    private ProjectRecord nodeToRecord(Node node) throws RepositoryException {
+        ProjectRecord p = new ProjectRecord();
+        p.setId(node.getProperty(PROP_PREFIX + "projectId").getString());
+        p.setName(getString(node, "name"));
+        p.setAemAuthorUrl(getString(node, "aemAuthorUrl"));
+        p.setAemPublishUrl(getString(node, "aemPublishUrl"));
+        p.setContentRoot(getString(node, "contentRoot"));
+        p.setPageScope(getString(node, "pageScope"));
+        p.setEdsGitRepoUrl(getString(node, "edsGitRepoUrl"));
+        p.setEdsBranch(getString(node, "edsBranch"));
+        p.setFigmaUrl(getString(node, "figmaUrl"));
+        p.setMarkerProperty(getString(node, "markerProperty"));
+        p.setMarkerValue(getString(node, "markerValue"));
+        p.setAuthoringStrategy(orDefault(getString(node, "authoringStrategy"), "UNIVERSAL_EDITOR"));
+        p.setAiProvider(getString(node, "aiProvider"));
+        p.setAiModel(getString(node, "aiModel"));
+        p.setMaxBudgetUsd(node.hasProperty(PROP_PREFIX + "maxBudgetUsd")
+                ? node.getProperty(PROP_PREFIX + "maxBudgetUsd").getDouble() : 100.0);
+        p.setMaxRepairAttempts(node.hasProperty(PROP_PREFIX + "maxRepairAttempts")
+                ? (int) node.getProperty(PROP_PREFIX + "maxRepairAttempts").getLong() : 5);
+        p.setCreatedAt(node.hasProperty(PROP_PREFIX + "createdAt")
+                ? node.getProperty(PROP_PREFIX + "createdAt").getLong() : System.currentTimeMillis());
+        p.setUpdatedAt(node.hasProperty(PROP_PREFIX + "updatedAt")
+                ? node.getProperty(PROP_PREFIX + "updatedAt").getLong() : System.currentTimeMillis());
+        if (node.hasProperty(PROP_PREFIX + "properties")) {
+            Map<String, Object> props = JsonUtil.fromJson(
+                    node.getProperty(PROP_PREFIX + "properties").getString(), Map.class);
+            if (props != null) p.setProperties(props);
+        }
+        return p;
+    }
+
+    /**
+     * Find a project node by id by scanning the shard tree.
+     * Returns the absolute path or null.
+     */
+    private String findProjectPath(Session session, String projectId) throws RepositoryException {
+        if (!session.nodeExists(ROOT_PATH)) return null;
+        return findInTree(session.getNode(ROOT_PATH), projectId);
+    }
+
+    private String findInTree(Node parent, String projectId) throws RepositoryException {
+        NodeIterator it = parent.getNodes();
+        while (it.hasNext()) {
+            Node child = it.nextNode();
+            if (child.hasProperty(PROP_PREFIX + "projectId")) {
+                if (projectId.equals(child.getProperty(PROP_PREFIX + "projectId").getString())) {
+                    return child.getPath();
+                }
+            } else {
+                String found = findInTree(child, projectId);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    private Node ensureShard(Session session, long epochMs) throws RepositoryException {
+        String shardRel = SHARD_FMT.format(Instant.ofEpochMilli(epochMs));
+        String shardPath = ROOT_PATH + "/" + shardRel;
+        if (session.nodeExists(shardPath)) return session.getNode(shardPath);
+
+        ensureRoot(session);
+        Node node = session.getNode(ROOT_PATH);
+        for (String segment : shardRel.split("/")) {
+            node = node.hasNode(segment) ? node.getNode(segment) : node.addNode(segment, "sling:Folder");
+        }
+        return node;
+    }
+
+    private void ensureRoot(Session session) throws RepositoryException {
+        if (session.nodeExists(ROOT_PATH)) return;
+        Node varNode = session.getRootNode().hasNode("var")
+                ? session.getRootNode().getNode("var")
+                : session.getRootNode().addNode("var", "sling:Folder");
+        Node modernizer = varNode.hasNode("aem-eds-modernizer")
+                ? varNode.getNode("aem-eds-modernizer")
+                : varNode.addNode("aem-eds-modernizer", "sling:Folder");
+        if (!modernizer.hasNode("projects")) {
+            modernizer.addNode("projects", "sling:Folder");
+        }
     }
 
     private void setString(Node node, ProjectRecord p, String field) throws RepositoryException {
@@ -234,7 +297,6 @@ public class JcrStore extends InMemoryStore {
                 node.setProperty(PROP_PREFIX + field, value);
             }
         } catch (Exception ignored) {
-            // reflection miss — field simply not persisted
         }
     }
 
@@ -244,9 +306,5 @@ public class JcrStore extends InMemoryStore {
 
     private String orDefault(String v, String dflt) {
         return (v == null || v.isEmpty()) ? dflt : v;
-    }
-
-    private String sanitize(String id) {
-        return id.replaceAll("[^A-Za-z0-9-_ ]", "_").trim();
     }
 }

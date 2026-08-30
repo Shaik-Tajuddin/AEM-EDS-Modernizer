@@ -36,7 +36,7 @@ The default group mappings:
 ## Per-project ACLs
 
 Each project has its own ACLs. A user with read access to
-`/conf/aem-eds-modernizer/{projectId}` can see
+`/var/aem-eds-modernizer/projects/{yyyy}/{MM}/{projectId}` can see
 the project; a user with write access can trigger
 migrations on it.
 

@@ -74,9 +74,10 @@ test in `AdvancedRepairAgentTest`.)
 ### New persistence bindings
 
 - **`JcrStore`** — `service.ranking=200`. Persists projects as
-  `nt:unstructured` nodes under `/conf/aem-eds-modernizer/<Project ID>`
-  with `eds:*` namespaced properties. Registers the `eds` JCR
-  namespace on `@Activate`.
+  `nt:unstructured` nodes under `/var/aem-eds-modernizer/projects/{yyyy}/{MM}/{projectId}`
+  with `eds:*` namespaced properties. The `eds` namespace is
+  registered via Repo Init. Node names are escaped with
+  `Text.escapeIllegalJcrChars()`.
 - **`JsonFileStore`** — `service.ranking=100`. JSON-file snapshot
   for local dev and standalone mode.
 - **`InMemoryStore`** — no ranking (fallback). `ConcurrentHashMap`

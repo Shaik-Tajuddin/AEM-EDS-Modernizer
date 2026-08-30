@@ -1,0 +1,6 @@
+{
+  "user.default": "modernizer-service",
+  "user.mapping": [
+    "com.adobe.aem.modernizer.core=modernizer-service"
+  ]
+}

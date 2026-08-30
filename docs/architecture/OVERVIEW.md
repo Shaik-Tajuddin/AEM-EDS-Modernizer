@@ -66,10 +66,11 @@ publishes, and verifies the migration with minimal human intervention.
   (`/bin/aem-eds-modernizer/*`).
 - The dispatcher serves the dashboard UI and proxies API calls back
   to the same author instance.
-- State is persisted in JCR (Oak) under `/conf/aem-eds-modernizer/`
+- State is persisted in JCR (Oak) under `/var/aem-eds-modernizer/projects/`
   by `JcrStore` (highest-ranking `Store` implementation). Projects
-  are stored as `nt:unstructured` nodes with `eds:*` namespaced
-  properties.
+  are stored as `nt:unstructured` nodes date-sharded by `{yyyy}/{MM}`
+  with `eds:*` namespaced properties. Node names are escaped with
+  `Text.escapeIllegalJcrChars()`.
 - Connectors call AEM Author/Publish via the documented APIs, EDS via
   the GitHub API, Figma via the Figma REST API.
 
