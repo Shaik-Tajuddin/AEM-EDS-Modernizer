@@ -102,7 +102,13 @@ Transitions are strictly guarded and event-driven:
 - **Redactor**: Automatically scrubs API keys (`sk-*`, `ghp_*`, `figd_*`), bearer tokens, and basic-auth credentials from logs, events, and API payloads.
 - **Metadata-Only DAM Policy**: Verifies asset URLs and references without downloading or duplicating heavy media binaries.
 
-### 4. Phase 2 Advanced Capabilities
+### 4. Project Persistence (CRX/DE Visible)
+
+- **`JcrStore`** (`core/.../persistence/JcrStore.java`) persists every project mutation as an `nt:unstructured` node under `/conf/aem-eds-modernizer/<Project ID>`, visible and browsable in CRX/DE — with `eds:*` properties (`eds:projectId`, `eds:name`, `eds:aemAuthorUrl`, etc.) and automatic restore from JCR on bundle restart.
+- On activation, `JcrStore` registers the `eds` JCR namespace (`https://www.adobe.com/aem-eds-modernizer/1.0`) using an admin session, since namespace registration requires repository-wide `jcr:namespaceManagement` that the scoped `modernizer-service` user does not hold.
+- Falls back to **`JsonFileStore`** (local JSON snapshot) when no `SlingRepository` is available, e.g. in the standalone runtime.
+
+### 5. Phase 2 Advanced Capabilities
 
 - **URL Redirect Mapping**: Converts `.html` paths to clean vanity URLs, preserving legacy SEO routes.
 - **Dependency Graph Analyzer**: Builds DAG linking pages, editable templates, components, and Content Fragments to detect cascading migration risks.
