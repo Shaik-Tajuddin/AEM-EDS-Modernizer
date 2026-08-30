@@ -1,7 +1,7 @@
 {
   "enabled": true,
   "tokenRef": "env:GITHUB_TOKEN",
-  "defaultBranch": "main",
+  "defaultBranch": "dev",
   "apiBase": "https://api.github.com",
-  "repoUrl": ""
+  "repoUrl": "https://github.com/Shaik-Tajuddin/wknd-eds.git"
 }
