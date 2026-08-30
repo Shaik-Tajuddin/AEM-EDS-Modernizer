@@ -489,7 +489,11 @@ function processBlockFiles(files) {
         const bName = parts[1];
         const fileName = parts[parts.length - 1];
         if (!blockFilesMap[bName]) {
-          blockFilesMap[bName] = { name: bName, files: {} };
+          blockFilesMap[bName] = { name: bName, files: {}, sourcePath: null };
+        }
+        // Keep the AEM root path reference so blocks and pages stay linked to the same JCR source
+        if (f.sourcePath && !blockFilesMap[bName].sourcePath) {
+          blockFilesMap[bName].sourcePath = f.sourcePath;
         }
         if (fileName.endsWith(".js")) blockFilesMap[bName].files.js = f;
         else if (fileName.endsWith(".css")) blockFilesMap[bName].files.css = f;
@@ -580,6 +584,19 @@ function renderActiveBlockDetail() {
       : `blocks/${activeBlockName}/[not found]`;
   }
 
+  // Show the AEM root path this block was authored from (matches the Pages & Scope reference)
+  const sourceRefEl = document.getElementById("block-source-ref");
+  const sourcePathEl = document.getElementById("block-source-path");
+  if (sourceRefEl && sourcePathEl) {
+    if (b.sourcePath) {
+      sourcePathEl.textContent = b.sourcePath;
+      sourceRefEl.style.display = "block";
+    } else {
+      sourcePathEl.textContent = "—";
+      sourceRefEl.style.display = "none";
+    }
+  }
+
   if (activeFileTab === "demo") {
     if (codeContainer) codeContainer.style.display = "none";
     if (demoContainer) demoContainer.style.display = "block";
@@ -660,23 +677,70 @@ function renderPagesTable(pages) {
 function selectPageRow(path) {
   activePagePath = path;
   document.querySelectorAll("#table-pages tbody tr").forEach(tr => tr.classList.remove("active-row"));
-  
+
   const tr = document.querySelector(`#table-pages tbody tr[data-path="${path}"]`);
   if (tr) tr.classList.add("active-row");
 
   const fileObj = generatedFiles.find(f => f.sourcePath === path && f.path.endsWith(".md"));
   const pathLabel = document.getElementById("page-preview-path");
   if (pathLabel) pathLabel.textContent = fileObj ? fileObj.path : "No migrated file found";
-  
+
+  renderPageBlockReferences(path);
   renderActivePageDetail();
+}
+
+/**
+ * Populates the <eds-block-references> tag in the Pages & Scope tab with every
+ * generated block that was authored from the same AEM root path as the page,
+ * so page scope and block content share one identical JCR reference.
+ */
+function renderPageBlockReferences(pagePath) {
+  const wrapper = document.getElementById("page-block-references");
+  const list = document.getElementById("page-block-references-list");
+  if (!wrapper || !list) return;
+
+  if (!pagePath) {
+    wrapper.style.display = "none";
+    list.innerHTML = "";
+    return;
+  }
+
+  const matches = Object.values(blockFilesMap).filter((b) => {
+    if (!b.sourcePath) return false;
+    return (
+      b.sourcePath === pagePath ||
+      pagePath.startsWith(b.sourcePath) ||
+      b.sourcePath.startsWith(pagePath)
+    );
+  });
+
+  if (matches.length === 0) {
+    wrapper.style.display = "none";
+    list.innerHTML = "";
+    return;
+  }
+
+  list.innerHTML = matches
+    .map(
+      (b) =>
+        `<button class="chat-chip" style="font-size:0.75rem; padding:4px 10px;" title="AEM root path: ${b.sourcePath}" onclick="jumpToBlock('${b.name}')">🧱 ${b.name}</button>`,
+    )
+    .join("");
+  wrapper.style.display = "block";
+}
+
+/** Navigate from a page's block reference straight to the generated block inspector. */
+function jumpToBlock(blockName) {
+  showTab("components");
+  selectBlock(blockName);
 }
 
 function switchPageFileTab(tab) {
   activePageTab = tab;
-  document.querySelectorAll("#pagetab-preview, #pagetab-source").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll("#pagetab-preview, #pagetab-source, #pagetab-html").forEach(b => b.classList.remove("active"));
   const activeBtn = document.getElementById("pagetab-" + tab);
   if (activeBtn) activeBtn.classList.add("active");
-  
+
   renderActivePageDetail();
 }
 
@@ -685,12 +749,15 @@ function renderActivePageDetail() {
   const sourceContainer = document.getElementById("page-view-source");
   const previewRendered = document.getElementById("page-preview-rendered");
   const sourceContent = document.getElementById("page-source-content");
-  
+  const htmlContainer = document.getElementById("page-view-html");
+  const htmlRendered = document.getElementById("page-html-rendered");
+
   const fileObj = generatedFiles.find(f => f.sourcePath === activePagePath && f.path.endsWith(".md"));
   const markdown = fileObj ? fileObj.content : "";
-  
+
   if (activePageTab === "preview") {
     if (sourceContainer) sourceContainer.style.display = "none";
+    if (htmlContainer) htmlContainer.style.display = "none";
     if (previewContainer) previewContainer.style.display = "block";
     if (previewRendered) {
       if (markdown) {
@@ -703,8 +770,24 @@ function renderActivePageDetail() {
         `;
       }
     }
+  } else if (activePageTab === "html") {
+    if (sourceContainer) sourceContainer.style.display = "none";
+    if (previewContainer) previewContainer.style.display = "none";
+    if (htmlContainer) htmlContainer.style.display = "block";
+    if (htmlRendered) {
+      if (markdown || activePagePath) {
+        renderPageHtmlView(markdown);
+      } else {
+        htmlRendered.innerHTML = `
+          <div style="text-align:center; padding:40px 20px; color:#64748b;">
+            Select a page to view its complete authored HTML page.
+          </div>
+        `;
+      }
+    }
   } else {
     if (previewContainer) previewContainer.style.display = "none";
+    if (htmlContainer) htmlContainer.style.display = "none";
     if (sourceContainer) sourceContainer.style.display = "flex";
     if (sourceContent) {
       sourceContent.innerText = markdown || "// No migrated markdown content available for this page.";
@@ -712,17 +795,130 @@ function renderActivePageDetail() {
   }
 }
 
+/**
+ * Renders a complete HTML page composed ENTIRELY from the generated blocks authored
+ * for this page's root path — no direct AEM page fetch. Each generated block's demo
+ * markup and styles are assembled into the page, followed by the migrated DA content.
+ */
+function renderPageHtmlView(markdown) {
+  const container = document.getElementById("page-html-rendered");
+  if (!container) return;
+
+  if (!activePagePath) {
+    container.innerHTML = `
+      <div style="text-align:center; padding:40px 20px; color:#64748b;">
+        Select a page to view its complete authored HTML page.
+      </div>
+    `;
+    return;
+  }
+
+  const blocks = getBlocksForPagePath(activePagePath);
+  const doc = buildPageHtmlDocument(activePagePath, markdown);
+
+  container.innerHTML =
+    `<div style="margin-bottom:10px; font-size:0.8rem; color:#64748b;">🧱 Page composed from ${blocks.length} generated block(s) authored at <code style="background:#0f172a; color:#7dd3fc; padding:2px 6px; border-radius:4px;">${escapeAttr(activePagePath)}</code></div>` +
+    `<iframe srcdoc="${doc.replace(/"/g, "&quot;")}" style="width:100%; min-height:600px; border:1px solid #cbd5e1; border-radius:6px; background:#ffffff;"></iframe>`;
+}
+
+function getBlocksForPagePath(pagePath) {
+  return Object.values(blockFilesMap).filter((b) => {
+    if (!b.sourcePath) return false;
+    return (
+      b.sourcePath === pagePath ||
+      pagePath.startsWith(b.sourcePath) ||
+      b.sourcePath.startsWith(pagePath)
+    );
+  });
+}
+
+/** Extracts the <style> blocks and <body> content from a generated block demo HTML. */
+function extractBlockDemoParts(demoHtml) {
+  if (!demoHtml) return { styles: "", body: "" };
+  const styles = (demoHtml.match(/<style[\s\S]*?<\/style>/gi) || []).join("\n");
+  let body = demoHtml;
+  const bodyMatch = demoHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  if (bodyMatch) body = bodyMatch[1];
+  else body = demoHtml.replace(/<html[^>]*>|<\/html>|<head[\s\S]*?<\/head>|<!doctype[^>]*>/gi, "");
+  body = body.replace(/<script[\s\S]*?<\/script>/gi, "");
+  return { styles, body };
+}
+
+function escapeAttr(text) {
+  return (text || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function buildPageHtmlDocument(pagePath, markdown) {
+  const blocks = getBlocksForPagePath(pagePath);
+  const pageTitle = (pagePath ? pagePath.split("/").filter(Boolean).pop() : "page")
+    .replace(/-+/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
+  let blockStyles = "";
+  let blockSections = "";
+  blocks.forEach((b) => {
+    const demo = b.files && b.files.demo ? b.files.demo.content : "";
+    const { styles, body } = extractBlockDemoParts(demo);
+    blockStyles += styles + "\n";
+    blockSections +=
+      `<section class="page-block-section" data-block="${escapeAttr(b.name)}">\n` +
+      `<div class="page-block-tag">🧱 ${escapeAttr(b.name)} — authored from ${escapeAttr(b.sourcePath)}</div>\n` +
+      (body || `<div class="page-block-empty">No authored demo HTML generated yet for this block.</div>`) +
+      `</section>\n`;
+  });
+
+  const mdSections = markdown ? formatMarkdownToDA(markdown) : "";
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${escapeAttr(pageTitle)} | Edge Delivery Services</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; color:#334155; background:#f1f5f9; line-height:1.65; }
+  .page-banner { background:#0f172a; color:#fff; padding:14px 28px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; box-shadow:0 2px 10px rgba(0,0,0,0.15); }
+  .page-banner .brand { display:flex; align-items:center; gap:10px; font-weight:700; font-size:0.95rem; }
+  .page-banner .badge { background:#f97316; color:#fff; font-size:0.72rem; padding:3px 8px; border-radius:4px; font-weight:800; text-transform:uppercase; }
+  .page-banner .source-tag { font-size:0.8rem; color:#94a3b8; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; background:#1e293b; padding:4px 10px; border-radius:4px; }
+  .container { max-width:1100px; margin:28px auto 80px; padding:0 24px; }
+  .page-headline { margin:0 0 6px; font-size:2.1rem; font-weight:800; color:#0f172a; line-height:1.15; }
+  .root-ref { margin:0 0 24px; font-size:0.85rem; color:#64748b; }
+  .root-ref code { background:#e2e8f0; padding:2px 8px; border-radius:4px; font-size:0.85rem; color:#0f172a; }
+  .page-block-section { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:24px; margin-bottom:24px; box-shadow:0 1px 3px rgba(0,0,0,0.06); }
+  .page-block-tag { font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; color:#0284c7; background:#e0f2fe; display:inline-block; padding:3px 10px; border-radius:4px; margin-bottom:16px; }
+  .page-block-empty { color:#94a3b8; font-size:0.9rem; text-align:center; padding:20px; }
+  .md-content { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:28px; }
+</style>
+${blockStyles}
+</head>
+<body>
+  <header class="page-banner">
+    <div class="brand"><span>📄 ${escapeAttr(pageTitle)}</span><span class="badge">Edge Delivery Services</span></div>
+    <div class="source-tag">JCR Source: ${escapeAttr(pagePath || "n/a")}</div>
+  </header>
+  <div class="container">
+    <h1 class="page-headline">${escapeAttr(pageTitle)}</h1>
+    <div class="root-ref">Root path reference: <code>${escapeAttr(pagePath || "n/a")}</code> — ${blocks.length} block(s) authored on this page</div>
+    ${blockSections}
+    ${mdSections ? `<div class="md-content">${mdSections}</div>` : ""}
+  </div>
+</body>
+</html>`;
+}
+
 function formatMarkdownToDA(markdown) {
   if (!markdown) return '<div style="text-align:center;color:#64748b;">No content available.</div>';
-  
+
   const lines = markdown.split('\n');
   let html = '';
   let inTable = false;
   let tableRows = [];
-  
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
-    
+
     if (line.startsWith('|')) {
       inTable = true;
       const cols = line.split('|').map(c => c.trim()).filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
@@ -735,7 +931,7 @@ function formatMarkdownToDA(markdown) {
         tableRows = [];
       }
     }
-    
+
     if (line.startsWith('# ')) {
       html += `<h1 style="font-size:1.8rem; font-weight:800; border-bottom:2px solid #e2e8f0; padding-bottom:8px; margin-top:20px; margin-bottom:12px; color:#0f172a;">${line.substring(2)}</h1>`;
     } else if (line.startsWith('## ')) {
@@ -748,11 +944,11 @@ function formatMarkdownToDA(markdown) {
       html += `<p style="font-size:0.92rem; line-height:1.6; color:#475569; margin-bottom:10px;">${line}</p>`;
     }
   }
-  
+
   if (inTable) {
     html += renderDATable(tableRows);
   }
-  
+
   return html;
 }
 
@@ -761,7 +957,7 @@ function renderDATable(rows) {
   if (rows.length > 1 && rows[1].every(col => col.startsWith('-') || col.endsWith('-'))) {
     rows.splice(1, 1);
   }
-  
+
   let html = '<table style="width:100%; border:2px solid #2563eb; border-collapse:collapse; margin:14px 0; background:#f8fafc; font-family:var(--font-mono); font-size:0.8rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">';
   rows.forEach((row, rIdx) => {
     const isHeader = rIdx === 0;
@@ -900,27 +1096,27 @@ function formatMarkdown(text) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
-    
+
   // Code blocks: ```javascript ... ```
   html = html.replace(/```(?:[a-zA-Z0-9]+)?([\s\S]*?)```/g, (match, code) => {
     return `<pre class="chat-code"><code>${code.trim()}</code></pre>`;
   });
-  
+
   // Inline code: `code`
   html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-  
+
   // Bold: **text**
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  
+
   // Bullet lists: - item or * item
   html = html.replace(/^\s*[-*]\s+(.+)$/gm, '<li>$1</li>');
-  
+
   // Wrap list items in ul
   html = html.replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>');
-  
+
   // Clean up duplicate consecutive ul elements
   html = html.replace(/<\/ul>\s*<ul>/g, '');
-  
+
   // Paragraphs / line breaks (only when not inside ul/pre/code tags)
   html = html.split('\n').map(line => {
     const trimmed = line.trim();
@@ -929,7 +1125,7 @@ function formatMarkdown(text) {
     }
     return line ? `<p>${line}</p>` : '';
   }).join('\n');
-  
+
   return html;
 }
 

@@ -228,6 +228,10 @@
               </div>
               <div style="font-size:0.8rem; color:var(--text-dim);" id="block-file-path">blocks/...</div>
             </div>
+            <!-- AEM root path reference for the selected block (same JCR source as the page) -->
+            <div id="block-source-ref" style="display:none; margin:8px 0 0; font-size:0.78rem; color:var(--text-dim);">
+              🔗 AEM Root Path: <code id="block-source-path" style="background:#0f172a; color:#7dd3fc; padding:2px 6px; border-radius:4px;">—</code>
+            </div>
 
             <!-- Code Viewer / Live Preview -->
             <div id="block-view-code" class="code-viewer-container" style="display:none;">
@@ -281,11 +285,25 @@
               <div class="block-file-tabs">
                 <button id="pagetab-preview" class="block-file-tab active" onclick="switchPageFileTab('preview')">👁️ DA Preview</button>
                 <button id="pagetab-source" class="block-file-tab" onclick="switchPageFileTab('source')">📝 Markdown Source</button>
+                <button id="pagetab-html" class="block-file-tab" onclick="switchPageFileTab('html')">🌐 Live HTML Page</button>
               </div>
               <div style="font-size:0.8rem; color:var(--text-dim);" id="page-preview-path">Select a page to preview</div>
             </div>
+            <!-- New tag: block references authored from the same AEM root path as this page -->
+            <eds-block-references id="page-block-references" class="page-block-references" style="display:none; margin:10px 0 0; padding:10px 12px; background:rgba(2,132,199,0.08); border:1px solid rgba(2,132,199,0.35); border-radius:6px; font-size:0.8rem; color:#7dd3fc;">
+              <div style="font-weight:700; margin-bottom:6px;">🧱 Blocks authored from this root path (shared reference)</div>
+              <div id="page-block-references-list" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+            </eds-block-references>
             <div id="page-view-source" class="code-viewer-container" style="display:none;">
               <pre id="page-source-content" class="code-viewer">// Select a page to view Markdown source</pre>
+            </div>
+            <!-- Full live HTML page view, rendered from the page root path + its authored blocks -->
+            <div id="page-view-html" class="preview-frame-container" style="display:none;">
+              <div class="preview-card" id="page-html-rendered" style="padding:0; border:none; background:transparent;">
+                <div style="text-align:center; padding:40px 20px; color:#64748b;">
+                  Select a page to view its complete authored HTML page.
+                </div>
+              </div>
             </div>
             <div id="page-view-preview" class="preview-frame-container">
               <div class="preview-card" id="page-preview-rendered" style="background: white; padding: 20px; border-radius: 6px; border: 1px solid #e2e8f0; min-height: 350px;">

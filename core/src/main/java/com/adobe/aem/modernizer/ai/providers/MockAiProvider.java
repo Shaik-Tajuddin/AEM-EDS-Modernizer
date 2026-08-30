@@ -186,7 +186,17 @@ public class MockAiProvider implements AiProvider {
                     + "  color: #ffffff;\n"
                     + "}\n";
         } else if ("content-migration".equalsIgnoreCase(agent)) {
-            content = "# Ski Touring Mont Blanc\n\nChamonix, Haute-Savoie, France\n\n### Carousel\n| Image | Heading | Text |\n| --- | --- | --- |\n| /content/dam/wknd-shared/en/adventures/ski-touring-mont-blanc/adobestock-238230356.jpeg | Glacier Traverse | Powder skiing in French Alps |\n";
+            // Refine the REAL page markdown passed in the prompt — never replace it with
+            // hardcoded sample content, otherwise generated pages stop matching their root path.
+            String marker = "Refine migrated Markdown structure and tables:\n\n";
+            String original = request.getPrompt() != null && request.getPrompt().contains(marker)
+                    ? request.getPrompt().substring(request.getPrompt().indexOf(marker) + marker.length()).trim()
+                    : "";
+            if (!original.isEmpty()) {
+                content = original; // mock provider passes the JCR-derived structure through unchanged
+            } else {
+                content = "# Migrated Page\n\n### Content\n| Text |\n| --- |\n| No source markdown received. |\n";
+            }
         } else if ("visual-validation".equalsIgnoreCase(agent) || "advanced-visual-validation".equalsIgnoreCase(agent)) {
             content = "{\"visualScore\":0.98,\"a11yScore\":1.0,\"passed\":true,\"issues\":[]}";
         } else if ("self-repair".equalsIgnoreCase(agent) || "advanced-repair".equalsIgnoreCase(agent)) {

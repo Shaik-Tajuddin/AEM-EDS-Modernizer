@@ -499,6 +499,17 @@ public class BlockGenerationAgent implements Agent {
             GeneratedFileRecord htmlFile = new GeneratedFileRecord(UUID.randomUUID().toString(), ctx.getProject().getId(), ctx.getJob().getId(), "blocks/" + blockName + "/" + blockName + "-example.html", "BLOCK_EXAMPLE_HTML", htmlContent);
             GeneratedFileRecord readmeFile = new GeneratedFileRecord(UUID.randomUUID().toString(), ctx.getProject().getId(), ctx.getJob().getId(), "blocks/" + blockName + "/README.md", "BLOCK_README", readmeContent);
 
+            // Reference the AEM root path this block was authored from, so blocks and pages
+            // share the same JCR source reference (keeps page scope and block content in sync)
+            String blockSourcePath = samplePagePath != null
+                    ? samplePagePath
+                    : (ctx.getProject() != null ? ctx.getProject().getContentRoot() : null);
+            jsFile.setSourcePath(blockSourcePath);
+            cssFile.setSourcePath(blockSourcePath);
+            jsonFile.setSourcePath(blockSourcePath);
+            htmlFile.setSourcePath(blockSourcePath);
+            readmeFile.setSourcePath(blockSourcePath);
+
             jsFile.setVirtualDiffOnly(ctx.isDryRun());
             cssFile.setVirtualDiffOnly(ctx.isDryRun());
             jsonFile.setVirtualDiffOnly(ctx.isDryRun());

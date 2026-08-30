@@ -61,13 +61,24 @@ public class ContentMigrationAgent implements Agent {
             filePath += ".md";
 
             // Traverse page hierarchy to build sequence of blocks with real content data
-            String markdown = buildPageMarkdown(ctx.getProject().getAemAuthorUrl(), page.getPath(), page.getTitle());
+            String pageTitle = page.getTitle();
+            String markdown = buildPageMarkdown(ctx.getProject().getAemAuthorUrl(), page.getPath(), pageTitle);
 
             if (ai != null) {
                 ChatRequest req = new ChatRequest(getName(), "Refine migrated Markdown structure and tables:\n\n" + markdown);
                 req.setTargetCapability(ModelCapability.CAP_CODE);
                 ChatResponse resp = ai.dispatch(req);
-                if (resp.getContent() != null && !resp.getContent().trim().isEmpty()) {
+                // Only accept the refined markdown if it actually reflects this page's real
+                // content (title or derived block tables) — never let a canned/hardcoded
+                // provider response overwrite JCR-derived content and break the root-path match.
+                boolean titlePresent = resp.getContent() != null
+                        && markdown.contains(pageTitle)
+                        && resp.getContent().contains(pageTitle);
+                boolean tablePresent = resp.getContent() != null
+                        && resp.getContent().contains("| ---")
+                        && resp.getContent().contains("### ");
+                if (resp.getContent() != null && !resp.getContent().trim().isEmpty()
+                        && (titlePresent || tablePresent)) {
                     markdown = resp.getContent();
                 }
             }
