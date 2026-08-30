@@ -292,6 +292,8 @@
                                             <arg value="-F"/>
                                             <arg value="action=install"/>
                                             <arg value="-F"/>
+                                            <arg value="start=true"/>
+                                            <arg value="-F"/>
                                             <arg value="bundlefile=@${project.build.directory}/${project.build.finalName}.jar"/>
                                             <arg value="${aem.host}/system/console/bundles"/>
                                         </exec>
