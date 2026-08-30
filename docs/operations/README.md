@@ -35,7 +35,7 @@ the modernizer has operational responsibilities.
 ├─────────────────────────────────────────┤
 │  Connector (AEM, GitHub, Figma, EDS)    │ Latency, error rates
 ├─────────────────────────────────────────┤
-│  Store (JCR or InMemory)                │ Storage metrics
+│  Store (JcrStore / JsonFileStore / InMemory)│ Storage metrics
 └─────────────────────────────────────────┘
 ```
 

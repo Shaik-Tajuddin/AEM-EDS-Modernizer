@@ -66,7 +66,8 @@ idempotent).
 ## Storage
 
 Checkpoints are persisted in the same `Store` as the rest
-of the job state, so the JCR / InMemory store handles the
+of the job state, so `JcrStore` (AEM Cloud) or
+`JsonFileStore` / `InMemoryStore` (standalone) handle the
 lifecycle identically.
 
 ## Storage growth

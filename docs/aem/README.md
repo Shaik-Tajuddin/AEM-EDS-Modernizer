@@ -24,8 +24,9 @@ config, and the IMS auth flow.
   for the AEM Author / Publish connectors.
 - [CONNECTORS.md](CONNECTORS.md) — the `AemClient` interface,
   the real and mock implementations, and the URL guard.
-- [REPO_INIT.md](REPO_INIT.md) — the `ui.content` package
-  layout and the Repo Init scripts.
+- [REPO_INIT.md](REPO_INIT.md) — the `ui.config` package
+  layout, the Repo Init scripts, and the `JcrStore` persistence
+  path under `/conf/aem-eds-modernizer/`.
 
 ## How AEM fits in the architecture
 

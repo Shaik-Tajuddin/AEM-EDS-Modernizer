@@ -83,8 +83,11 @@ gateway:
 ### 7. Agent → `Store` writes
 
 Agents persist their output via the `Store` interface
-(`store.saveX(rec)`). In AEM Cloud this writes to JCR; in the
-standalone runtime it writes to `ConcurrentHashMap`s.
+(`store.saveX(rec)`). In AEM Cloud, `JcrStore` writes to
+`/conf/aem-eds-modernizer/<Project ID>` in JCR with `eds:*`
+namespaced properties; in the standalone runtime,
+`JsonFileStore` or `InMemoryStore` writes to a local JSON file
+or `ConcurrentHashMap`s respectively.
 
 ### 8. `ApiRouter` returns JSON
 
@@ -132,7 +135,7 @@ Agent.run(ctx)        (one of 20)
   │ writes via: Store.saveX(rec)
   │            │
   │            ▼
-  │       JCR or InMemoryStore
+  │       JcrStore / JsonFileStore / InMemoryStore
   │
   │ returns: AgentResult
   ▼

@@ -71,6 +71,17 @@ test in `AdvancedRepairAgentTest`.)
 - `RepairAttemptRecord`
 - `BenchmarkSampleRecord`
 
+### New persistence bindings
+
+- **`JcrStore`** — `service.ranking=200`. Persists projects as
+  `nt:unstructured` nodes under `/conf/aem-eds-modernizer/<Project ID>`
+  with `eds:*` namespaced properties. Registers the `eds` JCR
+  namespace on `@Activate`.
+- **`JsonFileStore`** — `service.ranking=100`. JSON-file snapshot
+  for local dev and standalone mode.
+- **`InMemoryStore`** — no ranking (fallback). `ConcurrentHashMap`
+  for standalone mode when no `SlingRepository` is available.
+
 ### New connector
 
 - `PlaywrightBrowserClient` — uses reflection to detect Playwright on

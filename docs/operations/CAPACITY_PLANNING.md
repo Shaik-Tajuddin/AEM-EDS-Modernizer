@@ -12,7 +12,7 @@ EDS Modernizer.
 | Concurrent migrations | 1-5 |
 | Concurrent AI calls per migration | 5 |
 | Concurrent connector calls per migration | 10 |
-| Storage (JCR) | 10 GB (per project) |
+| Storage (JCR at `/conf/aem-eds-modernizer/`) | 10 GB (per project) |
 
 ## Throughput
 

@@ -39,8 +39,8 @@ operator clicks `Resume`, the orchestrator reads the last
 4. Continues from there.
 
 Checkpoints are persisted in the same `Store` as the rest of the
-job state, so the JCR / InMemory store handles the lifecycle
-identically.
+job state, so `JcrStore` (AEM Cloud) or `JsonFileStore` /
+`InMemoryStore` (standalone) handle the lifecycle identically.
 
 ## Consequences
 

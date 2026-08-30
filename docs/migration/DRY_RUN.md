@@ -31,9 +31,11 @@ way except the three "does not" items below.
 3. **No real Git commit / PR / merge.** The
    `PublishingAgent` produces a virtual diff only. No
    branch, no PR, no merge. The dry run's
-   `GeneratedFileRecord`s are persisted in JCR (or
-   in-memory) and surfaced in the dashboard's `#/diff`
-   view, but no real Git operations are performed.
+`GeneratedFileRecord`s are persisted via `JcrStore` to
+`/conf/aem-eds-modernizer/` (or via `JsonFileStore` /
+`InMemoryStore` in standalone mode) and surfaced in the
+dashboard's `#/diff` view, but no real Git operations are
+performed.
 
 ## The dry-run flag
 

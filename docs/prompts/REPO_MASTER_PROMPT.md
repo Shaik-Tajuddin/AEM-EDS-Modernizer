@@ -770,6 +770,16 @@ For each class, add the annotation + (where needed) a no-arg
 constructor:
 
 ```java
+@Component(service = Store.class, immediate = true, property = { "service.ranking:Integer=200" })
+public class JcrStore extends InMemoryStore implements Store {
+    // Persists projects as nt:unstructured under /conf/aem-eds-modernizer/<Project ID>
+    // with eds:* namespaced properties. Registers eds namespace on @Activate.
+    // Falls back to InMemoryStore when no SlingRepository is available.
+}
+
+@Component(service = Store.class, immediate = true, property = { "service.ranking:Integer=100" })
+public class JsonFileStore implements Store { ... }
+
 @Component(service = Store.class, immediate = true)
 public class InMemoryStore implements Store { ... }
 
@@ -1181,8 +1191,11 @@ UrlRedirectRecord, DependencyEdgeRecord, RolloutStageRecord,
 RepairAttemptRecord, BenchmarkSampleRecord
 ```
 
-The `InMemoryStore` implements all of these via `ConcurrentHashMap`
-with cross-job helpers (`repairsForProject(projectId)`,
+The `JcrStore` (AEM Cloud, ranking 200) persists projects under
+`/conf/aem-eds-modernizer/<Project ID>` with `eds:*` namespaced
+properties. `JsonFileStore` (ranking 100) writes JSON snapshots to
+disk. `InMemoryStore` (no ranking, fallback) implements all of
+these via `ConcurrentHashMap` with cross-job helpers (`repairsForProject(projectId)`,
 `benchmarksFor(agent)`, etc.).
 
 ---

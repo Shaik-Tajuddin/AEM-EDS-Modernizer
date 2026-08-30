@@ -129,4 +129,5 @@ Look in the AEM error log (`/logs/error.log` for local, Cloud Manager
 | `java.lang.ClassNotFoundException: com.adobe.aem.modernizer.dashboard.servlets.ModernizerHomeServlet` | The `core` bundle is not active | See Step 1. |
 | `org.apache.sling.api.SlingException: No script found for /aem-eds-modernizer` | The Sling Servlet isn't registered | The `core` bundle is not active. See Step 1. |
 | `java.lang.IllegalStateException: Could not activate component` | Repo Init failed | Check the `Repo Init` log: usually a service user creation error. |
+| `OakName0001: Prefix 'eds' not present in namespace registry` | `JcrStore` failed to register the `eds` namespace | Ensure the `core` bundle restarted after deployment. `JcrStore` registers the namespace on `@Activate`; if admin-session login fails, the namespace is not registered and project saves will fail. Check `/system/console/bundles` for the `core` bundle state. |
 | Blank page with `404` status | Wrong URL | Use the full URL: `/content/aem-eds-modernizer/home.html` (with `.html`). |

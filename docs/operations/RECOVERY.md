@@ -73,7 +73,8 @@ the validation stage).
 
 ## Orchestrator JVM killed
 
-The orchestrator's state is persisted in JCR. A kill
+The orchestrator's state is persisted in JCR under
+`/conf/aem-eds-modernizer/` by `JcrStore`. A kill
 (-9, OOM, instance restart) leaves the job in the last
 persisted state.
 
@@ -87,8 +88,9 @@ persisted state.
 
 ## AEM instance redeployed mid-migration
 
-Same as "Orchestrator JVM killed". The state is in JCR;
-the redeployment does not lose it.
+Same as "Orchestrator JVM killed". The state is in JCR
+under `/conf/aem-eds-modernizer/`; the redeployment does
+not lose it.
 
 ## Operator accidentally triggered a real migration
 

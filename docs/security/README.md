@@ -35,7 +35,7 @@ modernizer has security responsibilities.
 ├─────────────────────────────────────────┤
 │  Logger (SLF4J)                         │ Redactor
 ├─────────────────────────────────────────┤
-│  Store (JCR or InMemory)                │ Audit log
+│  Store (JcrStore / JsonFileStore / InMemory) │ Audit log
 └─────────────────────────────────────────┘
 ```
 

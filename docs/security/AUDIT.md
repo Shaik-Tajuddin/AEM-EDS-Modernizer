@@ -37,8 +37,8 @@ authentication).
 
 ## Where the audit log is stored
 
-- **AEM Cloud:** JCR at `/content/aem-eds-modernizer/projects/{id}/jobs/{jobId}/events/{eventId}`.
-- **Standalone:** `InMemoryStore.events` (a
+- **AEM Cloud:** JCR at `/conf/aem-eds-modernizer/{projectId}/jobs/{jobId}/events/{eventId}` (via `JcrStore`).
+- **Standalone:** `JsonFileStore` or `InMemoryStore.events` (a
   `ConcurrentHashMap`).
 
 ## How to query the audit log

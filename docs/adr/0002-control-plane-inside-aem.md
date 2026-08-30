@@ -39,6 +39,9 @@ not a separate product. Both runtimes share the same `ApiRouter`,
   to design, implement, or test.
 - **JCR is the canonical store.** No separate database; no ETL
   between the migration engine and the production data model.
+  `JcrStore` persists project records under
+  `/conf/aem-eds-modernizer/` with `eds:*` namespaced
+  properties.
 - **Operational simplicity.** One deployment, one set of metrics,
   one alert rule. No side-car to monitor.
 - **In-process AEM connector access.** Inside AEM, the

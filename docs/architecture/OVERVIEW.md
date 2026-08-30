@@ -49,7 +49,7 @@ publishes, and verifies the migration with minimal human intervention.
                        │   └───────────────────────┘          │
                        │                 │                    │
                        │                 ▼                    │
-                       │      Store  (JCR / InMemory)         │
+                       │      Store  (JcrStore / JsonFileStore / InMemory)│
                        │                                      │
                        └────┬──────────┬──────────┬───────────┘
                             │          │          │
@@ -66,7 +66,10 @@ publishes, and verifies the migration with minimal human intervention.
   (`/bin/aem-eds-modernizer/*`).
 - The dispatcher serves the dashboard UI and proxies API calls back
   to the same author instance.
-- State is persisted in JCR (Oak).
+- State is persisted in JCR (Oak) under `/conf/aem-eds-modernizer/`
+  by `JcrStore` (highest-ranking `Store` implementation). Projects
+  are stored as `nt:unstructured` nodes with `eds:*` namespaced
+  properties.
 - Connectors call AEM Author/Publish via the documented APIs, EDS via
   the GitHub API, Figma via the Figma REST API.
 
@@ -84,7 +87,8 @@ publishes, and verifies the migration with minimal human intervention.
 
 The two share the same `ApiRouter`, `Orchestrator`, `AiGateway`,
 `Store` interface, and every agent. The only differences are the
-binding for `Store` and the connector implementations.
+binding for `Store` (`JcrStore` in AEM Cloud, `JsonFileStore` /
+`InMemoryStore` in standalone) and the connector implementations.
 
 ## Why an OSGi bundle, not a microservice?
 

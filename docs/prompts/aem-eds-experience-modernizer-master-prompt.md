@@ -135,7 +135,7 @@ AEM Author
 ├── AEM Package / OSGi services
 ├── Sling Models / Sling Servlets or approved endpoints
 ├── Sling Jobs for asynchronous work
-├── JCR/Oak for migration state and durable metadata where appropriate
+├── JCR/Oak for migration state and durable metadata (`JcrStore` at `/conf/aem-eds-modernizer/`)
 ├── AEM configuration for non-secret configuration
 ├── secure secret management/configuration for credentials and API keys
 └── authenticated administration UI

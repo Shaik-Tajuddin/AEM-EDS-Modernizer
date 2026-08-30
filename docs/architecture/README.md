@@ -44,9 +44,14 @@ and the external system adapters together.
 3. **Agents never instantiate a provider SDK directly.** They call
    `AiGateway.dispatch(request)` which routes through the
    `AiRoutingPolicy` and the `CapabilityRegistry`.
-4. **The `Store` interface is a narrow CRUD facade.** The MVP binding
-   is `InMemoryStore`; the AEM Cloud binding is JCR/Oak. Same
-   interface, no call-site changes.
+4. **The `Store` interface is a narrow CRUD facade.** Three
+   implementations exist: `JcrStore` (highest ranking, persists to
+   `/conf/aem-eds-modernizer/` under the `eds:` JCR namespace),
+   `JsonFileStore` (JSON-file snapshot for local dev), and
+   `InMemoryStore` (ConcurrentHashMap, standalone fallback). The AEM
+   Cloud runtime binds `JcrStore`; the standalone runtime uses
+   `JsonFileStore` or `InMemoryStore`. Same interface, no call-site
+   changes.
 5. **The dashboard is a stateless SPA.** It polls
    `/api/projects/{id}/events` and reconstructs its state from
    persisted `JobEventRecord`s. A refresh always recovers the

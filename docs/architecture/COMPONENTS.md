@@ -21,7 +21,7 @@ public surface, and its dependencies.
 | `agents/` | 20 specialised migration agents (per Master §2) | `Agent`, `AgentContext`, `AgentResult` |
 | `ai/` | AI gateway, provider adapters, capability registry, routing policy | `AiGateway`, `ChatRequest`, `ChatResponse`, `ModelCapability` |
 | `connectors/` | External-system adapters (AEM, GitHub, Figma, EDS, browser) | `AemClient`, `GitHubClient`, `FigmaClient`, `EdsClient`, `BrowserClient` |
-| `persistence/` | Store interface + InMemory binding + record types | `Store`, `InMemoryStore`, `DashboardSnapshot` |
+| `persistence/` | Store interface + JCR, JSON-file, and in-memory bindings + record types | `Store`, `JcrStore`, `JsonFileStore`, `InMemoryStore`, `DashboardSnapshot` |
 | `dashboard/` | HTTP API and SPA | `ApiRouter`, `StaticDashboard`, `DashboardApi` |
 | `state/` | Migration state machine | `MigrationState` |
 | `estimate/` | Pre-implementation estimate | `EstimatorService` |
