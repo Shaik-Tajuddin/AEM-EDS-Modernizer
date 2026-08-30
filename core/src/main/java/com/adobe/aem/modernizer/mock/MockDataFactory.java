@@ -93,6 +93,20 @@ public final class MockDataFactory {
         components.add(new SiteInventory.ComponentInfo("wknd/components/button", "Button", "WKND Core"));
         inv.setComponents(components);
 
+        // Populate Pages (Multi-page inventory fallback)
+        List<SiteInventory.PageInfo> pages = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            SiteInventory.PageInfo p = new SiteInventory.PageInfo(
+                    root + "/page-" + i,
+                    "Page " + i,
+                    "/conf/wknd/settings/wcm/templates/article-page"
+            );
+            p.setComponentResourceTypes(Arrays.asList("wknd/components/hero", "wknd/components/text"));
+            p.setAssetPaths(Arrays.asList("/content/dam/wknd/en/adventures/hero-0.jpg"));
+            pages.add(p);
+        }
+        inv.setPages(pages);
+
         // Distinct Templates
         List<SiteInventory.TemplateInfo> templates = new ArrayList<>();
         templates.add(new SiteInventory.TemplateInfo("/conf/wknd/settings/wcm/templates/landing-page", "Landing Page"));

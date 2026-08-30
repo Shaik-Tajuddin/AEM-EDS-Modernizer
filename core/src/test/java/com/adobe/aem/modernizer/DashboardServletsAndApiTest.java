@@ -184,6 +184,7 @@ class DashboardServletsAndApiTest {
         // POST project
         SlingHttpServletRequest req = Mockito.mock(SlingHttpServletRequest.class);
         SlingHttpServletResponse resp = Mockito.mock(SlingHttpServletResponse.class);
+        when(req.getMethod()).thenReturn("POST");
         org.apache.sling.api.request.RequestPathInfo pathInfo = Mockito.mock(org.apache.sling.api.request.RequestPathInfo.class);
         when(req.getRequestPathInfo()).thenReturn(pathInfo);
 
@@ -196,6 +197,7 @@ class DashboardServletsAndApiTest {
         assertThat(sw.toString()).contains("proj-custom");
 
         // POST project without ID or Name
+        when(req.getMethod()).thenReturn("POST");
         when(req.getReader()).thenReturn(new BufferedReader(new StringReader("{}")));
         StringWriter swEmpty = new StringWriter();
         when(resp.getWriter()).thenReturn(new PrintWriter(swEmpty));
@@ -205,8 +207,10 @@ class DashboardServletsAndApiTest {
         // GET all projects
         SlingHttpServletRequest getReq = Mockito.mock(SlingHttpServletRequest.class);
         SlingHttpServletResponse getResp = Mockito.mock(SlingHttpServletResponse.class);
+        when(getReq.getMethod()).thenReturn("GET");
         when(getReq.getRequestPathInfo()).thenReturn(pathInfo);
         when(pathInfo.getSuffix()).thenReturn(null);
+        when(getReq.getReader()).thenAnswer(invocation -> new BufferedReader(new StringReader("")));
         StringWriter getSw = new StringWriter();
         when(getResp.getWriter()).thenReturn(new PrintWriter(getSw));
 
@@ -214,6 +218,7 @@ class DashboardServletsAndApiTest {
         assertThat(getSw.toString()).contains("proj-custom");
 
         // GET project by suffix
+        when(getReq.getMethod()).thenReturn("GET");
         when(pathInfo.getSuffix()).thenReturn("/proj-custom");
         StringWriter singleSw = new StringWriter();
         when(getResp.getWriter()).thenReturn(new PrintWriter(singleSw));
@@ -221,6 +226,7 @@ class DashboardServletsAndApiTest {
         assertThat(singleSw.toString()).contains("Custom Project");
 
         // GET non-existent project
+        when(getReq.getMethod()).thenReturn("GET");
         when(pathInfo.getSuffix()).thenReturn("/non-existent");
         StringWriter notFoundSw = new StringWriter();
         when(getResp.getWriter()).thenReturn(new PrintWriter(notFoundSw));
@@ -228,11 +234,13 @@ class DashboardServletsAndApiTest {
         assertThat(notFoundSw.toString()).contains("error");
 
         // DELETE project
+        when(getReq.getMethod()).thenReturn("DELETE");
         when(pathInfo.getSuffix()).thenReturn("/proj-custom");
         servlet.doDelete(getReq, getResp);
         assertThat(store.getProject("proj-custom")).isEmpty();
 
         // DELETE without id
+        when(getReq.getMethod()).thenReturn("DELETE");
         when(pathInfo.getSuffix()).thenReturn(null);
         when(getReq.getParameter("id")).thenReturn(null);
         servlet.doDelete(getReq, getResp);

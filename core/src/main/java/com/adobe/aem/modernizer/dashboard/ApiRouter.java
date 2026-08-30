@@ -54,7 +54,10 @@ public class ApiRouter {
         String pathInfo = req.getParameter("path");
         if (pathInfo == null || pathInfo.isEmpty()) {
             if (req instanceof org.apache.sling.api.SlingHttpServletRequest) {
-                pathInfo = ((org.apache.sling.api.SlingHttpServletRequest) req).getRequestPathInfo().getSuffix();
+                org.apache.sling.api.request.RequestPathInfo requestPathInfo = ((org.apache.sling.api.SlingHttpServletRequest) req).getRequestPathInfo();
+                if (requestPathInfo != null) {
+                    pathInfo = requestPathInfo.getSuffix();
+                }
             }
         }
         if (pathInfo == null || pathInfo.isEmpty()) {
@@ -114,6 +117,8 @@ public class ApiRouter {
                         }
                         return JsonUtil.toJson(project);
                     }
+                    if (resp != null) resp.setStatus(405);
+                    return "{\"error\":\"Method not allowed\"}";
                 }
 
                 // /projects/{id}

@@ -12,9 +12,11 @@ import com.adobe.aem.modernizer.ssrf.UrlGuard;
 import org.junit.jupiter.api.Test;
 
 import java.net.InetAddress;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -110,8 +112,10 @@ class ExtraCoverageTest {
         // Introduce a duplicate path for conflict testing
         SiteInventory.PageInfo p1 = new SiteInventory.PageInfo("/content/wknd/us/en/page-1", "P1", "tpl");
         SiteInventory.PageInfo p2 = new SiteInventory.PageInfo("/content/wknd/us/en/page-1", "P2", "tpl");
-        inv.getPages().add(p1);
-        inv.getPages().add(p2);
+        List<SiteInventory.PageInfo> pages = new ArrayList<>(inv.getPages());
+        pages.add(p1);
+        pages.add(p2);
+        inv.setPages(pages);
 
         assertThat(service.buildRedirects("p1", "j1", inv)).isNotEmpty();
         assertThat(service.buildRedirects("p1", "j1", new SiteInventory())).isEmpty();
