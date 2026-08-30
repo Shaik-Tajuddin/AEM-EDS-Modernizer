@@ -75,237 +75,270 @@ public class BlockGenerationAgent implements Agent {
         }
         // ────────────────────────────────────────────────────────────────────────
         for (SiteInventory.ComponentInfo comp : inv.getComponents()) {
+            if (comp.getResourceType() != null && (comp.getResourceType().contains("/components/container")
+                    || comp.getResourceType().contains("/components/page")
+                    || comp.getResourceType().endsWith("/container")
+                    || comp.getResourceType().endsWith("/page"))) {
+                LOG.info("Skipping block creation for container/page component: {}", comp.getResourceType());
+                continue;
+            }
             String blockName = comp.getProposedEdsBlock() != null
                     ? comp.getProposedEdsBlock().toLowerCase().replace(' ', '-')
                     : comp.getResourceType().substring(comp.getResourceType().lastIndexOf('/') + 1).toLowerCase().replace(' ', '-');
             String titleCase = Character.toUpperCase(blockName.charAt(0)) + blockName.substring(1).replace('-', ' ');
 
+            // Dynamic JCR properties resolution
+            java.util.Map<String, Object> jcrProps = new java.util.LinkedHashMap<>();
+            String samplePagePath = null;
+            for (SiteInventory.PageInfo pInfo : inv.getPages()) {
+                if (pInfo.getComponentResourceTypes() != null && pInfo.getComponentResourceTypes().contains(comp.getResourceType())) {
+                    samplePagePath = pInfo.getPath();
+                    break;
+                }
+            }
+            if (ctx.getProject() != null && samplePagePath != null) {
+                jcrProps = fetchComponentProperties(ctx.getProject().getAemAuthorUrl(), samplePagePath, comp.getResourceType());
+            }
+
+            jcrProps.remove("id");
+            jcrProps.remove("classes");
+
+            java.util.List<String> propNames = new java.util.ArrayList<>(jcrProps.keySet());
+            if (propNames.isEmpty()) {
+                propNames.add("title");
+                propNames.add("text");
+                propNames.add("ctaLink");
+                propNames.add("ctaContent");
+                jcrProps.put("title", titleCase + " Experience");
+                jcrProps.put("text", "Curated adventure and premium digital experiences delivered at lightning speed with Adobe Edge Delivery Services.");
+                jcrProps.put("ctaLink", "/content/wknd/language-masters/en/adventures/ski-touring-mont-blanc");
+                jcrProps.put("ctaContent", "Explore Stories");
+            }
+
             // 1. <block-name>.js (Decoration logic + createBlock)
-            String jsContent = "import {\n"
-                    + "  checkAndHandleNestedBlocks,\n"
-                    + "  replaceBlockRowsPreservingNestedBlocks,\n"
-                    + "  getTextFromBlockRow,\n"
-                    + "  getHtmlFromBlockRow,\n"
-                    + "  coerceAuthorClasses,\n"
-                    + "  escapeHtml,\n"
-                    + "  escapeHtmlAttribute,\n"
-                    + "  franklinBlockRow,\n"
-                    + "} from '../../scripts/utilities/block-helpers.js';\n\n"
-                    + "/**\n"
-                    + " * Row layout — tab / classes / classes_* create no rows.\n"
-                    + " * 0: id\n"
-                    + " * 1: title (richtext)\n"
-                    + " * 2: text (richtext)\n"
-                    + " * 3: ctaLink (aem-content)\n"
-                    + " * 4: ctaContent (richtext)\n"
-                    + " */\n"
-                    + "function extractConfig(block) {\n"
-                    + "  if (!block) return {};\n"
-                    + "  const rows = [...block.children];\n"
-                    + "  const anchor = rows[3]?.querySelector('a');\n"
-                    + "  return {\n"
-                    + "    id: getTextFromBlockRow(rows[0]),\n"
-                    + "    title: getHtmlFromBlockRow(rows[1]),\n"
-                    + "    text: getHtmlFromBlockRow(rows[2]),\n"
-                    + "    ctaLink: anchor instanceof HTMLAnchorElement ? anchor.getAttribute('href') : '',\n"
-                    + "    ctaContent: getHtmlFromBlockRow(rows[4]),\n"
-                    + "  };\n"
-                    + "}\n\n"
-                    + "function buildBlock(block, config) {\n"
-                    + "  const inner = document.createElement('div');\n"
-                    + "  inner.classList.add('" + blockName + "-inner');\n\n"
-                    + "  if (config.title) {\n"
-                    + "    const titleEl = document.createElement('div');\n"
-                    + "    titleEl.classList.add('" + blockName + "-title');\n"
-                    + "    titleEl.innerHTML = config.title;\n"
-                    + "    inner.appendChild(titleEl);\n"
-                    + "  }\n\n"
-                    + "  if (config.text) {\n"
-                    + "    const textEl = document.createElement('div');\n"
-                    + "    textEl.classList.add('" + blockName + "-text');\n"
-                    + "    textEl.innerHTML = config.text;\n"
-                    + "    inner.appendChild(textEl);\n"
-                    + "  }\n\n"
-                    + "  if (config.ctaLink || config.ctaContent) {\n"
-                    + "    const ctaWrap = document.createElement('div');\n"
-                    + "    ctaWrap.classList.add('" + blockName + "-cta');\n"
-                    + "    if (config.ctaLink) {\n"
-                    + "      const a = document.createElement('a');\n"
-                    + "      a.href = config.ctaLink;\n"
-                    + "      a.classList.add('brand-cta');\n"
-                    + "      a.innerHTML = config.ctaContent || '<span>Learn more</span>';\n"
-                    + "      ctaWrap.appendChild(a);\n"
-                    + "    } else {\n"
-                    + "      ctaWrap.innerHTML = config.ctaContent;\n"
-                    + "    }\n"
-                    + "    inner.appendChild(ctaWrap);\n"
-                    + "  }\n\n"
-                    + "  replaceBlockRowsPreservingNestedBlocks(block, inner);\n"
-                    + "  if (config.id) block.id = config.id;\n"
-                    + "  // eslint-disable-next-line no-param-reassign\n"
-                    + "  config.mainEl = inner;\n"
-                    + "}\n\n"
-                    + "function appendEvents(config) {\n"
-                    + "  if (!config?.mainEl) return;\n"
-                    + "}\n\n"
-                    + "export default async function decorate(block) {\n"
-                    + "  await checkAndHandleNestedBlocks(block);\n"
-                    + "  const config = extractConfig(block);\n"
-                    + "  buildBlock(block, config);\n"
-                    + "  appendEvents(config);\n"
-                    + "}\n\n"
-                    + "export function createBlock(options = {}) {\n"
-                    + "  const id = escapeHtml(options.id ?? '');\n"
-                    + "  const title = typeof options.title === 'string' ? options.title : '';\n"
-                    + "  const text = typeof options.text === 'string' ? options.text : '';\n"
-                    + "  const ctaLink = escapeHtmlAttribute(options.ctaLink ?? '');\n"
-                    + "  const ctaContent = typeof options.ctaContent === 'string' && options.ctaContent.trim()\n"
-                    + "    ? options.ctaContent : '<p>Learn more</p>';\n"
-                    + "  const extra = coerceAuthorClasses(options.classes);\n"
-                    + "  const rootClasses = ['" + blockName + "', 'eds-block-" + blockName + "', extra].filter(Boolean).join(' ');\n"
-                    + "  const ctaRow = ctaLink\n"
-                    + "    ? `${franklinBlockRow(`<a href=\"${ctaLink}\">Learn more</a>`)}${franklinBlockRow(ctaContent)}`\n"
-                    + "    : '';\n"
-                    + "  return `<div class=\"${escapeHtmlAttribute(rootClasses)}\">${franklinBlockRow(id)}${franklinBlockRow(\n"
-                    + "    title\n"
-                    + "  )}${franklinBlockRow(text)}${ctaRow}</div>`;\n"
-                    + "}\n";
+            StringBuilder jsBuilder = new StringBuilder();
+            jsBuilder.append("import {\n")
+                    .append("  checkAndHandleNestedBlocks,\n")
+                    .append("  replaceBlockRowsPreservingNestedBlocks,\n")
+                    .append("  getTextFromBlockRow,\n")
+                    .append("  getHtmlFromBlockRow,\n")
+                    .append("  coerceAuthorClasses,\n")
+                    .append("  escapeHtml,\n")
+                    .append("  escapeHtmlAttribute,\n")
+                    .append("  franklinBlockRow,\n")
+                    .append("} from '../../scripts/utilities/block-helpers.js';\n\n")
+                    .append("/**\n")
+                    .append(" * Row layout parsed from JCR component schema:\n")
+                    .append(" * 0: id\n");
+            for (int i = 0; i < propNames.size(); i++) {
+                jsBuilder.append(" * ").append(i + 1).append(": ").append(propNames.get(i)).append("\n");
+            }
+            jsBuilder.append(" */\n")
+                    .append("function extractConfig(block) {\n")
+                    .append("  if (!block) return {};\n")
+                    .append("  const rows = [...block.children];\n")
+                    .append("  return {\n")
+                    .append("    id: getTextFromBlockRow(rows[0]),\n");
+            for (int i = 0; i < propNames.size(); i++) {
+                String pName = propNames.get(i);
+                if (pName.toLowerCase().contains("link") || pName.toLowerCase().contains("url") || pName.toLowerCase().contains("path")) {
+                    jsBuilder.append("    ").append(pName).append(": rows[").append(i + 1).append("]?.querySelector('a') ? rows[").append(i + 1).append("].querySelector('a').getAttribute('href') : getTextFromBlockRow(rows[").append(i + 1).append("]),\n");
+                } else {
+                    jsBuilder.append("    ").append(pName).append(": getHtmlFromBlockRow(rows[").append(i + 1).append("]),\n");
+                }
+            }
+            jsBuilder.append("  };\n")
+                    .append("}\n\n")
+                    .append("function buildBlock(block, config) {\n")
+                    .append("  const inner = document.createElement('div');\n")
+                    .append("  inner.classList.add('").append(blockName).append("-inner');\n\n");
+
+            for (String pName : propNames) {
+                if (pName.toLowerCase().contains("image") || pName.toLowerCase().contains("file")) {
+                    jsBuilder.append("  if (config.").append(pName).append(") {\n")
+                            .append("    const imgEl = document.createElement('img');\n")
+                            .append("    imgEl.src = config.").append(pName).append(";\n")
+                            .append("    imgEl.alt = config.alt || '").append(titleCase).append("';\n")
+                            .append("    imgEl.classList.add('").append(blockName).append("-image');\n")
+                            .append("    inner.appendChild(imgEl);\n")
+                            .append("  }\n\n");
+                } else if (pName.toLowerCase().contains("link") || pName.toLowerCase().contains("url") || pName.toLowerCase().contains("path")) {
+                    jsBuilder.append("  if (config.").append(pName).append(") {\n")
+                            .append("    const linkEl = document.createElement('a');\n")
+                            .append("    linkEl.href = config.").append(pName).append(";\n")
+                            .append("    linkEl.classList.add('brand-cta');\n")
+                            .append("    linkEl.innerHTML = `<span>${config.ctaContent || 'Learn More'}</span>`;\n")
+                            .append("    inner.appendChild(linkEl);\n")
+                            .append("  }\n\n");
+                } else {
+                    jsBuilder.append("  if (config.").append(pName).append(") {\n")
+                            .append("    const divEl = document.createElement('div');\n")
+                            .append("    divEl.classList.add('").append(blockName).append("-").append(pName.toLowerCase()).append("');\n")
+                            .append("    divEl.innerHTML = config.").append(pName).append(";\n")
+                            .append("    inner.appendChild(divEl);\n")
+                            .append("  }\n\n");
+                }
+            }
+
+            jsBuilder.append("  replaceBlockRowsPreservingNestedBlocks(block, inner);\n")
+                    .append("  if (config.id) block.id = config.id;\n")
+                    .append("  config.mainEl = inner;\n")
+                    .append("}\n\n")
+                    .append("function appendEvents(config) {\n")
+                    .append("  if (!config?.mainEl) return;\n")
+                    .append("}\n\n")
+                    .append("export default async function decorate(block) {\n")
+                    .append("  await checkAndHandleNestedBlocks(block);\n")
+                    .append("  const config = extractConfig(block);\n")
+                    .append("  buildBlock(block, config);\n")
+                    .append("  appendEvents(config);\n")
+                    .append("}\n\n")
+                    .append("export function createBlock(options = {}) {\n")
+                    .append("  const id = escapeHtml(options.id ?? '');\n");
+            for (String pName : propNames) {
+                jsBuilder.append("  const ").append(pName).append(" = typeof options.").append(pName).append(" === 'string' ? options.").append(pName).append(" : '';\n");
+            }
+            jsBuilder.append("  const extra = coerceAuthorClasses(options.classes);\n")
+                    .append("  const rootClasses = ['").append(blockName).append("', 'eds-block-").append(blockName).append("', extra].filter(Boolean).join(' ');\n")
+                    .append("  return `<div class=\"${escapeHtmlAttribute(rootClasses)}\">${franklinBlockRow(id)}");
+            for (String pName : propNames) {
+                jsBuilder.append("${franklinBlockRow(").append(pName).append(")}");
+            }
+            jsBuilder.append("</div>`;\n")
+                    .append("}\n");
+
+            String jsContent = jsBuilder.toString();
 
             // 2. _<block-name>.json (Universal Editor Model)
-            String jsonContent = "{\n"
-                    + "  \"definitions\": [\n"
-                    + "    {\n"
-                    + "      \"title\": \"" + titleCase + "\",\n"
-                    + "      \"id\": \"" + blockName + "\",\n"
-                    + "      \"plugins\": {\n"
-                    + "        \"xwalk\": {\n"
-                    + "          \"page\": {\n"
-                    + "            \"resourceType\": \"core/franklin/components/block/v1/block\",\n"
-                    + "            \"template\": {\n"
-                    + "              \"name\": \"" + titleCase + "\",\n"
-                    + "              \"model\": \"" + blockName + "\",\n"
-                    + "              \"filter\": \"" + blockName + "\",\n"
-                    + "              \"id\": \"\",\n"
-                    + "              \"classes\": \"eds-block-" + blockName + "\",\n"
-                    + "              \"title\": \"<p>Lorem ipsum dolor sit amet.</p>\",\n"
-                    + "              \"text\": \"<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>\",\n"
-                    + "              \"classes_align\": \"\",\n"
-                    + "              \"classes_tone\": \"" + blockName + "-tone-default\"\n"
-                    + "            }\n"
-                    + "          }\n"
-                    + "        }\n"
-                    + "      }\n"
-                    + "    }\n"
-                    + "  ],\n"
-                    + "  \"models\": [\n"
-                    + "    {\n"
-                    + "      \"id\": \"" + blockName + "\",\n"
-                    + "      \"fields\": [\n"
-                    + "        { \"component\": \"tab\", \"label\": \"General\", \"name\": \"tabGeneral\" },\n"
-                    + "        { \"component\": \"text\", \"name\": \"id\", \"label\": \"Block ID\", \"valueType\": \"string\", \"value\": \"\" },\n"
-                    + "        { \"component\": \"text\", \"name\": \"classes\", \"label\": \"Block classes\", \"valueType\": \"string\", \"value\": \"eds-block-" + blockName + "\", \"hidden\": true, \"readOnly\": true },\n"
-                    + "        { \"component\": \"richtext\", \"name\": \"title\", \"label\": \"Title\" },\n"
-                    + "        { \"component\": \"richtext\", \"name\": \"text\", \"label\": \"Text\" },\n"
-                    + "        { \"component\": \"aem-content\", \"name\": \"ctaLink\", \"label\": \"CTA link\" },\n"
-                    + "        { \"component\": \"richtext\", \"name\": \"ctaContent\", \"label\": \"CTA text\" },\n"
-                    + "        { \"component\": \"tab\", \"label\": \"Appearance\", \"name\": \"tabAppearance\" },\n"
-                    + "        {\n"
-                    + "          \"component\": \"select\",\n"
-                    + "          \"name\": \"classes_align\",\n"
-                    + "          \"label\": \"Alignment\",\n"
-                    + "          \"valueType\": \"string\",\n"
-                    + "          \"value\": \"\",\n"
-                    + "          \"options\": [\n"
-                    + "            { \"name\": \"Left\", \"value\": \"\" },\n"
-                    + "            { \"name\": \"Center\", \"value\": \"" + blockName + "-align-center\" },\n"
-                    + "            { \"name\": \"Right\", \"value\": \"" + blockName + "-align-right\" }\n"
-                    + "          ]\n"
-                    + "        },\n"
-                    + "        {\n"
-                    + "          \"component\": \"select\",\n"
-                    + "          \"name\": \"classes_tone\",\n"
-                    + "          \"label\": \"Tone\",\n"
-                    + "          \"valueType\": \"string\",\n"
-                    + "          \"value\": \"" + blockName + "-tone-default\",\n"
-                    + "          \"options\": [\n"
-                    + "            { \"name\": \"Default\", \"value\": \"" + blockName + "-tone-default\" },\n"
-                    + "            { \"name\": \"Emphasis\", \"value\": \"" + blockName + "-tone-emphasis\" }\n"
-                    + "          ]\n"
-                    + "        }\n"
-                    + "      ]\n"
-                    + "    }\n"
-                    + "  ],\n"
-                    + "  \"filters\": [\n"
-                    + "    { \"id\": \"" + blockName + "\", \"components\": [] }\n"
-                    + "  ]\n"
-                    + "}\n";
+            StringBuilder jsonBuilder = new StringBuilder();
+            jsonBuilder.append("{\n")
+                    .append("  \"definitions\": [\n")
+                    .append("    {\n")
+                    .append("      \"title\": \"").append(titleCase).append("\",\n")
+                    .append("      \"id\": \"").append(blockName).append("\",\n")
+                    .append("      \"plugins\": {\n")
+                    .append("        \"xwalk\": {\n")
+                    .append("          \"page\": {\n")
+                    .append("            \"resourceType\": \"core/franklin/components/block/v1/block\",\n")
+                    .append("            \"template\": {\n")
+                    .append("              \"name\": \"").append(titleCase).append("\",\n")
+                    .append("              \"model\": \"").append(blockName).append("\",\n")
+                    .append("              \"filter\": \"").append(blockName).append("\",\n")
+                    .append("              \"id\": \"\",\n")
+                    .append("              \"classes\": \"eds-block-").append(blockName).append("\",\n");
+            for (int i = 0; i < propNames.size(); i++) {
+                String pName = propNames.get(i);
+                Object pVal = jcrProps.get(pName);
+                String strVal = pVal != null ? pVal.toString().replace("\"", "\\\"") : "";
+                jsonBuilder.append("              \"").append(pName).append("\": \"").append(strVal).append("\"");
+                if (i < propNames.size() - 1) jsonBuilder.append(",");
+                jsonBuilder.append("\n");
+            }
+            jsonBuilder.append("            }\n")
+                    .append("          }\n")
+                    .append("        }\n")
+                    .append("      }\n")
+                    .append("    }\n")
+                    .append("  ],\n")
+                    .append("  \"models\": [\n")
+                    .append("    {\n")
+                    .append("      \"id\": \"").append(blockName).append("\",\n")
+                    .append("      \"fields\": [\n")
+                    .append("        { \"component\": \"tab\", \"label\": \"General\", \"name\": \"tabGeneral\" },\n")
+                    .append("        { \"component\": \"text\", \"name\": \"id\", \"label\": \"Block ID\", \"valueType\": \"string\", \"value\": \"\" },\n")
+                    .append("        { \"component\": \"text\", \"name\": \"classes\", \"label\": \"Block classes\", \"valueType\": \"string\", \"value\": \"eds-block-").append(blockName).append("\", \"hidden\": true, \"readOnly\": true },\n");
+            for (int i = 0; i < propNames.size(); i++) {
+                String pName = propNames.get(i);
+                String componentType = "text";
+                if (pName.toLowerCase().contains("link") || pName.toLowerCase().contains("url") || pName.toLowerCase().contains("path")) {
+                    componentType = "aem-content";
+                } else if (pName.toLowerCase().contains("text") || pName.toLowerCase().contains("desc") || pName.toLowerCase().contains("title")) {
+                    componentType = "richtext";
+                }
+                String label = Character.toUpperCase(pName.charAt(0)) + pName.substring(1);
+                jsonBuilder.append("        { \"component\": \"").append(componentType).append("\", \"name\": \"").append(pName).append("\", \"label\": \"").append(label).append("\" }");
+                if (i < propNames.size() - 1) jsonBuilder.append(",");
+                jsonBuilder.append("\n");
+            }
+            jsonBuilder.append("      ]\n")
+                    .append("    }\n")
+                    .append("  ],\n")
+                    .append("  \"filters\": [\n")
+                    .append("    { \"id\": \"").append(blockName).append("\", \"components\": [] }\n")
+                    .append("  ]\n")
+                    .append("}\n");
+
+            String jsonContent = jsonBuilder.toString();
 
             // 3. <block-name>-example.html (HTML Demo before & after decoration)
-            String htmlContent = "<!doctype html>\n"
-                    + "<html lang=\"en\">\n"
-                    + "  <head>\n"
-                    + "    <meta charset=\"utf-8\" />\n"
-                    + "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n"
-                    + "    <title>" + titleCase + " — Universal Editor Demo</title>\n"
-                    + "    <link rel=\"stylesheet\" href=\"/styles/styles.css\" />\n"
-                    + "    <link rel=\"stylesheet\" href=\"" + blockName + ".css\" />\n"
-                    + "  </head>\n"
-                    + "  <body style=\"font-family:system-ui, sans-serif; padding:24px; background:#f8fafc;\">\n"
-                    + "    <!--\n"
-                    + "      " + blockName + "-example.html\n"
-                    + "      Shows AEM Universal Editor generated markup before & after decorate() runs.\n"
-                    + "    -->\n"
-                    + "    <main style=\"max-width:960px; margin:0 auto;\">\n"
-                    + "      <div class=\"block-example-variant-section\" style=\"margin-bottom:32px; background:#fff; padding:24px; border-radius:8px; border:1px solid #e2e8f0;\">\n"
-                    + "        <h2 style=\"font-size:1.25rem; font-weight:700; margin-bottom:8px;\">Default Variation</h2>\n"
-                    + "        <p style=\"color:#64748b; font-size:0.9rem; margin-bottom:16px;\"><code>classes_tone</code> = <code>" + blockName + "-tone-default</code>, Left aligned.</p>\n"
-                    + "        <div class=\"" + blockName + " eds-block-" + blockName + " " + blockName + "-tone-default\">\n"
-                    + "          <div><div>demo-default</div></div>\n"
-                    + "          <div><div><p>" + titleCase + " Headline</p></div></div>\n"
-                    + "          <div><div><p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero.</p></div></div>\n"
-                    + "          <div><div><a href=\"#\">Learn More</a></div></div>\n"
-                    + "          <div><div><p>Learn More</p></div></div>\n"
-                    + "        </div>\n"
-                    + "      </div>\n\n"
-                    + "      <div class=\"block-example-variant-section\" style=\"background:#fff; padding:24px; border-radius:8px; border:1px solid #e2e8f0;\">\n"
-                    + "        <h2 style=\"font-size:1.25rem; font-weight:700; margin-bottom:8px;\">Center Aligned, Emphasis Tone</h2>\n"
-                    + "        <p style=\"color:#64748b; font-size:0.9rem; margin-bottom:16px;\"><code>classes_align</code> = <code>" + blockName + "-align-center</code>, <code>classes_tone</code> = <code>" + blockName + "-tone-emphasis</code>.</p>\n"
-                    + "        <div class=\"" + blockName + " eds-block-" + blockName + " " + blockName + "-align-center " + blockName + "-tone-emphasis\">\n"
-                    + "          <div><div>demo-emphasis</div></div>\n"
-                    + "          <div><div><p>Promoted Feature</p></div></div>\n"
-                    + "          <div><div><p>Highlight your most important content with bold styling and prominent call-to-action buttons.</p></div></div>\n"
-                    + "          <div><div><a href=\"#\">Get Started</a></div></div>\n"
-                    + "          <div><div><p>Get Started</p></div></div>\n"
-                    + "        </div>\n"
-                    + "      </div>\n"
-                    + "    </main>\n"
-                    + "  </body>\n"
-                    + "</html>\n";
+            StringBuilder htmlBuilder = new StringBuilder();
+            htmlBuilder.append("<!doctype html>\n")
+                    .append("<html lang=\"en\">\n")
+                    .append("  <head>\n")
+                    .append("    <meta charset=\"utf-8\" />\n")
+                    .append("    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n")
+                    .append("    <title>").append(titleCase).append(" — Universal Editor Demo</title>\n")
+                    .append("    <link rel=\"stylesheet\" href=\"/styles/styles.css\" />\n")
+                    .append("    <link rel=\"stylesheet\" href=\"").append(blockName).append(".css\" />\n")
+                    .append("  </head>\n")
+                    .append("  <body style=\"font-family:system-ui, sans-serif; padding:24px; background:#f8fafc;\">\n")
+                    .append("    <main style=\"max-width:960px; margin:0 auto;\">\n")
+                    .append("      <div class=\"block-example-variant-section\" style=\"margin-bottom:32px; background:#fff; padding:24px; border-radius:8px; border:1px solid #e2e8f0;\">\n")
+                    .append("        <h2 style=\"font-size:1.25rem; font-weight:700; margin-bottom:8px;\">Default Variation</h2>\n")
+                    .append("        <p style=\"color:#64748b; font-size:0.9rem; margin-bottom:16px;\">Direct JCR content snapshot from page: <code>").append(samplePagePath != null ? samplePagePath : "contentRoot").append("</code></p>\n")
+                    .append("        <div class=\"").append(blockName).append(" eds-block-").append(blockName).append("\">\n")
+                    .append("          <div><div>demo-id</div></div>\n");
+            for (String pName : propNames) {
+                Object pVal = jcrProps.get(pName);
+                String valStr = pVal != null ? pVal.toString() : "";
+                if (pName.toLowerCase().contains("link") || pName.toLowerCase().contains("url") || pName.toLowerCase().contains("path")) {
+                    htmlBuilder.append("          <div><div><a href=\"").append(valStr).append("\">").append(valStr).append("</a></div></div>\n");
+                } else {
+                    htmlBuilder.append("          <div><div><p>").append(valStr).append("</p></div></div>\n");
+                }
+            }
+            htmlBuilder.append("        </div>\n")
+                    .append("      </div>\n")
+                    .append("    </main>\n")
+                    .append("  </body>\n")
+                    .append("</html>\n");
+
+            String htmlContent = htmlBuilder.toString();
 
             // 4. README.md (Documentation & LLM Selection)
-            String readmeContent = "# " + titleCase + " Block (`" + blockName + "`)\n\n"
-                    + "## 1. Purpose\n"
-                    + "Renders the " + titleCase + " block with responsive layout and Universal Editor authoring.\n\n"
-                    + "## 2. For another AI / LLM\n"
-                    + "- **Pick this block when:** The AEM component is `" + comp.getResourceType() + "`.\n"
-                    + "- **Do not pick when:** A simple text paragraph suffices.\n\n"
-                    + "## 3. Fields / options\n"
-                    + "| Field | Component | Row? | Description |\n"
-                    + "|---|---|---|---|\n"
-                    + "| `id` | text | Yes (row 0) | Optional HTML anchor ID |\n"
-                    + "| `classes` | text (hidden) | No | Root class `eds-block-" + blockName + "` |\n"
-                    + "| `title` | richtext | Yes (row 1) | Block heading |\n"
-                    + "| `text` | richtext | Yes (row 2) | Main body text |\n"
-                    + "| `ctaLink` | aem-content | Yes (row 3) | Target URL |\n"
-                    + "| `ctaContent` | richtext | Yes (row 4) | Button text |\n"
-                    + "| `classes_align` | select | No | Alignment variant (Left, Center, Right) |\n"
-                    + "| `classes_tone` | select | No | Visual tone (Default, Emphasis) |\n\n"
-                    + "## 4. Row Map\n"
-                    + "- **Row 0:** `id`\n"
-                    + "- **Row 1:** `title`\n"
-                    + "- **Row 2:** `text`\n"
-                    + "- **Row 3:** `ctaLink`\n"
-                    + "- **Row 4:** `ctaContent`\n";
+            StringBuilder readmeBuilder = new StringBuilder();
+            readmeBuilder.append("# ").append(titleCase).append(" Block (`").append(blockName).append("`)\n\n")
+                    .append("## 1. Purpose\n")
+                    .append("Renders the ").append(titleCase).append(" block with responsive layout and Universal Editor authoring.\n")
+                    .append("Derived from AEM Component: `").append(comp.getResourceType()).append("`.\n\n")
+                    .append("## 2. JCR Reference Content Path\n")
+                    .append("- **Content Root:** `").append(ctx.getProject().getContentRoot()).append("`\n")
+                    .append("- **Sample Page Path:** `").append(samplePagePath != null ? samplePagePath : "N/A").append("`\n\n")
+                    .append("## 3. For another AI / LLM\n")
+                    .append("- **Pick this block when:** The AEM component is `").append(comp.getResourceType()).append("`.\n")
+                    .append("- **Do not pick when:** A simple text paragraph suffices.\n\n")
+                    .append("## 4. Fields / options\n")
+                    .append("| Field | Component | Row? | Description |\n")
+                    .append("|---|---|---|---|\n")
+                    .append("| `id` | text | Yes (row 0) | Optional HTML anchor ID |\n")
+                    .append("| `classes` | text (hidden) | No | Root class `eds-block-").append(blockName).append("` |\n");
+            for (int i = 0; i < propNames.size(); i++) {
+                String pName = propNames.get(i);
+                String componentType = "text";
+                if (pName.toLowerCase().contains("link") || pName.toLowerCase().contains("url") || pName.toLowerCase().contains("path")) {
+                    componentType = "aem-content";
+                } else if (pName.toLowerCase().contains("text") || pName.toLowerCase().contains("desc") || pName.toLowerCase().contains("title")) {
+                    componentType = "richtext";
+                }
+                readmeBuilder.append("| `").append(pName).append("` | ").append(componentType).append(" | Yes (row ").append(i + 1).append(") | JCR property `").append(pName).append("` |\n");
+            }
+            readmeBuilder.append("\n## 5. Row Map\n")
+                    .append("- **Row 0:** `id`\n");
+            for (int i = 0; i < propNames.size(); i++) {
+                readmeBuilder.append("- **Row ").append(i + 1).append(":** `").append(propNames.get(i)).append("`\n");
+            }
+
+            String readmeContent = readmeBuilder.toString();
 
             // 5. <block-name>.css (Scoped Component Styles)
             String cssContent = "." + blockName + " {\n"
@@ -457,5 +490,69 @@ public class BlockGenerationAgent implements Agent {
         } catch (Exception e) {
             LOG.warn("Could not write local block file {}: {}", relPath, e.getMessage());
         }
+    }
+
+    private java.util.Map<String, Object> fetchComponentProperties(String authorUrl, String samplePagePath, String resourceType) {
+        java.util.Map<String, Object> props = new java.util.LinkedHashMap<>();
+        if (authorUrl == null || samplePagePath == null || resourceType == null) return props;
+        try {
+            String url = authorUrl + (samplePagePath.startsWith("/") ? samplePagePath : ("/" + samplePagePath)) + ".infinity.json";
+            String credentials = "admin:admin";
+            String authHeader = "Basic " + java.util.Base64.getEncoder().encodeToString(credentials.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+            java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+                    .connectTimeout(java.time.Duration.ofSeconds(10))
+                    .build();
+            java.net.http.HttpRequest req = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create(url))
+                    .header("Authorization", authHeader)
+                    .timeout(java.time.Duration.ofSeconds(10))
+                    .GET()
+                    .build();
+
+            java.net.http.HttpResponse<String> resp = client.send(req, java.net.http.HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8));
+            if (resp.statusCode() == 200 && resp.body() != null && resp.body().trim().startsWith("{")) {
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                com.fasterxml.jackson.databind.JsonNode rootNode = mapper.readTree(resp.body());
+                com.fasterxml.jackson.databind.JsonNode compNode = findComponentNode(rootNode, resourceType);
+                if (compNode != null) {
+                    java.util.Iterator<java.util.Map.Entry<String, com.fasterxml.jackson.databind.JsonNode>> fields = compNode.fields();
+                    while (fields.hasNext()) {
+                        java.util.Map.Entry<String, com.fasterxml.jackson.databind.JsonNode> field = fields.next();
+                        String name = field.getKey();
+                        com.fasterxml.jackson.databind.JsonNode val = field.getValue();
+                        if (name.startsWith("jcr:") || name.startsWith("sling:") || name.equals("cq:lastModified") || name.equals("cq:lastModifiedBy")) {
+                            continue;
+                        }
+                        if (val.isValueNode()) {
+                            props.put(name, val.asText());
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            LOG.debug("Failed to fetch component properties from {}: {}", samplePagePath, e.getMessage());
+        }
+        return props;
+    }
+
+    private com.fasterxml.jackson.databind.JsonNode findComponentNode(com.fasterxml.jackson.databind.JsonNode node, String resourceType) {
+        if (node == null) return null;
+        if (node.isObject()) {
+            if (node.has("sling:resourceType") && resourceType.equals(node.get("sling:resourceType").asText())) {
+                return node;
+            }
+            java.util.Iterator<com.fasterxml.jackson.databind.JsonNode> elements = node.elements();
+            while (elements.hasNext()) {
+                com.fasterxml.jackson.databind.JsonNode found = findComponentNode(elements.next(), resourceType);
+                if (found != null) return found;
+            }
+        } else if (node.isArray()) {
+            for (com.fasterxml.jackson.databind.JsonNode n : node) {
+                com.fasterxml.jackson.databind.JsonNode found = findComponentNode(n, resourceType);
+                if (found != null) return found;
+            }
+        }
+        return null;
     }
 }

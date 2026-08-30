@@ -399,6 +399,12 @@ public class ApiRouter {
 
         List<Map<String, Object>> pending = new ArrayList<>();
         for (SiteInventory.ComponentInfo comp : invOpt.get().getComponents()) {
+            if (comp.getResourceType() != null && (comp.getResourceType().contains("/components/container")
+                    || comp.getResourceType().contains("/components/page")
+                    || comp.getResourceType().endsWith("/container")
+                    || comp.getResourceType().endsWith("/page"))) {
+                continue;
+            }
             String blockName = comp.getProposedEdsBlock() != null
                     ? comp.getProposedEdsBlock().toLowerCase().replace(' ', '-')
                     : comp.getResourceType().substring(comp.getResourceType().lastIndexOf('/') + 1).toLowerCase();

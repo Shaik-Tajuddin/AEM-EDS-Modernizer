@@ -77,16 +77,11 @@ function setPipelineStep(stepId, state) {
 
 function log(agent, msg) {
   const term = document.getElementById("terminal");
-  const eventsLog = document.getElementById("events-log");
   const time = new Date().toLocaleTimeString();
   const line = `<div class="log-line"><span class="log-time">[${time}]</span><span class="log-agent">[${agent}]</span><span>${msg}</span></div>`;
   if (term) {
     term.innerHTML += line;
     term.scrollTop = term.scrollHeight;
-  }
-  if (eventsLog) {
-    eventsLog.innerHTML += line;
-    eventsLog.scrollTop = eventsLog.scrollHeight;
   }
 }
 
@@ -443,7 +438,7 @@ async function refreshDashboard() {
   try {
     const events = await api(`projects/${currentProjectId}/events`);
     if (events && Array.isArray(events)) {
-      const eventsLog = document.getElementById("events-log");
+      const eventsLog = document.getElementById("terminal");
       if (eventsLog) {
         eventsLog.innerHTML = events
           .map((e) => {
@@ -587,61 +582,30 @@ function renderActiveBlockDetail() {
     if (demoContainer) demoContainer.style.display = "block";
 
     const htmlContent = b.files && b.files.demo ? b.files.demo.content : "";
-    const cssContent = b.files && b.files.css ? b.files.css.content : "";
-    const titleCase =
-      activeBlockName.charAt(0).toUpperCase() +
-      activeBlockName.slice(1).replace("-", " ");
 
     if (demoRendered) {
-      demoRendered.innerHTML = `
-        <div style="border-bottom:1px solid #e2e8f0; padding-bottom:12px; margin-bottom:18px;">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h3 style="margin:0; font-size:1.1rem; color:#0f172a;">👁️ Universal Editor Preview: <code>${activeBlockName}</code></h3>
-            <span style="font-size:0.75rem; background:#dbeafe; color:#1d4ed8; padding:3px 8px; border-radius:4px; font-weight:700;">AEM UE Render</span>
-          </div>
-          <p style="margin:6px 0 0; font-size:0.82rem; color:#64748b;">
-            This demonstrates how authors interact with the <b>${titleCase}</b> block when placed on a page.
-          </p>
-        </div>
-
-        <style>
-          ${cssContent}
-        </style>
-
-        <div style="margin-bottom:24px;">
-          <h4 style="font-size:0.85rem; color:#475569; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.04em;">Authoring Variant: Default</h4>
-          <div class="${activeBlockName} eds-block-${activeBlockName} ${activeBlockName}-tone-default">
-            <div class="${activeBlockName}-inner">
-              <div class="${activeBlockName}-title">
-                <h2>${titleCase} Experience</h2>
-              </div>
-              <div class="${activeBlockName}-text">
-                <p>Curated adventure and premium digital experiences delivered at lightning speed with Adobe Edge Delivery Services.</p>
-              </div>
-              <div class="${activeBlockName}-cta">
-                <a href="#" class="brand-cta"><span>Explore Stories</span></a>
-              </div>
+      if (htmlContent) {
+        // Render the actual compiled HTML block inside a sandboxed iframe to prevent styles leaking
+        const cleanHtml = htmlContent.replace(/"/g, '&quot;');
+        demoRendered.innerHTML = `
+          <div style="border-bottom:1px solid #e2e8f0; padding-bottom:12px; margin-bottom:18px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <h3 style="margin:0; font-size:1.1rem; color:#0f172a;">👁️ Universal Editor Preview: <code>${activeBlockName}</code></h3>
+              <span style="font-size:0.75rem; background:#dbeafe; color:#1d4ed8; padding:3px 8px; border-radius:4px; font-weight:700;">AEM UE Render</span>
             </div>
+            <p style="margin:6px 0 0; font-size:0.82rem; color:#64748b;">
+              This demonstrates how authors interact with the <b>${activeBlockName}</b> block when placed on a page.
+            </p>
           </div>
-        </div>
-
-        <div>
-          <h4 style="font-size:0.85rem; color:#475569; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.04em;">Authoring Variant: Center Emphasis</h4>
-          <div class="${activeBlockName} eds-block-${activeBlockName} ${activeBlockName}-align-center ${activeBlockName}-tone-emphasis">
-            <div class="${activeBlockName}-inner">
-              <div class="${activeBlockName}-title">
-                <h2>Featured Highlight</h2>
-              </div>
-              <div class="${activeBlockName}-text">
-                <p>Discover personalized journeys with high visual impact and 100/100 Core Web Vitals performance.</p>
-              </div>
-              <div class="${activeBlockName}-cta">
-                <a href="#" class="brand-cta"><span>Book Adventure</span></a>
-              </div>
-            </div>
+          <iframe srcdoc="${cleanHtml}" style="width:100%; height:450px; border:1px solid #cbd5e1; border-radius:6px; background:#ffffff;"></iframe>
+        `;
+      } else {
+        demoRendered.innerHTML = `
+          <div style="text-align:center; padding:40px 20px; color:#64748b;">
+            Select a generated block to view its Universal Editor rendered demo.
           </div>
-        </div>
-      `;
+        `;
+      }
     }
   } else {
     if (demoContainer) demoContainer.style.display = "none";
@@ -777,7 +741,7 @@ const CHAT_COMMANDS = [
   { re: /run (a )?dry[ -]?run/i,     action: () => { showTab("overview"); runDryRun();      return "🔍 Starting dry run for project `" + currentProjectId + "` — watch the pipeline stepper."; } },
   { re: /(generate blocks|run migration|generate (the )?blocks)/i, action: () => { showTab("components"); runMigration();  return "⚡ Generating blocks for project `" + currentProjectId + "`."; } },
   { re: /(commit|push).*(git|github)|publish/i, action: () => { showTab("overview"); runPushToGit();    return "🚀 Committing and pushing blocks to Git."; } },
-  { re: /show (me )?(the )?(live )?events/i,    action: () => { showTab("events");     refreshDashboard(); return "📡 Opened the Live Events Stream tab and refreshed the data."; } },
+  { re: /show (me )?(the )?(live )?events/i,    action: () => { showTab("overview");     refreshDashboard(); return "📡 Opened the Overview tab containing the Live Events Stream."; } },
   { re: /show (me )?(the )?(generated )?blocks/i, action: () => { showTab("components"); refreshDashboard(); return "📦 Opened the Generated Blocks tab and refreshed the data."; } },
   { re: /show (me )?(the )?(pages|scope|discovered)/i, action: () => { showTab("pages"); refreshDashboard(); return "📄 Opened the Pages & Scope tab."; } },
   { re: /show (me )?(the )?estimate|cost/i,     action: () => { showTab("estimate"); refreshDashboard(); return "💰 Opened the Estimate & Cost tab."; } },
@@ -802,6 +766,45 @@ function quickChat(text) {
   sendChat();
 }
 
+function formatMarkdown(text) {
+  if (!text) return "";
+  let html = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+    
+  // Code blocks: ```javascript ... ```
+  html = html.replace(/```(?:[a-zA-Z0-9]+)?([\s\S]*?)```/g, (match, code) => {
+    return `<pre class="chat-code"><code>${code.trim()}</code></pre>`;
+  });
+  
+  // Inline code: `code`
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  
+  // Bold: **text**
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  
+  // Bullet lists: - item or * item
+  html = html.replace(/^\s*[-*]\s+(.+)$/gm, '<li>$1</li>');
+  
+  // Wrap list items in ul
+  html = html.replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>');
+  
+  // Clean up duplicate consecutive ul elements
+  html = html.replace(/<\/ul>\s*<ul>/g, '');
+  
+  // Paragraphs / line breaks (only when not inside ul/pre/code tags)
+  html = html.split('\n').map(line => {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('<pre') || trimmed.startsWith('<ul') || trimmed.startsWith('<li') || trimmed.startsWith('</ul') || trimmed.startsWith('</li') || trimmed.startsWith('<code>') || trimmed.startsWith('</pre>') || trimmed.startsWith('</ul>')) {
+      return line;
+    }
+    return line ? `<p>${line}</p>` : '';
+  }).join('\n');
+  
+  return html;
+}
+
 function appendChatMessage(role, text) {
   const wrap = document.getElementById("chat-messages");
   if (!wrap) return;
@@ -809,7 +812,11 @@ function appendChatMessage(role, text) {
   div.className = "chat-msg " + (role === "user" ? "chat-msg-user" : "chat-msg-agent");
   const bubble = document.createElement("div");
   bubble.className = "chat-bubble";
-  bubble.textContent = text;
+  if (role === "user") {
+    bubble.textContent = text;
+  } else {
+    bubble.innerHTML = formatMarkdown(text);
+  }
   div.appendChild(bubble);
   wrap.appendChild(div);
   wrap.scrollTop = wrap.scrollHeight;

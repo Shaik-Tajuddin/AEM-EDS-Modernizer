@@ -47,6 +47,13 @@ public class CodeGenerationAgent implements Agent {
 
         int aiCallCount = 0;
         for (SiteInventory.ComponentInfo comp : inv.getComponents()) {
+            if (comp.getResourceType() != null && (comp.getResourceType().contains("/components/container")
+                    || comp.getResourceType().contains("/components/page")
+                    || comp.getResourceType().endsWith("/container")
+                    || comp.getResourceType().endsWith("/page"))) {
+                LOG.info("Skipping styles/code generation for container/page component: {}", comp.getResourceType());
+                continue;
+            }
             String blockName = comp.getProposedEdsBlock() != null
                     ? comp.getProposedEdsBlock().toLowerCase().replace(' ', '-')
                     : comp.getResourceType().substring(comp.getResourceType().lastIndexOf('/') + 1).toLowerCase().replace(' ', '-');

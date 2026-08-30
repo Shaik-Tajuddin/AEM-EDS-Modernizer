@@ -58,7 +58,6 @@
       <button class="nav-tab" onclick="showTab('rollout')">Rollout Stages</button>
       <button class="nav-tab" onclick="showTab('repairs')">Self-Repair Log</button>
       <button class="nav-tab" onclick="showTab('benchmarks')">Benchmarks</button>
-      <button class="nav-tab" onclick="showTab('events')">Live Events Stream</button>
       <button class="nav-tab" onclick="showTab('chat')">💬 Agent Chat</button>
     </div>
 
@@ -71,8 +70,8 @@
         <div class="card"><div class="card-title">Estimated Duration</div><div class="card-val" id="stat-time">${model.expectedTimeSec}s</div><div class="card-sub" id="stat-range">Lo: 0s | Hi: 0s</div></div>
       </div>
       <div class="card">
-        <div class="card-title">Real-time Activity Stream</div>
-        <div id="terminal" class="log-terminal">AEM → EDS Modernizer initialized. Connected to ${model.activeProject.aemAuthorUrl}</div>
+        <div class="card-title">Live Event Stream & Audit Log</div>
+        <div id="terminal" class="log-terminal" style="height:450px;">AEM → EDS Modernizer initialized. Connected to ${model.activeProject.aemAuthorUrl}</div>
       </div>
     </div>
 
@@ -331,13 +330,7 @@
       </div>
     </div>
 
-    <!-- Tab: Events -->
-    <div id="tab-events" class="tab-content" style="display:none;">
-      <div class="card">
-        <div class="card-title">Live Event Stream & Audit Log</div>
-        <div id="events-log" class="log-terminal" style="height:450px;"></div>
-      </div>
-    </div>
+
   </div>
 
   <div id="toast" class="toast"></div>

@@ -53,7 +53,72 @@ public class InMemoryStore implements Store {
 
     @Override
     public void deleteProject(String id) {
+        // 1. Delete generated block directories from local disk using inventory of the latest job
+        try {
+            getLatestJob(id).ifPresent(job -> {
+                getInventory(job.getId()).ifPresent(inv -> {
+                    if (inv.getComponents() != null) {
+                        for (SiteInventory.ComponentInfo comp : inv.getComponents()) {
+                            String blockName = comp.getProposedEdsBlock() != null
+                                    ? comp.getProposedEdsBlock().toLowerCase().replace(' ', '-')
+                                    : comp.getResourceType().substring(comp.getResourceType().lastIndexOf('/') + 1).toLowerCase();
+                            deleteLocalBlockFolder(blockName);
+                        }
+                    }
+                });
+            });
+        } catch (Exception e) {
+            // Ignore to ensure JCR/Store deletion completes
+        }
+
+        // 2. Remove the project itself
         projects.remove(id);
+
+        // 3. Find and remove all jobs belonging to this project
+        List<String> jobIds = jobs.values().stream()
+                .filter(j -> id.equals(j.getProjectId()))
+                .map(JobRecord::getId)
+                .collect(Collectors.toList());
+
+        for (String jId : jobIds) {
+            jobs.remove(jId);
+            inventories.remove(jId);
+            plans.remove(jId);
+            generatedFiles.remove(jId);
+            validationResults.remove(jId);
+            repairAttempts.remove(jId);
+            urlRedirects.remove(jId);
+            dependencyEdges.remove(jId);
+            rolloutStages.remove(jId);
+            benchmarkSamples.remove(jId);
+            events.remove(jId);
+            clarifications.remove(jId);
+            checkpoints.remove(jId);
+        }
+    }
+
+    private void deleteLocalBlockFolder(String blockName) {
+        String[] candidateRoots = {
+            "D:/eds personal/AEM-EDS-Modernizer",
+            "d:/eds personal/AEM-EDS-Modernizer",
+            System.getProperty("user.dir")
+        };
+        for (String root : candidateRoots) {
+            java.io.File dir = new java.io.File(root, "blocks/" + blockName);
+            if (dir.exists() && dir.isDirectory()) {
+                deleteDirRecursive(dir);
+            }
+        }
+    }
+
+    private void deleteDirRecursive(java.io.File file) {
+        java.io.File[] children = file.listFiles();
+        if (children != null) {
+            for (java.io.File child : children) {
+                deleteDirRecursive(child);
+            }
+        }
+        file.delete();
     }
 
     // Jobs
