@@ -198,15 +198,8 @@ public class ApiRouter {
                             if (latest.isPresent()) {
                                 files.addAll(store.getGeneratedFiles(latest.get().getId()));
                             }
-                            if (files.isEmpty()) {
-                                for (JobRecord j : store.listJobs(projectId)) {
-                                    files.addAll(store.getGeneratedFiles(j.getId()));
-                                }
-                            }
                         }
-                        if (files.isEmpty()) {
-                            files.addAll(scanLocalBlockFiles(projectId));
-                        }
+                        files.addAll(scanLocalBlockFiles(projectId));
                         return JsonUtil.toJson(files);
                     }
 

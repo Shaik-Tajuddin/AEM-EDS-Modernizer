@@ -389,6 +389,9 @@ async function refreshDashboard() {
       generatedFiles = files;
       processBlockFiles(files);
       renderBlockList();
+      if (activePagePath) {
+        selectPageRow(activePagePath);
+      }
     }
   } catch (e) {}
 
@@ -633,6 +636,9 @@ function copyActiveCode() {
   }
 }
 
+let activePagePath = "";
+let activePageTab = "preview"; // preview, source
+
 function renderPagesTable(pages) {
   const tbody = document.querySelector("#table-pages tbody");
   if (!tbody) return;
@@ -641,10 +647,132 @@ function renderPagesTable(pages) {
       ? pages
           .map(
             (p) =>
-              `<tr><td><code>${p.path}</code></td><td>${p.title || "-"}</td><td>${p.template || "-"}</td><td><span style="color:${p.eligible !== false ? "var(--accent)" : "var(--danger)"}; font-weight:700;">${p.eligible !== false ? "● ELIGIBLE" : "○ EXCLUDED"}</span></td></tr>`,
+              `<tr data-path="${p.path}" onclick="selectPageRow('${p.path}')"><td style="word-break:break-all; padding: 10px;"><code>${p.path}</code></td><td>${p.title || "-"}</td></tr>`,
           )
           .join("")
-      : '<tr><td colspan="4">No pages discovered yet.</td></tr>';
+      : '<tr><td colspan="2">No pages discovered yet.</td></tr>';
+
+  if (pages && pages.length > 0 && !activePagePath) {
+    selectPageRow(pages[0].path);
+  }
+}
+
+function selectPageRow(path) {
+  activePagePath = path;
+  document.querySelectorAll("#table-pages tbody tr").forEach(tr => tr.classList.remove("active-row"));
+  
+  const tr = document.querySelector(`#table-pages tbody tr[data-path="${path}"]`);
+  if (tr) tr.classList.add("active-row");
+
+  const fileObj = generatedFiles.find(f => f.sourcePath === path && f.path.endsWith(".md"));
+  const pathLabel = document.getElementById("page-preview-path");
+  if (pathLabel) pathLabel.textContent = fileObj ? fileObj.path : "No migrated file found";
+  
+  renderActivePageDetail();
+}
+
+function switchPageFileTab(tab) {
+  activePageTab = tab;
+  document.querySelectorAll("#pagetab-preview, #pagetab-source").forEach(b => b.classList.remove("active"));
+  const activeBtn = document.getElementById("pagetab-" + tab);
+  if (activeBtn) activeBtn.classList.add("active");
+  
+  renderActivePageDetail();
+}
+
+function renderActivePageDetail() {
+  const previewContainer = document.getElementById("page-view-preview");
+  const sourceContainer = document.getElementById("page-view-source");
+  const previewRendered = document.getElementById("page-preview-rendered");
+  const sourceContent = document.getElementById("page-source-content");
+  
+  const fileObj = generatedFiles.find(f => f.sourcePath === activePagePath && f.path.endsWith(".md"));
+  const markdown = fileObj ? fileObj.content : "";
+  
+  if (activePageTab === "preview") {
+    if (sourceContainer) sourceContainer.style.display = "none";
+    if (previewContainer) previewContainer.style.display = "block";
+    if (previewRendered) {
+      if (markdown) {
+        previewRendered.innerHTML = formatMarkdownToDA(markdown);
+      } else {
+        previewRendered.innerHTML = `
+          <div style="text-align:center; padding:40px 20px; color:#64748b;">
+            No migrated markdown content available for this page. Click <b>Migrate Site</b> to generate.
+          </div>
+        `;
+      }
+    }
+  } else {
+    if (previewContainer) previewContainer.style.display = "none";
+    if (sourceContainer) sourceContainer.style.display = "flex";
+    if (sourceContent) {
+      sourceContent.innerText = markdown || "// No migrated markdown content available for this page.";
+    }
+  }
+}
+
+function formatMarkdownToDA(markdown) {
+  if (!markdown) return '<div style="text-align:center;color:#64748b;">No content available.</div>';
+  
+  const lines = markdown.split('\n');
+  let html = '';
+  let inTable = false;
+  let tableRows = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    if (line.startsWith('|')) {
+      inTable = true;
+      const cols = line.split('|').map(c => c.trim()).filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
+      tableRows.push(cols);
+      continue;
+    } else {
+      if (inTable) {
+        html += renderDATable(tableRows);
+        inTable = false;
+        tableRows = [];
+      }
+    }
+    
+    if (line.startsWith('# ')) {
+      html += `<h1 style="font-size:1.8rem; font-weight:800; border-bottom:2px solid #e2e8f0; padding-bottom:8px; margin-top:20px; margin-bottom:12px; color:#0f172a;">${line.substring(2)}</h1>`;
+    } else if (line.startsWith('## ')) {
+      html += `<h2 style="font-size:1.4rem; font-weight:700; margin-top:16px; margin-bottom:10px; color:#1e293b;">${line.substring(3)}</h2>`;
+    } else if (line.startsWith('### ')) {
+      html += `<h3 style="font-size:1.15rem; font-weight:700; margin-top:14px; margin-bottom:8px; color:#334155;">${line.substring(4)}</h3>`;
+    } else if (line === '---' || line === '***') {
+      html += '<hr style="border:0; border-top:2px dashed #cbd5e1; margin:20px 0;">';
+    } else if (line) {
+      html += `<p style="font-size:0.92rem; line-height:1.6; color:#475569; margin-bottom:10px;">${line}</p>`;
+    }
+  }
+  
+  if (inTable) {
+    html += renderDATable(tableRows);
+  }
+  
+  return html;
+}
+
+function renderDATable(rows) {
+  if (rows.length === 0) return '';
+  if (rows.length > 1 && rows[1].every(col => col.startsWith('-') || col.endsWith('-'))) {
+    rows.splice(1, 1);
+  }
+  
+  let html = '<table style="width:100%; border:2px solid #2563eb; border-collapse:collapse; margin:14px 0; background:#f8fafc; font-family:var(--font-mono); font-size:0.8rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">';
+  rows.forEach((row, rIdx) => {
+    const isHeader = rIdx === 0;
+    html += `<tr style="${isHeader ? 'background:#dbeafe; color:#1e40af; font-weight:bold; border-bottom:2px solid #2563eb;' : 'border-bottom:1px solid #cbd5e1;'}">`;
+    row.forEach(col => {
+      html += `<td style="padding:8px 10px; border-right:1px solid #cbd5e1;">${col}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</table>';
+  return html;
 }
 
 function renderComponentsTable(components) {

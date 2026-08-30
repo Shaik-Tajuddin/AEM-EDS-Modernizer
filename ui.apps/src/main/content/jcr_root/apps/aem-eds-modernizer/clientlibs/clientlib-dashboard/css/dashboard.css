@@ -229,3 +229,20 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 .chat-bubble p:last-child {
   margin-bottom: 0;
 }
+
+/* Page list table layout highlights */
+#table-pages tbody tr {
+  cursor: pointer;
+  border-bottom: 1px solid var(--surface-border);
+}
+#table-pages tbody tr:hover {
+  background: rgba(56, 189, 248, 0.04);
+}
+#table-pages tbody tr.active-row {
+  background: rgba(56, 189, 248, 0.1) !important;
+  border-left: 3px solid var(--primary);
+}
+#table-pages td {
+  padding: 8px 10px;
+  font-size: 0.85rem;
+}

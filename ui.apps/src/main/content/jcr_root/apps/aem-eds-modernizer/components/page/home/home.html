@@ -253,11 +253,49 @@
       </div>
     </div>
 
-    <!-- Tab: Pages -->
+    <!-- Tab: Pages & Scope -->
     <div id="tab-pages" class="tab-content" style="display:none;">
-      <div class="card">
-        <div class="card-title">Discovered Pages & Opt-In Eligibility</div>
-        <table id="table-pages"><thead><tr><th>AEM Content Path</th><th>Page Title</th><th>Template</th><th>Eligibility Status</th></tr></thead><tbody><tr><td colspan="4">Run a Dry Run to discover pages.</td></tr></tbody></table>
+      <div class="card" style="margin-bottom: 20px;">
+        <div class="card-title">Discovered Pages & Content Migration Inspector</div>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:16px;">
+          Select a page on the left to preview its compiled Document Authoring (DA) preview showing sections, block tables, and properties extracted from AEM JCR.
+        </p>
+        <div class="block-explorer">
+          <!-- Left: List of Pages -->
+          <div class="block-list" style="max-height: 500px; overflow-y: auto;">
+            <table id="table-pages" style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr>
+                  <th style="text-align: left; padding: 8px;">Path</th>
+                  <th style="text-align: left; padding: 8px;">Title</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td colspan="2">Run a Dry Run to discover pages.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- Right: Page Detail Preview -->
+          <div class="block-detail">
+            <div class="block-detail-header">
+              <div class="block-file-tabs">
+                <button id="pagetab-preview" class="block-file-tab active" onclick="switchPageFileTab('preview')">👁️ DA Preview</button>
+                <button id="pagetab-source" class="block-file-tab" onclick="switchPageFileTab('source')">📝 Markdown Source</button>
+              </div>
+              <div style="font-size:0.8rem; color:var(--text-dim);" id="page-preview-path">Select a page to preview</div>
+            </div>
+            <div id="page-view-source" class="code-viewer-container" style="display:none;">
+              <pre id="page-source-content" class="code-viewer">// Select a page to view Markdown source</pre>
+            </div>
+            <div id="page-view-preview" class="preview-frame-container">
+              <div class="preview-card" id="page-preview-rendered" style="background: white; padding: 20px; border-radius: 6px; border: 1px solid #e2e8f0; min-height: 350px;">
+                <div style="text-align:center; padding:40px 20px; color:#64748b;">
+                  Select a page to view its Document Authoring preview.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
