@@ -319,7 +319,6 @@ public class ApiRouter {
 
         String agent = payload != null ? Objects.toString(payload.get("agent"), "dashboard-assistant") : "dashboard-assistant";
 
-        // Conversation memory: recent turns from the client
         StringBuilder historySb = new StringBuilder();
         if (payload != null && payload.get("history") instanceof List) {
             List<?> history = (List<?>) payload.get("history");
@@ -337,52 +336,15 @@ public class ApiRouter {
             }
         }
 
-        // Build context-aware prompt from project state
-        StringBuilder prompt = new StringBuilder();
-        prompt.append("You are the AEM-to-EDS Modernizer assistant, embedded in the operator dashboard.");
-        prompt.append("\nYou are conversational, proactive and helpful — like a senior migration consultant.");
-        prompt.append("\nGuidelines:");
-        prompt.append("\n- Keep answers concise (2-5 sentences) unless asked for detail.");
-        prompt.append("\n- Reference the actual project state below when relevant.");
-        prompt.append("\n- Suggest concrete next steps in the migration pipeline (Connect → Dry Run → Generate Blocks → Review → Create PR).");
-        prompt.append("\n- You can tell the operator to run actions like 'run dry run', 'show blocks', 'show events' — the dashboard executes them locally.");
-        prompt.append("\n\n=== PROJECT CONTEXT ===");
-        prompt.append("\nProject id: ").append(projectId);
-        if (store != null) {
-            Optional<ProjectRecord> p = store.getProject(projectId);
-            p.ifPresent(pr -> prompt.append("\nProject: ").append(pr.getName())
-                    .append("\nAEM Author URL: ").append(pr.getAemAuthorUrl())
-                    .append("\nEDS Git repo: ").append(pr.getEdsGitRepoUrl()));
-            Optional<JobRecord> latest = store.getLatestJob(projectId);
-            latest.ifPresent(j -> prompt.append("\nLatest job: ").append(j.getMode())
-                    .append(" state=").append(j.getState()));
-        }
-        prompt.append("\n\n=== RECENT CONVERSATION ===\n").append(historySb);
-        prompt.append("\n=== CURRENT MESSAGE ===\nOperator: ").append(message);
+        ProjectRecord project = store != null ? store.getProject(projectId).orElse(null) : null;
+        com.adobe.aem.modernizer.ai.chat.ChatAgentRuntime runtime =
+                new com.adobe.aem.modernizer.ai.chat.ChatAgentRuntime(aiGateway, store, orchestrator, gitHubClient);
+        Map<String, Object> agentResult = runtime.handle(projectId, project, message, historySb.toString());
 
-        String reply;
-        String providerName = "mock";
-        String modelName = "mock-general-1";
-        try {
-            if (aiGateway != null) {
-                com.adobe.aem.modernizer.ai.ChatRequest req = new com.adobe.aem.modernizer.ai.ChatRequest(agent, prompt.toString());
-                com.adobe.aem.modernizer.ai.ChatResponse chatRes = aiGateway.dispatch(req);
-                if (chatRes != null && chatRes.getContent() != null) {
-                    reply = chatRes.getContent();
-                    providerName = chatRes.getProvider() != null ? chatRes.getProvider() : providerName;
-                    modelName = chatRes.getModelName() != null ? chatRes.getModelName() : modelName;
-                } else {
-                    reply = "(The agent returned no content.)";
-                }
-            } else {
-                reply = "(AI gateway not available — running in reduced mode.)";
-            }
-        } catch (Exception e) {
-            LOG.warn("[Chat] dispatch failed: {}", e.getMessage());
-            reply = "Sorry, the agent could not process your message: " + e.getMessage();
-        }
+        String reply = Objects.toString(agentResult.get("reply"), "");
+        String providerName = Objects.toString(agentResult.get("provider"), "unknown");
+        String modelName = Objects.toString(agentResult.get("model"), "unknown");
 
-        // Persist both sides of the conversation as job events so it survives refresh (ADR 0013)
         if (store != null) {
             String jobId = store.getLatestJob(projectId).map(JobRecord::getId).orElse("chat-" + projectId);
             store.recordEvent(new JobEventRecord(
@@ -398,6 +360,7 @@ public class ApiRouter {
         result.put("agent", agent);
         result.put("provider", providerName);
         result.put("model", modelName);
+        result.put("steps", agentResult.get("steps"));
         result.put("timestamp", System.currentTimeMillis());
         return JsonUtil.toJson(result);
     }

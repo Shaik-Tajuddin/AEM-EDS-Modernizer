@@ -3,6 +3,7 @@ package com.adobe.aem.modernizer.agents;
 import com.adobe.aem.modernizer.ai.AiGateway;
 import com.adobe.aem.modernizer.ai.ChatRequest;
 import com.adobe.aem.modernizer.ai.ChatResponse;
+import com.adobe.aem.modernizer.ai.IdeAgentProviders;
 import com.adobe.aem.modernizer.ai.ModelCapability;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.GeneratedFileRecord;
@@ -39,41 +40,30 @@ public class BlockGenerationAgent implements Agent {
     }
 
     /** Provider name constant that signals Antigravity IDE agent handles block generation. */
-    private static final String PROVIDER_ANTIGRAVITY = "antigravity";
-
-    @Override
+        @Override
     public void execute(AgentContext ctx) throws com.adobe.aem.modernizer.ModernizerException {
         SiteInventory inv = ctx.getInventory();
         if (inv == null || inv.getComponents() == null) return;
 
         LOG.info("BlockGenerationAgent generating blocks for {} components", inv.getComponents().size());
 
-        // ─── Antigravity Mode ────────────────────────────────────────────────────
-        // When aiProvider = "antigravity", we skip internal AI dispatch entirely.
-        // Instead we emit a pending-components event so the Antigravity IDE agent
-        // can call GET /components-pending, enrich via MCP, generate the files,
-        // and POST them back via POST /blocks.
-        // The pipeline continues with hardcoded scaffold templates so the job
-        // doesn't stall — Antigravity files will overwrite them when POSTed back.
-        boolean isAntigravity = ctx.getProject() != null
-                && PROVIDER_ANTIGRAVITY.equalsIgnoreCase(ctx.getProject().getAiProvider());
+        String aiProvider = ctx.getProject() != null ? ctx.getProject().getAiProvider() : null;
+        boolean isIdeHandoff = IdeAgentProviders.isLocalOnlyProvider(aiProvider);
 
-        if (isAntigravity && store != null) {
+        if (isIdeHandoff && store != null) {
+            String ideName = IdeAgentProviders.displayName(aiProvider);
             store.recordEvent(new JobEventRecord(
                     UUID.randomUUID().toString(),
                     ctx.getProject().getId(),
                     ctx.getJob().getId(),
                     getName(),
-                    "✨ [Antigravity] " + inv.getComponents().size() + " components ready for block generation.\n"
-                    + "→ Call: GET /bin/aem-eds-modernizer/api?path=projects/" + ctx.getProject().getId() + "/components-pending\n"
-                    + "→ Antigravity will fetch real JCR dialog fields via MCP, generate block files,\n"
-                    + "  and POST them back to: POST /bin/aem-eds-modernizer/api?path=projects/" + ctx.getProject().getId() + "/blocks\n"
-                    + "Scaffolding templates are being saved now as placeholders."
+                    "✨ [" + ideName + "] IDE handoff — GET components-pending then POST blocks."
             ));
-            LOG.info("[Antigravity] mode active — scaffold templates will be saved as placeholders for {} components.",
-                    inv.getComponents().size());
         }
-        // ────────────────────────────────────────────────────────────────────────
+
+        java.util.Set<String> existingEdsBlocks = BlockReconcileHelper.listExistingBlockNames(ctx, store);
+        java.util.List<BlockReconcileHelper.Decision> decisions = new java.util.ArrayList<>();
+
         for (SiteInventory.ComponentInfo comp : inv.getComponents()) {
             if (comp.getResourceType() != null && (comp.getResourceType().contains("/components/container")
                     || comp.getResourceType().contains("/components/page")
@@ -85,6 +75,14 @@ public class BlockGenerationAgent implements Agent {
             String blockName = comp.getProposedEdsBlock() != null
                     ? comp.getProposedEdsBlock().toLowerCase().replace(' ', '-')
                     : comp.getResourceType().substring(comp.getResourceType().lastIndexOf('/') + 1).toLowerCase().replace(' ', '-');
+
+            BlockReconcileHelper.Action action = BlockReconcileHelper.decide(blockName, existingEdsBlocks, null);
+            decisions.add(new BlockReconcileHelper.Decision(blockName, comp.getResourceType(), action));
+            if (action == BlockReconcileHelper.Action.LEAVE) {
+                LOG.info("Leaving existing EDS block '{}'", blockName);
+                continue;
+            }
+
             String titleCase = Character.toUpperCase(blockName.charAt(0)) + blockName.substring(1).replace('-', ' ');
 
             // Dynamic JCR properties resolution
@@ -121,7 +119,7 @@ public class BlockGenerationAgent implements Agent {
                     .append("  checkAndHandleNestedBlocks,\n")
                     .append("  replaceBlockRowsPreservingNestedBlocks,\n")
                     .append("  getTextFromBlockRow,\n")
-                    .append("  getHtmlFromBlockRow,\n")
+                    .append("  getHtmlFromRow,\n")
                     .append("  coerceAuthorClasses,\n")
                     .append("  escapeHtml,\n")
                     .append("  escapeHtmlAttribute,\n")
@@ -145,7 +143,7 @@ public class BlockGenerationAgent implements Agent {
                 if (pName.toLowerCase().contains("link") || pName.toLowerCase().contains("url") || pName.toLowerCase().contains("path")) {
                     jsBuilder.append("    ").append(jsName).append(": rows[").append(i + 1).append("]?.querySelector('a') ? rows[").append(i + 1).append("].querySelector('a').getAttribute('href') : getTextFromBlockRow(rows[").append(i + 1).append("]),\n");
                 } else {
-                    jsBuilder.append("    ").append(jsName).append(": getHtmlFromBlockRow(rows[").append(i + 1).append("]),\n");
+                    jsBuilder.append("    ").append(jsName).append(": getHtmlFromRow(rows[").append(i + 1).append("]),\n");
                 }
             }
             jsBuilder.append("  };\n")
@@ -465,12 +463,12 @@ public class BlockGenerationAgent implements Agent {
             String readmeContent = readmeBuilder.toString();
 
             // Skip internal AI dispatch in Antigravity mode — Antigravity generates via MCP context
-            if (ai != null && !isAntigravity) {
+            if (ai != null && !isIdeHandoff) {
                 String aiPrompt = "You are an expert AEM Edge Delivery Services (EDS) architect following docs/CREATE_AEM_BLOCK.md.\n\n"
                         + "### Architectural Contract (CREATE_AEM_BLOCK.md):\n"
                         + "1. Required deliverables: _<block>.json (UE model), <block>.js (decorate + createBlock), <block>.css (scoped CSS), <block>-example.html, README.md.\n"
                         + "2. No analytics imports (no dataLayer.js).\n"
-                        + "3. JavaScript must use: import { checkAndHandleNestedBlocks, replaceBlockRowsPreservingNestedBlocks, getTextFromBlockRow, getHtmlFromBlockRow, franklinBlockRow } from '../../scripts/utilities/block-helpers.js'.\n"
+                        + "3. JavaScript must use: import { checkAndHandleNestedBlocks, replaceBlockRowsPreservingNestedBlocks, getTextFromBlockRow, getHtmlFromRow, franklinBlockRow } from '../../scripts/utilities/block-helpers.js'.\n"
                         + "4. JavaScript must export `default async function decorate(block)` and named `export function createBlock(options)`.\n"
                         + "5. CSS must be scoped to `." + blockName + "` using design tokens.\n\n"
                         + "### Target AEM Component Details:\n"
@@ -543,7 +541,7 @@ public class BlockGenerationAgent implements Agent {
                     ctx.getProject().getId(),
                     ctx.getJob().getId(),
                     getName(),
-                    "Generated full Block Quad (JS, JSON Model, Example HTML, README) for " + inv.getComponents().size() + " EDS blocks."
+                    BlockReconcileHelper.summarize(decisions)
             ));
         }
     }

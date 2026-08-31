@@ -107,23 +107,65 @@ function log(agent, msg) {
 function onProviderChange() {
   const provider = document.getElementById("cfg-aiProvider").value;
   const modelInput = document.getElementById("cfg-aiModel");
-  const banner = document.getElementById("antigravity-banner");
+  const banner = document.getElementById("ide-agent-banner");
+  const bannerTitle = document.getElementById("ide-agent-banner-title");
+  const cloudBanner = document.getElementById("cloud-api-banner");
+  const cloudTitle = document.getElementById("cloud-api-banner-title");
+  const cloudKeyRef = document.getElementById("cloud-api-key-ref");
   const modelGroup = document.getElementById("ai-model-group");
   const budgetGroup = document.getElementById("ai-budget-group");
 
-  // Toggle Antigravity banner + hide irrelevant fields
-  const isAntigravity = provider === "antigravity";
-  if (banner) banner.style.display = isAntigravity ? "block" : "none";
-  if (modelGroup) modelGroup.style.display = isAntigravity ? "none" : "";
-  if (budgetGroup) budgetGroup.style.display = isAntigravity ? "none" : "";
-  if (modelInput && !isAntigravity) {
-    if (provider === "anthropic")
-      modelInput.value = "claude-3-5-sonnet-20241022";
-    else if (provider === "openai") modelInput.value = "gpt-4o";
-    else if (provider === "gemini") modelInput.value = "gemini-1.5-pro";
-    else if (provider === "ollama") modelInput.value = "qwen3:8b";
+  const ideProviders = ["antigravity", "cursor", "claudecode", "geminicode"];
+  const cloudKeyRefs = {
+    anthropic: "env:ANTHROPIC_API_KEY",
+    openai: "env:OPENAI_API_KEY",
+    gemini: "env:GEMINI_API_KEY",
+  };
+  const isIde = ideProviders.indexOf(provider) >= 0;
+  const isCloudApi = Object.prototype.hasOwnProperty.call(cloudKeyRefs, provider);
+  if (banner) banner.style.display = isIde ? "block" : "none";
+  if (bannerTitle && isIde) {
+    const labels = {
+      antigravity: "Antigravity",
+      cursor: "Cursor",
+      claudecode: "Claude Code",
+      geminicode: "Gemini IDE",
+    };
+    bannerTitle.textContent = (labels[provider] || "IDE") + " Mode Active";
   }
-  if (modelInput && isAntigravity) modelInput.value = "";
+  if (cloudBanner) cloudBanner.style.display = isCloudApi ? "block" : "none";
+  if (isCloudApi) {
+    const cloudLabels = {
+      anthropic: "Anthropic Claude",
+      openai: "OpenAI GPT",
+      gemini: "Google Gemini",
+    };
+    if (cloudTitle) cloudTitle.textContent = (cloudLabels[provider] || "Cloud API") + " — API key required";
+    if (cloudKeyRef) cloudKeyRef.textContent = cloudKeyRefs[provider];
+  }
+  // Local IDE: keep model visible for Ollama chat model; budget still hidden
+  if (modelGroup) modelGroup.style.display = "";
+  if (budgetGroup) budgetGroup.style.display = isIde ? "none" : "";
+  if (modelInput) {
+    if (isIde) {
+      if (!modelInput.value || modelInput.value.indexOf("claude") === 0 || modelInput.value.indexOf("gpt") === 0 || modelInput.value.indexOf("gemini-1") === 0) {
+        modelInput.value = "qwen3:8b";
+      }
+      modelInput.placeholder = "Ollama model (e.g. qwen3:8b, llama3)";
+    } else if (provider === "anthropic") {
+      modelInput.value = "claude-3-5-sonnet-20241022";
+      modelInput.placeholder = "model identifier";
+    } else if (provider === "openai") {
+      modelInput.value = "gpt-4o";
+      modelInput.placeholder = "model identifier";
+    } else if (provider === "gemini") {
+      modelInput.value = "gemini-1.5-pro";
+      modelInput.placeholder = "model identifier";
+    } else if (provider === "ollama") {
+      modelInput.value = "qwen3:8b";
+      modelInput.placeholder = "Ollama model";
+    }
+  }
 }
 
 function loadWkndPreset() {
@@ -292,6 +334,7 @@ async function populateFormFromProject(id) {
       p.aiModel || "claude-3-5-sonnet-20241022";
     document.getElementById("cfg-maxBudget").value = p.maxBudgetUsd || 100.0;
     document.getElementById("cfg-maxRepair").value = p.maxRepairAttempts || 5;
+    onProviderChange();
   }
 }
 
@@ -838,6 +881,10 @@ async function refreshDashboard() {
     if (files) {
       generatedFiles = files;
       processBlockFiles(files);
+      try {
+        const events = await api(`projects/${currentProjectId}/events`);
+        applyReconcileBadges(events);
+      } catch (e2) {}
       renderBlockList();
       if (activePagePath) {
         selectPageRow(activePagePath);
@@ -938,9 +985,13 @@ function processBlockFiles(files) {
         const bName = parts[1];
         const fileName = parts[parts.length - 1];
         if (!blockFilesMap[bName]) {
-          blockFilesMap[bName] = { name: bName, files: {}, sourcePath: null };
+          blockFilesMap[bName] = {
+            name: bName,
+            files: {},
+            sourcePath: null,
+            reconcile: "Created",
+          };
         }
-        // Keep the AEM root path reference so blocks and pages stay linked to the same JCR source
         if (f.sourcePath && !blockFilesMap[bName].sourcePath) {
           blockFilesMap[bName].sourcePath = f.sourcePath;
         }
@@ -956,6 +1007,24 @@ function processBlockFiles(files) {
         else if (fileName.toLowerCase() === "readme.md")
           blockFilesMap[bName].files.readme = f;
       }
+    }
+  });
+}
+
+function applyReconcileBadges(events) {
+  if (!events || !Array.isArray(events)) return;
+  const msg = events
+    .map((e) => e.message || "")
+    .reverse()
+    .find((m) => m.indexOf("Block reconcile:") >= 0);
+  if (!msg) return;
+  Object.keys(blockFilesMap).forEach((name) => {
+    const re = new RegExp("\\b" + name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "=(CREATE|LEAVE|ENHANCE)\\b", "i");
+    const m = msg.match(re);
+    if (m) {
+      const action = m[1].toUpperCase();
+      blockFilesMap[name].reconcile =
+        action === "LEAVE" ? "Left" : action === "ENHANCE" ? "Enhanced" : "Created";
     }
   });
 }
@@ -991,7 +1060,7 @@ function renderBlockList() {
         <span>🧱</span>
         <span>${name}</span>
       </div>
-      <span class="block-item-badge">${fileCount} files</span>
+      <span class="block-item-badge">${b.reconcile || "Created"} · ${fileCount} files</span>
     </div>`;
     })
     .join("");
@@ -1756,7 +1825,7 @@ const CHAT_COMMANDS = [
   { re: /run (a )?dry[ -]?run/i,     action: () => { showTab("overview"); runDryRun();      return "🔍 Starting dry run for project `" + currentProjectId + "` — watch the pipeline stepper."; } },
   { re: /(generate blocks|run migration|generate (the )?blocks)/i, action: () => { showTab("components"); runMigration();  return "⚡ Generating blocks for project `" + currentProjectId + "`."; } },
   { re: /(commit|push).*(git|github)|create pr|publish/i, action: () => { showTab("overview"); runPushToGit();    return "🚀 Creating a Pull Request."; } },
-  { re: /show (me )?(the )?(live )?events/i,    action: () => { showTab("overview");     refreshDashboard(); return "📡 Opened the Overview tab containing the Live Events Stream."; } },
+  { re: /show (me )?(the )?(live )?(events|overview( activity)? stream)/i, action: () => { showTab("overview"); refreshDashboard(); return "📡 Opened Overview — activity stream is on this tab."; } },
   { re: /show (me )?(the )?(generated )?blocks/i, action: () => { showTab("components"); refreshDashboard(); return "📦 Opened the Generated Blocks tab and refreshed the data."; } },
   { re: /show (me )?(the )?(pages|scope|discovered)/i, action: () => { showTab("pages"); refreshDashboard(); return "📄 Opened the Pages & Scope tab."; } },
   { re: /show (me )?(the )?estimate|cost/i,     action: () => { showTab("estimate"); refreshDashboard(); return "💰 Opened the Estimate & Cost tab."; } },
@@ -1908,6 +1977,8 @@ window.addEventListener("load", async () => {
       currentProjectId = projectsList[0].id;
       await populateFormFromProject(currentProjectId);
       await refreshDashboard();
+    } else {
+      onProviderChange();
     }
   } catch (e) {
     console.log("Dashboard init:", e);

@@ -1,0 +1,7 @@
+{
+  "providerName": "ollama",
+  "baseUrl": "http://localhost:11434",
+  "apiKeyRef": "",
+  "defaultModel": "llama3",
+  "enabled": true
+}

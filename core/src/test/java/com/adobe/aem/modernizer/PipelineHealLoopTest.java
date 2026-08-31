@@ -55,7 +55,7 @@ class PipelineHealLoopTest {
                 + "function appendEvents(config) {\n  if (!config?.mainEl) return;\n}\n";
         String fixed = PipelineHealRepairs.sanitizeGeneratedJs(js);
         assertThat(fixed).contains("jcrTitle").doesNotContain("jcr:title");
-        assertThat(fixed).doesNotContain("getHtmlFromBlockRow");
+        assertThat(fixed).contains("getHtmlFromRow").doesNotContain("getHtmlFromBlockRow");
         assertThat(fixed).contains("function appendEvents() {");
         assertThat(fixed).doesNotContain("if (!config?.mainEl) return;");
     }

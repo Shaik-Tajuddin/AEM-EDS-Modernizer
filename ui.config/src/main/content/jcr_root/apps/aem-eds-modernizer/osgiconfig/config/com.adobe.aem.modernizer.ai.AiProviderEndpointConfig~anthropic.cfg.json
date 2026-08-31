@@ -1,0 +1,7 @@
+{
+  "providerName": "anthropic",
+  "baseUrl": "https://api.anthropic.com/v1",
+  "apiKeyRef": "env:ANTHROPIC_API_KEY",
+  "defaultModel": "",
+  "enabled": true
+}

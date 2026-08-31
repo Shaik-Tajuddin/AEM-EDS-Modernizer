@@ -188,18 +188,31 @@
             <div class="form-group">
               <label class="form-label">AI Provider Preference</label>
               <select id="cfg-aiProvider" class="form-control" onchange="onProviderChange()">
-                <option value="antigravity">✨ Antigravity IDE Agent (No API Key Needed)</option>
-                <option value="anthropic">Anthropic Claude (API Key Required)</option>
-                <option value="openai">OpenAI (GPT-4o, API Key Required)</option>
-                <option value="gemini">Google Gemini (1.5 Pro, API Key Required)</option>
-                <option value="ollama">Ollama (Local — Slow)</option>
+                <optgroup label="Local IDE (no API key)">
+                  <option value="antigravity">Antigravity IDE Agent</option>
+                  <option value="cursor">Cursor IDE Agent</option>
+                  <option value="claudecode">Claude Code IDE Agent</option>
+                  <option value="geminicode">Gemini IDE Agent</option>
+                </optgroup>
+                <optgroup label="Cloud API">
+                  <option value="anthropic">Anthropic Claude (API Key)</option>
+                  <option value="openai">OpenAI GPT (API Key)</option>
+                  <option value="gemini">Google Gemini API (API Key)</option>
+                  <option value="ollama">Ollama (Local server)</option>
+                </optgroup>
               </select>
-              <div id="antigravity-banner" style="display:none; margin-top:10px; padding:12px 16px; background:linear-gradient(135deg,#1e1b4b,#312e81); border-radius:8px; border:1px solid #6366f1; color:#e0e7ff; font-size:0.85rem; line-height:1.6;">
-                <strong style="color:#a5b4fc;">✨ Antigravity Mode Active</strong><br>
-                Block generation is handled by the <strong>Antigravity IDE agent</strong>.<br>
-                1. Run a <strong>Dry Run</strong> to discover your components.<br>
-                2. Then tell the agent: <code style="background:#1e1b4b;padding:2px 5px;border-radius:3px;">&quot;Generate EDS blocks for project [id]&quot;</code><br>
-                Antigravity will use <strong>MCP</strong> to fetch real AEM component fields and generate contextually accurate blocks.
+              <div id="ide-agent-banner" style="display:none; margin-top:10px; padding:12px 16px; background:linear-gradient(135deg,#1e1b4b,#312e81); border-radius:8px; border:1px solid #6366f1; color:#e0e7ff; font-size:0.85rem; line-height:1.6;">
+                <strong style="color:#a5b4fc;" id="ide-agent-banner-title">IDE Mode Active</strong><br>
+                Block generation is handed off to your IDE agent.<br>
+                <strong>Agent Chat uses local Ollama</strong> (start Ollama and pull a model, e.g. <code style="background:#1e1b4b;padding:2px 5px;border-radius:3px;">qwen3:8b</code>).<br>
+                1. Run a <strong>Dry Run</strong> to discover components.<br>
+                2. Use <code style="background:#1e1b4b;padding:2px 5px;border-radius:3px;">GET …/components-pending</code> then <code style="background:#1e1b4b;padding:2px 5px;border-radius:3px;">POST …/blocks</code>.
+              </div>
+              <div id="cloud-api-banner" style="display:none; margin-top:10px; padding:10px 14px; background:#1a2332; border-radius:8px; border:1px solid #334155; color:var(--text-muted); font-size:0.8rem; line-height:1.5;">
+                <strong style="color:var(--text);" id="cloud-api-banner-title">Cloud API</strong>
+                — configure the provider API key so calls can authenticate
+                (<code style="background:#0f172a;padding:2px 5px;border-radius:3px;" id="cloud-api-key-ref">env:…_API_KEY</code>
+                via OSGi <code style="background:#0f172a;padding:2px 5px;border-radius:3px;">AiProviderEndpointConfig</code>).
               </div>
             </div>
             <div class="form-group" id="ai-model-group">
@@ -431,7 +444,7 @@
           <button class="chat-chip" onclick="quickChat('Analyze my project setup')">🔎 Analyze my project</button>
           <button class="chat-chip" onclick="quickChat('Run a dry run')">🔍 Run dry run</button>
           <button class="chat-chip" onclick="quickChat('Show me the generated blocks')">📦 Show blocks</button>
-          <button class="chat-chip" onclick="quickChat('Show the live events stream')">📡 Show events</button>
+          <button class="chat-chip" onclick="quickChat('Show the overview activity stream')">📡 Show overview stream</button>
           <button class="chat-chip" onclick="quickChat('What should I migrate next?')">🧭 What\'s next?</button>
         </div>
       </div>

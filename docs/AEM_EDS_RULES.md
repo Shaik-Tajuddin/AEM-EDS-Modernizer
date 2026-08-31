@@ -172,7 +172,7 @@ Extract data from AEM-generated HTML using position-based row access.
 import {
   getTextFromRow,
   getHtmlFromRow,
-  getHtmlFromBlockRow,
+  getHtmlFromRow,
   getTextFromBlockRow,
   getLinkFromRow,
   getImageFromRow,
@@ -188,7 +188,7 @@ import {
  * 2: text (richtext)
  * 3: ctaLink (aem-content)
  *
- * **Blocks that may be nested** under another block: **always** use `getHtmlFromBlockRow` / `getTextFromBlockRow` for text and richtext rows (see **`22-repeatable-parent-child-blocks.mdc`** — strict rule). `getHtmlFromRow` / `getTextFromRow` are for blocks that are **never** nested, or legacy only.
+ * **Blocks that may be nested** under another block: **always** use `getHtmlFromRow` / `getTextFromBlockRow` for text and richtext rows (see **`22-repeatable-parent-child-blocks.mdc`** — strict rule). `getHtmlFromRow` / `getTextFromRow` are for blocks that are **never** nested, or legacy only.
  * **Appearance** variants: read from `block.classList` (`classes_*` applied by the runtime).
  */
 function extractConfig(block) {
@@ -196,8 +196,8 @@ function extractConfig(block) {
   const rows = [...block.children];
   return {
     id: getTextFromBlockRow(rows[0]),
-    title: getHtmlFromBlockRow(rows[1]),
-    text: getHtmlFromBlockRow(rows[2]),
+    title: getHtmlFromRow(rows[1]),
+    text: getHtmlFromRow(rows[2]),
     ctaLink: getLinkFromRow(rows[3]),
   };
 }
@@ -210,7 +210,7 @@ function extractConfig(block) {
 - **Field collapse** (e.g. **`Alt`**): a property like **`iconAlt`** next to **`icon`** does **not** create another row — read **`alt`** from **`<img>`** in that reference row. See **`03-block-json-pattern.mdc`** (*Field collapse*).
 - Document the row layout in a JSDoc comment above extractConfig
 - Always null-check with `if (!block) return {};`
-- Use `block-helpers.js` functions, not manual DOM queries; prefer **`getHtmlFromBlockRow` / `getTextFromBlockRow`** whenever the block appears in **`filters[].components`** of a parent (nested-capable)
+- Use `block-helpers.js` functions, not manual DOM queries; prefer **`getHtmlFromRow` / `getTextFromBlockRow`** whenever the block appears in **`filters[].components`** of a parent (nested-capable)
 - **Typography:** Universal Editor output does not include **`u-font-*`** on inner cells. Add **`classList.add('u-font-body', …)`** (etc.) only on **DOM nodes you create** in `buildBlock()` — see **`18-typography-font-utilities.mdc`**
 
 ### Filters listing nested block types
@@ -1165,7 +1165,7 @@ Source: `scripts/utilities/block-helpers.js`
 import {
   getTextFromRow,
   getHtmlFromRow,
-  getHtmlFromBlockRow,
+  getHtmlFromRow,
   getTextFromBlockRow,
   getLinkFromRow,
   getImageFromRow,
@@ -1191,13 +1191,13 @@ AEM generates `<div><div>content</div></div>` per field. These helpers extract d
 |----------|---------|--------|
 | `getTextFromRow(row)` | `string` | Plain text from row div |
 | `getHtmlFromRow(row)` | `string` | Rich HTML from row div (classic `div > div` cell) |
-| `getHtmlFromBlockRow(row)` | `string` | Rich HTML — top-level **or nested** (one fewer wrapper) |
-| `getTextFromBlockRow(row)` | `string` | Plain text — same wrapper rules as `getHtmlFromBlockRow` |
+| `getHtmlFromRow(row)` | `string` | Rich HTML — top-level **or nested** (one fewer wrapper) |
+| `getTextFromBlockRow(row)` | `string` | Plain text — same wrapper rules as `getHtmlFromRow` |
 | `getLinkFromRow(row)` | `HTMLAnchorElement\|null` | Link from row div |
 | `getImageFromRow(row)` | `HTMLImageElement\|null` | Image from row div |
 | `getBooleanFromRow(row)` | `boolean` | Boolean toggle — uses same wrapper rules as `getTextFromBlockRow` |
 
-**Nested child blocks** should prefer **`getHtmlFromBlockRow` / `getTextFromBlockRow`** (see **`22-repeatable-parent-child-blocks.mdc`**).
+**Nested child blocks** should prefer **`getHtmlFromRow` / `getTextFromBlockRow`** (see **`22-repeatable-parent-child-blocks.mdc`**).
 
 ## Nested blocks + rebuild (every `decorate`)
 | Function | Use |
@@ -2269,14 +2269,14 @@ Without listing the child on the parent filter, authors may be unable to insert 
 
 - **`classes` and every `classes_*` field** — merged onto the block root as CSS classes; **they do not add `<div>` rows**. Row indices in **`extractConfig` / `extractMeta`** count only **row-producing** fields (`id`, richtext, links, references, …), in model order after skipping `tab` and any `classes` / `classes_*` entry.
 - A block sitting **directly under the section** (after Franklin section decoration) follows the usual **top-level** table: `div.<block-name>` with rows of **`div` (row) → `div` (cell)** for those fields only.
-- A **nested** child block is still a **block**, but AEM typically emits **one fewer wrapper per authored field row** inside that child: each row is often a **single** `div` whose content is the cell (richtext, text, link, image, etc.), **not** `div > div` for every row. **`extractConfig` must use `getHtmlFromBlockRow` / `getTextFromBlockRow`** from `block-helpers.js` (or equivalent logic) so both top-level and nested shapes work.
+- A **nested** child block is still a **block**, but AEM typically emits **one fewer wrapper per authored field row** inside that child: each row is often a **single** `div` whose content is the cell (richtext, text, link, image, etc.), **not** `div > div` for every row. **`extractConfig` must use `getHtmlFromRow` / `getTextFromBlockRow`** from `block-helpers.js` (or equivalent logic) so both top-level and nested shapes work.
 - The child still lives **inside** the parent’s table (e.g. inside a cell). **`decorateNestedBlock`** may wrap each child row in `.block-child-wrapper`; unwrap that first when iterating rows.
 - **`block-name-example.html`** for the **child** must document the **nested** row shape when authors nest that child (one wrapper per row vs top-level). If the demo loads the **child alone**, match the shape your **`extractConfig`** expects.
 - **Parents that compose children** (e.g. `option-selector`): the parent example should show **where** child roots appear and any **footer/meta** row order; parent JS may use **`partition`** / similar **only** because that design requires it — not as the default for every parent filter.
 
 ### Strict rule (nested child blocks — row extraction)
 
-1. **Mandatory when a block can be nested:** For **every** block type that authors may place **inside** another block (filters / UE nesting), **`extractConfig` MUST use `getHtmlFromBlockRow` / `getTextFromBlockRow`** (and **`getBooleanFromRow`**, which reads text via the same nested rules) for **text / richtext / boolean** rows — not only `getHtmlFromRow` / `getTextFromRow`. **Assume one fewer `div` per authored field row** than the section-level Franklin table (`row > cell`), unless you have proof your pipeline always emits the extra cell wrapper.
+1. **Mandatory when a block can be nested:** For **every** block type that authors may place **inside** another block (filters / UE nesting), **`extractConfig` MUST use `getHtmlFromRow` / `getTextFromBlockRow`** (and **`getBooleanFromRow`**, which reads text via the same nested rules) for **text / richtext / boolean** rows — not only `getHtmlFromRow` / `getTextFromRow`. **Assume one fewer `div` per authored field row** than the section-level Franklin table (`row > cell`), unless you have proof your pipeline always emits the extra cell wrapper.
 2. **Parent `*-example.html` files** (e.g. **Magic**) that demo nested children MUST show the **nested** row shape for those children — **not** the top-level `div > div` per row pattern — so the file matches production UE output and the child `extractConfig` contract.
 3. **Never** read appearance-only variants from those rows — use **`classes` / `classes_*`** on the block root and **`block.classList`** in JS.
 4. If a parent **rebuilds** the DOM from authored rows, its **`decorate()`** must **not** leave raw row text after build. Use **`removeNonBlockChildRows`** / **`replaceBlockRowsPreservingNestedBlocks`** (see **`02-block-javascript-pattern.mdc`**) so **nested child `.block` roots are preserved** while authored field rows are cleared and the built shell is **prepended**.

@@ -211,9 +211,7 @@ public final class PipelineHealRepairs {
         out = out.replaceAll(
                 "function appendEvents\\(config\\) \\{\\s*(?:if \\(!config\\?\\.mainEl\\) return;\\s*)?\\}",
                 "function appendEvents() {\n}");
-        if (!out.contains("getHtmlFromBlockRow(")) {
-            out = out.replace("  getHtmlFromBlockRow,\n", "");
-        }
+        out = out.replace("getHtmlFromBlockRow", "getHtmlFromRow");
         return out;
     }
 

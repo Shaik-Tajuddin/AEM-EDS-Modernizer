@@ -126,7 +126,7 @@ Every **block** model (`blocks/*/_*.json`) must include these **opening fields**
 
 **Typography:** AEM does not emit **`u-font-*`** on table cells. Add font utilities in **`decorate()`** on nodes your block JS creates (see **`18-typography-font-utilities.mdc`**).
 
-See `.cursor/rules/03-block-json-pattern.mdc` (Mandatory opening fields). **`decorate()`** row indices and **`*-example.html`** must list **row-producing fields only** (skip `classes` / `classes_*` in the count). A block authored **nested** inside another may use **one fewer `div` wrapper per row** than at section level — use **`getHtmlFromBlockRow` / `getTextFromBlockRow`** in **that** block’s JS when needed. Listing nested blocks in a parent’s **`filters`** does **not** require special parent JavaScript (see **`22-repeatable-parent-child-blocks.mdc`**).
+See `.cursor/rules/03-block-json-pattern.mdc` (Mandatory opening fields). **`decorate()`** row indices and **`*-example.html`** must list **row-producing fields only** (skip `classes` / `classes_*` in the count). A block authored **nested** inside another may use **one fewer `div` wrapper per row** than at section level — use **`getHtmlFromRow` / `getTextFromBlockRow`** in **that** block’s JS when needed. Listing nested blocks in a parent’s **`filters`** does **not** require special parent JavaScript (see **`22-repeatable-parent-child-blocks.mdc`**).
 
 ### Page metadata models (WCM templates / Universal Editor)
 
