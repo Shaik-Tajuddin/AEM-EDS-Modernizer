@@ -12,7 +12,6 @@ import com.adobe.aem.modernizer.dashboard.StaticDashboard;
 import com.adobe.aem.modernizer.mock.*;
 import com.adobe.aem.modernizer.persistence.InMemoryStore;
 import com.adobe.aem.modernizer.persistence.Store;
-import com.adobe.aem.modernizer.scopes.MarkerEvaluator;
 import com.adobe.aem.modernizer.services.EstimatorService;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -37,7 +36,6 @@ public class StandaloneMain {
     public static HttpServer startServer(int port) throws IOException {
         // Initialize components
         Store store = new InMemoryStore();
-        MarkerEvaluator marker = new MarkerEvaluator("edsModernize", "true");
         EstimatorService estimator = new EstimatorService();
 
         AiRoutingPolicy routing = new AiRoutingPolicy();
@@ -54,10 +52,9 @@ public class StandaloneMain {
                 .add(ModelCapability.CAP_LOCAL));
         ai.register(new MockAiProvider("mock", "mock-general-1"));
 
-        Orchestrator orchestrator = new Orchestrator(store, ai, estimator);
+        Orchestrator orchestrator = new Orchestrator(store);
 
         AemClient aemAuthor = new MockAemClient("https://mock-aem.local", "author", 42, true);
-        AemClient aemPublish = new MockAemClient("https://mock-aem.local", "publish", 42, true);
         GitHubClient gh = new MockGitHubClient("https://github.com/company/wknd-eds");
         FigmaClient figma = new MockFigmaClient("https://www.figma.com/design/abcdef/WKND");
         EdsClient eds = new MockEdsClient("https://eds-mock.local");
@@ -65,34 +62,34 @@ public class StandaloneMain {
 
         // Register Phase 1 Agents
         orchestrator.registerCoreAgents(
-                new ConnectionAgent(aemAuthor, aemPublish, gh, figma, eds, browser, store, ai),
-                new DiscoveryAgent(aemAuthor, store, ai, marker),
+                new ConnectionAgent(aemAuthor, gh, eds, browser, store),
+                new DiscoveryAgent(aemAuthor, store),
                 new ComponentIntelligenceAgent(store, ai),
                 new ComponentMappingAgent(store, ai),
-                new TemplateAnalysisAgent(store, ai),
-                new ContentAnalysisAgent(store, ai),
-                new AssetAnalysisAgent(aemAuthor, store, ai),
-                new ContentFragmentAnalysisAgent(store, ai),
-                new MsmAnalysisAgent(store, ai),
-                new FigmaAnalysisAgent(figma, store, ai),
-                new MigrationPlannerAgent(store, ai, estimator),
+                new TemplateAnalysisAgent(store),
+                new ContentAnalysisAgent(store),
+                new AssetAnalysisAgent(store),
+                new ContentFragmentAnalysisAgent(store),
+                new MsmAnalysisAgent(store),
+                new FigmaAnalysisAgent(figma, store),
+                new MigrationPlannerAgent(store, estimator),
                 new BlockGenerationAgent(store, ai),
                 new CodeGenerationAgent(store, ai),
                 new ContentMigrationAgent(store, ai),
-                new AuthoringAgent(aemAuthor, store, ai),
+                new AuthoringAgent(store),
                 new PreviewAgent(gh, eds, store, ai),
-                new ValidationAgent(browser, store, ai),
-                new VisualValidationAgent(browser, store, ai),
+                new ValidationAgent(browser, store),
+                new VisualValidationAgent(store),
                 new SelfRepairAgent(store, ai),
-                new PublishingAgent(gh, store, ai),
-                new VerificationAgent(browser, store, ai)
+                new PublishingAgent(gh, store),
+                new VerificationAgent(store)
         );
 
         // Register Phase 2 Agents
-        orchestrator.register(new AdvancedFigmaIntelligenceAgent(figma, store, ai));
-        orchestrator.register(new AdvancedVisualValidationAgent(browser, store, ai));
+        orchestrator.register(new AdvancedFigmaIntelligenceAgent(store, ai));
+        orchestrator.register(new AdvancedVisualValidationAgent(store, ai));
         orchestrator.register(new AdvancedRepairAgent(store, ai, 5));
-        orchestrator.register(new AdvancedRolloutAgent(store, ai, RolloutPolicy.defaultPolicy()));
+        orchestrator.register(new AdvancedRolloutAgent(store, RolloutPolicy.defaultPolicy()));
 
         ApiRouter router = new ApiRouter(store, orchestrator);
 

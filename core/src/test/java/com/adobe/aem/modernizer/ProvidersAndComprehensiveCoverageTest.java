@@ -12,8 +12,6 @@ import com.adobe.aem.modernizer.osgi.ModernizerBundleActivator;
 import com.adobe.aem.modernizer.persistence.InMemoryStore;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.*;
-import com.adobe.aem.modernizer.scopes.MarkerEvaluator;
-import com.adobe.aem.modernizer.services.ClarificationService;
 import com.adobe.aem.modernizer.services.EstimatorService;
 import com.adobe.aem.modernizer.util.JsonUtil;
 import com.sun.net.httpserver.HttpServer;
@@ -154,18 +152,14 @@ class ProvidersAndComprehensiveCoverageTest {
     void testModernizerBundleActivatorFullWiring() throws Exception {
         ModernizerBundleActivator activator = new ModernizerBundleActivator();
         Store store = new InMemoryStore();
-        MarkerEvaluator marker = new MarkerEvaluator("edsModernize", "true");
         EstimatorService estimator = new EstimatorService();
-        ClarificationService clar = new ClarificationService(store);
         AiGateway ai = new AiGateway();
         ai.activate();
-        Orchestrator orchestrator = new Orchestrator(store, ai, estimator);
+        Orchestrator orchestrator = new Orchestrator(store);
         orchestrator.activate();
 
         setField(activator, "store", store);
-        setField(activator, "marker", marker);
         setField(activator, "estimator", estimator);
-        setField(activator, "clarifications", clar);
         setField(activator, "orchestrator", orchestrator);
         setField(activator, "ai", ai);
 
@@ -213,10 +207,7 @@ class ProvidersAndComprehensiveCoverageTest {
     @Test
     void testOrchestratorAdvanced() throws Exception {
         Store store = new InMemoryStore();
-        AiGateway ai = new AiGateway();
-        ai.activate();
-        EstimatorService estimator = new EstimatorService();
-        Orchestrator orchestrator = new Orchestrator(store, ai, estimator);
+        Orchestrator orchestrator = new Orchestrator(store);
         orchestrator.activate();
 
         ProjectRecord proj = new ProjectRecord("p-adv", "Adv Project", "http://author", "/content/wknd", "https://github.com/repo");
@@ -243,7 +234,7 @@ class ProvidersAndComprehensiveCoverageTest {
     @Test
     void testApiRouterAdvancedEndpoints() throws Exception {
         Store store = new InMemoryStore();
-        Orchestrator orchestrator = new Orchestrator(store, null, null);
+        Orchestrator orchestrator = new Orchestrator(store);
         ApiRouter router = new ApiRouter(store, orchestrator);
 
         ProjectRecord proj = new ProjectRecord("p1", "Test", "http://author", "/content/wknd", "https://github.com/repo");

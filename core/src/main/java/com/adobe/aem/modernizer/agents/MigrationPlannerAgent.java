@@ -1,6 +1,5 @@
 package com.adobe.aem.modernizer.agents;
 
-import com.adobe.aem.modernizer.ai.AiGateway;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.BenchmarkSampleRecord;
 import com.adobe.aem.modernizer.persistence.model.JobEventRecord;
@@ -20,12 +19,10 @@ public class MigrationPlannerAgent implements Agent {
     private static final Logger LOG = LoggerFactory.getLogger(MigrationPlannerAgent.class);
 
     private final Store store;
-    private final AiGateway ai;
     private final EstimatorService estimator;
 
-    public MigrationPlannerAgent(Store store, AiGateway ai, EstimatorService estimator) {
+    public MigrationPlannerAgent(Store store, EstimatorService estimator) {
         this.store = store;
-        this.ai = ai;
         this.estimator = estimator;
     }
 

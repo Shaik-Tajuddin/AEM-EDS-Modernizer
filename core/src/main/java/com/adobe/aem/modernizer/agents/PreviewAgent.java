@@ -65,9 +65,7 @@ public class PreviewAgent implements Agent {
         LOG.info("PreviewAgent pushing generated files to branch: {}", branch);
 
         if (gitHub != null) {
-            GitHubClient gh = (gitHub instanceof com.adobe.aem.modernizer.connectors.RealGitHubClient && ctx.getProject() != null)
-                    ? ((com.adobe.aem.modernizer.connectors.RealGitHubClient) gitHub).forProject(ctx.getProject())
-                    : gitHub;
+            GitHubClient gh = GitHubFlow.clientFor(gitHub, ctx.getProject());
             gh.createBranch(branch);
             List<GeneratedFileRecord> files = (store != null) ? store.getGeneratedFiles(ctx.getJob().getId()) : null;
             List<GeneratedFileRecord> toCommit = new java.util.ArrayList<>();

@@ -1,11 +1,9 @@
 package com.adobe.aem.modernizer.agents;
 
 import com.adobe.aem.modernizer.ModernizerException;
-import com.adobe.aem.modernizer.ai.AiGateway;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.*;
 import com.adobe.aem.modernizer.connectors.GitHubFlow;
-import com.adobe.aem.modernizer.services.EstimatorService;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
@@ -25,26 +23,18 @@ public class Orchestrator {
 
     private final Map<String, Agent> agents = new ConcurrentHashMap<>();
     private Store store;
-    private AiGateway ai;
-    private EstimatorService estimator;
 
     @Reference private transient Store storeRef;
-    @Reference private transient AiGateway aiRef;
-    @Reference private transient EstimatorService estimatorRef;
 
     public Orchestrator() {}
 
-    public Orchestrator(Store store, AiGateway ai, EstimatorService estimator) {
+    public Orchestrator(Store store) {
         this.store = store;
-        this.ai = ai;
-        this.estimator = estimator;
     }
 
     @Activate
     public void activate() {
         if (this.store == null && this.storeRef != null) this.store = this.storeRef;
-        if (this.ai == null && this.aiRef != null) this.ai = this.aiRef;
-        if (this.estimator == null && this.estimatorRef != null) this.estimator = this.estimatorRef;
         LOG.info("Orchestrator activated with {} registered agents", agents.size());
     }
 
@@ -346,7 +336,4 @@ public class Orchestrator {
     }
 
     public Map<String, Agent> getAgents() { return new HashMap<>(agents); }
-    public Store getStore() { return store; }
-    public AiGateway getAi() { return ai; }
-    public EstimatorService getEstimator() { return estimator; }
 }

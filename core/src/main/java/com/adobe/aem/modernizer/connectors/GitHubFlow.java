@@ -1,5 +1,7 @@
 package com.adobe.aem.modernizer.connectors;
 
+import com.adobe.aem.modernizer.persistence.model.ProjectRecord;
+
 /**
  * Shared helpers for the preview-branch → vscode.dev → PR flow.
  */
@@ -37,6 +39,14 @@ public final class GitHubFlow {
     }
 
     private GitHubFlow() {}
+
+    /** Project-scoped client when {@code gitHub} is a {@link RealGitHubClient}; otherwise the original client. */
+    public static GitHubClient clientFor(GitHubClient gitHub, ProjectRecord project) {
+        if (gitHub instanceof RealGitHubClient && project != null) {
+            return ((RealGitHubClient) gitHub).forProject(project);
+        }
+        return gitHub;
+    }
 
     public static String featureBranch(String projectId) {
         String id = (projectId == null || projectId.isBlank()) ? "project" : projectId.trim();

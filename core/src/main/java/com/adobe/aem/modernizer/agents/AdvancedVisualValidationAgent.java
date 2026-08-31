@@ -4,12 +4,10 @@ import com.adobe.aem.modernizer.ai.AiGateway;
 import com.adobe.aem.modernizer.ai.ChatRequest;
 import com.adobe.aem.modernizer.ai.ChatResponse;
 import com.adobe.aem.modernizer.ai.ModelCapability;
-import com.adobe.aem.modernizer.connectors.BrowserClient;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.JobEventRecord;
 import com.adobe.aem.modernizer.persistence.model.SiteInventory;
 import com.adobe.aem.modernizer.persistence.model.ValidationResultRecord;
-import com.adobe.aem.modernizer.services.ImageDiffEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,13 +20,10 @@ public class AdvancedVisualValidationAgent implements Agent {
 
     private static final Logger LOG = LoggerFactory.getLogger(AdvancedVisualValidationAgent.class);
 
-    private final BrowserClient browser;
     private final Store store;
     private final AiGateway ai;
-    private final ImageDiffEngine diffEngine = new ImageDiffEngine();
 
-    public AdvancedVisualValidationAgent(BrowserClient browser, Store store, AiGateway ai) {
-        this.browser = browser;
+    public AdvancedVisualValidationAgent(Store store, AiGateway ai) {
         this.store = store;
         this.ai = ai;
     }

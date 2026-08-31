@@ -1,6 +1,5 @@
 package com.adobe.aem.modernizer.agents;
 
-import com.adobe.aem.modernizer.ai.AiGateway;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.JobEventRecord;
 import com.adobe.aem.modernizer.persistence.model.SiteInventory;
@@ -17,11 +16,9 @@ public class TemplateAnalysisAgent implements Agent {
     private static final Logger LOG = LoggerFactory.getLogger(TemplateAnalysisAgent.class);
 
     private final Store store;
-    private final AiGateway ai;
 
-    public TemplateAnalysisAgent(Store store, AiGateway ai) {
+    public TemplateAnalysisAgent(Store store) {
         this.store = store;
-        this.ai = ai;
     }
 
     @Override

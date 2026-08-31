@@ -1,7 +1,5 @@
 package com.adobe.aem.modernizer.agents;
 
-import com.adobe.aem.modernizer.ai.AiGateway;
-import com.adobe.aem.modernizer.connectors.AemClient;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.JobEventRecord;
 import org.slf4j.Logger;
@@ -16,14 +14,10 @@ public class AuthoringAgent implements Agent {
 
     private static final Logger LOG = LoggerFactory.getLogger(AuthoringAgent.class);
 
-    private final AemClient aemClient;
     private final Store store;
-    private final AiGateway ai;
 
-    public AuthoringAgent(AemClient aemClient, Store store, AiGateway ai) {
-        this.aemClient = aemClient;
+    public AuthoringAgent(Store store) {
         this.store = store;
-        this.ai = ai;
     }
 
     @Override

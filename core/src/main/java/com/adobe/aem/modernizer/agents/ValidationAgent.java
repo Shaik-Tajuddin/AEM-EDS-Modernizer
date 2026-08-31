@@ -1,6 +1,5 @@
 package com.adobe.aem.modernizer.agents;
 
-import com.adobe.aem.modernizer.ai.AiGateway;
 import com.adobe.aem.modernizer.connectors.BrowserClient;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.JobEventRecord;
@@ -20,12 +19,10 @@ public class ValidationAgent implements Agent {
 
     private final BrowserClient browser;
     private final Store store;
-    private final AiGateway ai;
 
-    public ValidationAgent(BrowserClient browser, Store store, AiGateway ai) {
+    public ValidationAgent(BrowserClient browser, Store store) {
         this.browser = browser;
         this.store = store;
-        this.ai = ai;
     }
 
     @Override

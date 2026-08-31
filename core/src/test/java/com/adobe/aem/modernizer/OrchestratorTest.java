@@ -13,7 +13,6 @@ import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.GeneratedFileRecord;
 import com.adobe.aem.modernizer.persistence.model.JobRecord;
 import com.adobe.aem.modernizer.persistence.model.ProjectRecord;
-import com.adobe.aem.modernizer.scopes.MarkerEvaluator;
 import com.adobe.aem.modernizer.services.EstimatorService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,7 +29,6 @@ class OrchestratorTest {
     @BeforeEach
     void setUp() {
         store = new InMemoryStore();
-        MarkerEvaluator marker = new MarkerEvaluator("edsModernize", "true");
         EstimatorService estimator = new EstimatorService();
 
         AiRoutingPolicy routing = new AiRoutingPolicy();
@@ -47,43 +45,42 @@ class OrchestratorTest {
                 .add(ModelCapability.CAP_LOCAL));
         ai.register(new MockAiProvider("mock", "mock-general-1"));
 
-        orchestrator = new Orchestrator(store, ai, estimator);
+        orchestrator = new Orchestrator(store);
 
         AemClient aemAuthor = new MockAemClient("https://mock-aem.local", "author", 42, true);
-        AemClient aemPublish = new MockAemClient("https://mock-aem.local", "publish", 42, true);
         gitHub = new MockGitHubClient("https://github.com/company/wknd-eds");
         FigmaClient figma = new MockFigmaClient("https://www.figma.com/design/abcdef/WKND");
         EdsClient eds = new MockEdsClient("https://eds-mock.local");
         BrowserClient browser = new MockBrowserClient();
 
         orchestrator.registerCoreAgents(
-                new ConnectionAgent(aemAuthor, aemPublish, gitHub, figma, eds, browser, store, ai),
-                new DiscoveryAgent(aemAuthor, store, ai, marker),
+                new ConnectionAgent(aemAuthor, gitHub, eds, browser, store),
+                new DiscoveryAgent(aemAuthor, store),
                 new ComponentIntelligenceAgent(store, ai),
                 new ComponentMappingAgent(store, ai),
-                new TemplateAnalysisAgent(store, ai),
-                new ContentAnalysisAgent(store, ai),
-                new AssetAnalysisAgent(aemAuthor, store, ai),
-                new ContentFragmentAnalysisAgent(store, ai),
-                new MsmAnalysisAgent(store, ai),
-                new FigmaAnalysisAgent(figma, store, ai),
-                new MigrationPlannerAgent(store, ai, estimator),
+                new TemplateAnalysisAgent(store),
+                new ContentAnalysisAgent(store),
+                new AssetAnalysisAgent(store),
+                new ContentFragmentAnalysisAgent(store),
+                new MsmAnalysisAgent(store),
+                new FigmaAnalysisAgent(figma, store),
+                new MigrationPlannerAgent(store, estimator),
                 new BlockGenerationAgent(store, ai),
                 new CodeGenerationAgent(store, ai),
                 new ContentMigrationAgent(store, ai),
-                new AuthoringAgent(aemAuthor, store, ai),
+                new AuthoringAgent(store),
                 new PreviewAgent(gitHub, eds, store, ai),
-                new ValidationAgent(browser, store, ai),
-                new VisualValidationAgent(browser, store, ai),
+                new ValidationAgent(browser, store),
+                new VisualValidationAgent(store),
                 new SelfRepairAgent(store, ai),
-                new PublishingAgent(gitHub, store, ai),
-                new VerificationAgent(browser, store, ai)
+                new PublishingAgent(gitHub, store),
+                new VerificationAgent(store)
         );
 
-        orchestrator.register(new AdvancedFigmaIntelligenceAgent(figma, store, ai));
-        orchestrator.register(new AdvancedVisualValidationAgent(browser, store, ai));
+        orchestrator.register(new AdvancedFigmaIntelligenceAgent(store, ai));
+        orchestrator.register(new AdvancedVisualValidationAgent(store, ai));
         orchestrator.register(new AdvancedRepairAgent(store, ai, 5));
-        orchestrator.register(new AdvancedRolloutAgent(store, ai, RolloutPolicy.defaultPolicy()));
+        orchestrator.register(new AdvancedRolloutAgent(store, RolloutPolicy.defaultPolicy()));
 
         project = new ProjectRecord("test-wknd", "WKND Test", "https://mock-aem.local", "/content/wknd", "https://github.com/company/wknd-eds");
         store.saveProject(project);

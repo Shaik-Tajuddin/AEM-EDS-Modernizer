@@ -43,7 +43,7 @@ class DashboardServletsAndApiTest {
     @BeforeEach
     void setUp() {
         store = new InMemoryStore();
-        orchestrator = new Orchestrator(store, null, null);
+        orchestrator = new Orchestrator(store);
         router = new ApiRouter(store, orchestrator);
     }
 
@@ -336,17 +336,26 @@ class DashboardServletsAndApiTest {
         assertThat(html).contains("ws-file-tree");
         assertThat(html).contains("workspace/save");
         assertThat(html).contains("workspace/delete");
+        assertThat(html).contains("deleteCurrentProject");
+        assertThat(html).contains("projects/' + encodeURIComponent(currentProjectId) + '/delete");
         assertThat(html).contains("ws-file-del");
         assertThat(html).contains("ws-line-numbers");
+        assertThat(html).contains("HTML view");
+        assertThat(html).contains("DA compatible");
+        assertThat(html).contains("Copy for Document Authoring");
+        assertThat(html).contains("UE authoring");
+        assertThat(html).contains("loadPreviewArtifacts");
+        assertThat(html).contains("new RegExp");
+        assertThat(html).contains("btn-migrate').disabled = false");
     }
 
     @Test
     void previewPushDoesNotOpenPrAndNpmDispatches() {
         MockGitHubClient gh = new MockGitHubClient("https://github.com/company/wknd-eds");
-        Orchestrator orch = new Orchestrator(store, null, null);
+        Orchestrator orch = new Orchestrator(store);
         orch.register(new com.adobe.aem.modernizer.agents.PreviewAgent(
                 gh, new com.adobe.aem.modernizer.mock.MockEdsClient("https://eds-mock.local"), store, null));
-        orch.register(new com.adobe.aem.modernizer.agents.PublishingAgent(gh, store, null));
+        orch.register(new com.adobe.aem.modernizer.agents.PublishingAgent(gh, store));
         ApiRouter wired = new ApiRouter(store, orch, gh);
         store.saveProject(new ProjectRecord("proj-1", "WKND Site", "http://localhost:4502", "/content/wknd", "https://github.com/company/wknd-eds"));
 
@@ -391,6 +400,10 @@ class DashboardServletsAndApiTest {
                 "{\"branch\":\"feat/proj-1\",\"path\":\"docs/migrated-pages/language-masters/en/about-us.md\",\"content\":\"# About\"}", null);
         assertThat(saved).contains("\"committed\":true");
         assertThat(saved).contains("# About");
+
+        String removed = wired.route("POST", "/projects/proj-1/delete", null, null);
+        assertThat(removed).contains("DELETED");
+        assertThat(wired.route("GET", "/projects/proj-1", null, null)).contains("not found");
     }
 }
 

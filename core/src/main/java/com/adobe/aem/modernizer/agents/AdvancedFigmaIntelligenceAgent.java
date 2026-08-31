@@ -4,7 +4,6 @@ import com.adobe.aem.modernizer.ai.AiGateway;
 import com.adobe.aem.modernizer.ai.ChatRequest;
 import com.adobe.aem.modernizer.ai.ChatResponse;
 import com.adobe.aem.modernizer.ai.ModelCapability;
-import com.adobe.aem.modernizer.connectors.FigmaClient;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.JobEventRecord;
 import org.slf4j.Logger;
@@ -19,12 +18,10 @@ public class AdvancedFigmaIntelligenceAgent implements Agent {
 
     private static final Logger LOG = LoggerFactory.getLogger(AdvancedFigmaIntelligenceAgent.class);
 
-    private final FigmaClient figmaClient;
     private final Store store;
     private final AiGateway ai;
 
-    public AdvancedFigmaIntelligenceAgent(FigmaClient figmaClient, Store store, AiGateway ai) {
-        this.figmaClient = figmaClient;
+    public AdvancedFigmaIntelligenceAgent(Store store, AiGateway ai) {
         this.store = store;
         this.ai = ai;
     }

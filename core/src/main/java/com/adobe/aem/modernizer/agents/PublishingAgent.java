@@ -1,7 +1,7 @@
 package com.adobe.aem.modernizer.agents;
 
-import com.adobe.aem.modernizer.ai.AiGateway;
 import com.adobe.aem.modernizer.connectors.GitHubClient;
+import com.adobe.aem.modernizer.connectors.GitHubFlow;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.JobEventRecord;
 import org.slf4j.Logger;
@@ -18,12 +18,10 @@ public class PublishingAgent implements Agent {
 
     private final GitHubClient gitHub;
     private final Store store;
-    private final AiGateway ai;
 
-    public PublishingAgent(GitHubClient gitHub, Store store, AiGateway ai) {
+    public PublishingAgent(GitHubClient gitHub, Store store) {
         this.gitHub = gitHub;
         this.store = store;
-        this.ai = ai;
     }
 
     @Override
@@ -47,9 +45,7 @@ public class PublishingAgent implements Agent {
         String prUrl = "https://github.com/company/wknd-eds/pull/101";
 
         if (gitHub != null) {
-            GitHubClient gh = (gitHub instanceof com.adobe.aem.modernizer.connectors.RealGitHubClient && ctx.getProject() != null)
-                    ? ((com.adobe.aem.modernizer.connectors.RealGitHubClient) gitHub).forProject(ctx.getProject())
-                    : gitHub;
+            GitHubClient gh = GitHubFlow.clientFor(gitHub, ctx.getProject());
             String baseBranch = (ctx.getProject() != null && ctx.getProject().getEdsBranch() != null && !ctx.getProject().getEdsBranch().trim().isEmpty())
                     ? ctx.getProject().getEdsBranch().trim() : gh.getDefaultBranch();
             prUrl = gh.createPullRequest(

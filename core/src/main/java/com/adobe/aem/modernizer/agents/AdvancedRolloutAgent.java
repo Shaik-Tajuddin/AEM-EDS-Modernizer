@@ -1,6 +1,5 @@
 package com.adobe.aem.modernizer.agents;
 
-import com.adobe.aem.modernizer.ai.AiGateway;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.JobEventRecord;
 import com.adobe.aem.modernizer.persistence.model.RolloutStageRecord;
@@ -18,12 +17,10 @@ public class AdvancedRolloutAgent implements Agent {
     private static final Logger LOG = LoggerFactory.getLogger(AdvancedRolloutAgent.class);
 
     private final Store store;
-    private final AiGateway ai;
     private final RolloutPolicy rolloutPolicy;
 
-    public AdvancedRolloutAgent(Store store, AiGateway ai, RolloutPolicy rolloutPolicy) {
+    public AdvancedRolloutAgent(Store store, RolloutPolicy rolloutPolicy) {
         this.store = store;
-        this.ai = ai;
         this.rolloutPolicy = rolloutPolicy != null ? rolloutPolicy : RolloutPolicy.defaultPolicy();
     }
 

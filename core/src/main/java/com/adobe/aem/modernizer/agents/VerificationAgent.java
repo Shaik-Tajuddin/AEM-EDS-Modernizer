@@ -1,7 +1,5 @@
 package com.adobe.aem.modernizer.agents;
 
-import com.adobe.aem.modernizer.ai.AiGateway;
-import com.adobe.aem.modernizer.connectors.BrowserClient;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.JobEventRecord;
 import com.adobe.aem.modernizer.persistence.model.SiteInventory;
@@ -17,14 +15,10 @@ public class VerificationAgent implements Agent {
 
     private static final Logger LOG = LoggerFactory.getLogger(VerificationAgent.class);
 
-    private final BrowserClient browser;
     private final Store store;
-    private final AiGateway ai;
 
-    public VerificationAgent(BrowserClient browser, Store store, AiGateway ai) {
-        this.browser = browser;
+    public VerificationAgent(Store store) {
         this.store = store;
-        this.ai = ai;
     }
 
     @Override

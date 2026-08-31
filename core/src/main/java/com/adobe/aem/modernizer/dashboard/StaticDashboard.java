@@ -19,6 +19,10 @@ public final class StaticDashboard {
             base += "/";
         }
 
+        return htmlHead(base) + htmlMain() + PreviewPanel.script() + htmlScript();
+    }
+
+    private static String htmlHead(String base) {
         return "<!doctype html>\n"
                 + "<html lang=\"en\">\n"
                 + "<head>\n"
@@ -83,6 +87,9 @@ public final class StaticDashboard {
                 + "    .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }\n"
                 + "    .btn-accent { background: var(--accent); color: #090d16; }\n"
                 + "    .btn-accent:hover { background: var(--accent-hover); transform: translateY(-1px); }\n"
+                + "    .btn-danger { background: rgba(239,68,68,0.18); color: #fecaca; border: 1px solid rgba(239,68,68,0.45); }\n"
+                + "    .btn-danger:hover { background: rgba(239,68,68,0.32); }\n"
+                + "    .btn:disabled { opacity: 0.45; cursor: not-allowed; }\n"
                 + "    .btn-outline { background: transparent; border: 1px solid var(--surface-border); color: var(--text); }\n"
                 + "    .btn-outline:hover { background: var(--surface-card); border-color: var(--surface-focus); }\n"
                 + "    .btn-warn { background: var(--warn); color: #090d16; }\n"
@@ -125,8 +132,13 @@ public final class StaticDashboard {
                 + "    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface-card); border: 1px solid var(--surface-border); color: var(--text); padding: 14px 20px; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); z-index: 1000; font-size: 0.9rem; display: none; }\n"
                 + "    .toast.show { display: block; animation: slideIn 0.3s ease; }\n"
                 + "    @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }\n"
+                + "    " + PreviewPanel.css() + "\n"
                 + "  </style>\n"
-                + "</head>\n"
+                + "</head>\n";
+    }
+
+    private static String htmlMain() {
+        return ""
                 + "<body>\n"
                 + "  <header>\n"
                 + "    <a class=\"brand\" href=\"#\">\n"
@@ -154,7 +166,7 @@ public final class StaticDashboard {
                 + "        <button id=\"btn-publish\" class=\"btn btn-accent\" onclick=\"runPushToGit()\" disabled>🚀 Commit & Push to Git</button>\n"
                 + "      </div>\n"
                 + "      <div class=\"actions-right\">\n"
-                + "        <button id=\"btn-delete\" class=\"btn btn-danger\" onclick=\"deleteCurrentProject()\" disabled>🗑️ Delete</button>\n"
+                + "        <button id=\"btn-delete\" class=\"btn btn-danger\" type=\"button\" onclick=\"deleteCurrentProject()\">🗑️ Delete Project</button>\n"
                 + "        <button class=\"btn btn-outline\" onclick=\"refreshDashboard()\">🔄 Refresh</button>\n"
                 + "      </div>\n"
                 + "    </div>\n"
@@ -314,18 +326,12 @@ public final class StaticDashboard {
                 + "\n"
                 + "    <!-- Tab: Pages -->\n"
                 + "    <div id=\"tab-pages\" class=\"tab-content\" style=\"display:none;\">\n"
-                + "      <div class=\"card\">\n"
-                + "        <div class=\"card-title\">Discovered Pages & Opt-In Eligibility</div>\n"
-                + "        <table id=\"table-pages\"><thead><tr><th>AEM Content Path</th><th>Page Title</th><th>Template</th><th>Eligibility Status</th></tr></thead><tbody><tr><td colspan=\"4\">Run a Dry Run to discover pages.</td></tr></tbody></table>\n"
-                + "      </div>\n"
+                + PreviewPanel.pagesMarkup()
                 + "    </div>\n"
                 + "\n"
                 + "    <!-- Tab: Components -->\n"
                 + "    <div id=\"tab-components\" class=\"tab-content\" style=\"display:none;\">\n"
-                + "      <div class=\"card\">\n"
-                + "        <div class=\"card-title\">Component Intelligence & Block Mapping</div>\n"
-                + "        <ul id=\"table-components\" class=\"data-list\"><li class=\"data-list-empty\">Run a Dry Run to classify components.</li></ul>\n"
-                + "      </div>\n"
+                + PreviewPanel.blocksMarkup()
                 + "    </div>\n"
                 + "\n"
                 + "    <!-- Tab: Estimate -->\n"
@@ -453,7 +459,11 @@ public final class StaticDashboard {
                 + "  </div>\n"
                 + "\n"
                 + "  <div id=\"toast\" class=\"toast\"></div>\n"
-                + "\n"
+                + "\n";
+    }
+
+    private static String htmlScript() {
+        return ""
                 + "  <script>\n"
                 + "    let currentProjectId = 'wknd-site';\n"
                 + "    let projectsList = [];\n"
@@ -617,6 +627,27 @@ public final class StaticDashboard {
                 + "            + '<option value=\"new\">+ Create New Project...</option>';\n"
                 + "        }\n"
                 + "      } catch (e) { console.log(e); }\n"
+                + "      const del = document.getElementById('btn-delete');\n"
+                + "      if (del) del.disabled = !currentProjectId || currentProjectId === 'new';\n"
+                + "    }\n"
+                + "\n"
+                + "    async function deleteCurrentProject() {\n"
+                + "      if (!currentProjectId || currentProjectId === 'new') { showToast('Select a saved project first.'); return; }\n"
+                + "      const p = (projectsList || []).find(x => x.id === currentProjectId);\n"
+                + "      const label = p ? (p.name || p.id) : currentProjectId;\n"
+                + "      if (!confirm('Delete project \"' + label + '\"?\\n\\nThis removes its saved config, jobs, inventory and generated blocks. This cannot be undone.')) return;\n"
+                + "      try {\n"
+                + "        await api('projects/' + encodeURIComponent(currentProjectId) + '/delete', { method: 'POST' });\n"
+                + "        showToast('Project \\'' + label + '\\' deleted');\n"
+                + "        projectsList = (projectsList || []).filter(x => x.id !== currentProjectId);\n"
+                + "        currentProjectId = projectsList.length > 0 ? projectsList[0].id : 'wknd-site';\n"
+                + "        await loadProjectsList();\n"
+                + "        if (projectsList.length > 0) { await populateFormFromProject(currentProjectId); await refreshDashboard(); }\n"
+                + "        showTab('overview');\n"
+                + "      } catch (err) {\n"
+                + "        log('error', 'Failed to delete project: ' + err.message);\n"
+                + "        showToast('Error deleting project: ' + err.message);\n"
+                + "      }\n"
                 + "    }\n"
                 + "\n"
                 + "    async function onProjectSelectChange() {\n"
@@ -816,7 +847,16 @@ public final class StaticDashboard {
                 + "        const data = await api(`projects/${currentProjectId}/workspace`, { method: 'POST', body: JSON.stringify({ branch }) });\n"
                 + "        const files = data.files || [];\n"
                 + "        if (!files.length) { tree.innerHTML = '<li class=\"ws-tree-empty\">No changed files yet. Push the preview branch first.</li>'; return; }\n"
-                + "        tree.innerHTML = files.map(f => { const js = String(f.path).replace(/\\\\/g, '\\\\\\\\').replace(/'/g, \"\\\\'\"); return `<li class=\"ws-file-row\"><button type=\"button\" class=\"ws-file-btn\" data-path=\"${f.path}\" onclick=\"openWorkspaceFile('${js}')\">${f.path}</button><button type=\"button\" class=\"ws-file-del\" onclick=\"deleteWorkspaceFile('${js}')\">Delete</button></li>`; }).join('');\n"
+                + "        tree.innerHTML = files.map(f => `<li class=\"ws-file-row\"><button type=\"button\" class=\"ws-file-btn\" data-path=\"${f.path}\">${f.path}</button><button type=\"button\" class=\"ws-file-del\" data-path=\"${f.path}\">Delete</button></li>`).join('');\n"
+                + "        if (!tree.dataset.bound) {\n"
+                + "          tree.dataset.bound = '1';\n"
+                + "          tree.addEventListener('click', function(ev) {\n"
+                + "            const del = ev.target.closest('.ws-file-del');\n"
+                + "            const open = ev.target.closest('.ws-file-btn');\n"
+                + "            if (del && del.dataset.path) { ev.preventDefault(); deleteWorkspaceFile(del.dataset.path); return; }\n"
+                + "            if (open && open.dataset.path) openWorkspaceFile(open.dataset.path);\n"
+                + "          });\n"
+                + "        }\n"
                 + "        const keepOpen = workspaceOpenPath && files.some(f => f.path === workspaceOpenPath);\n"
                 + "        if (keepOpen) await openWorkspaceFile(workspaceOpenPath);\n"
                 + "        else if (files[0] && files[0].path) await openWorkspaceFile(files[0].path);\n"
@@ -962,6 +1002,14 @@ public final class StaticDashboard {
                 + "          document.getElementById('stat-components').innerText = inv.components ? inv.components.length : 0;\n"
                 + "          renderPagesTable(inv.pages);\n"
                 + "          renderComponentsTable(inv.components);\n"
+                + "          if (inv.pages.length && document.getElementById('btn-migrate')) document.getElementById('btn-migrate').disabled = false;\n"
+                + "        }\n"
+                + "      } catch (e) {}\n"
+                + "      if (typeof loadPreviewArtifacts === 'function') { try { await loadPreviewArtifacts(); } catch (e) {} }\n"
+                + "      try {\n"
+                + "        const jobs = await api(`projects/${currentProjectId}/jobs`);\n"
+                + "        if (Array.isArray(jobs) && jobs.length && jobs[0].state && jobs[0].state !== 'DISCOVERING' && jobs[0].state !== 'PLANNED') {\n"
+                + "          if (document.getElementById('btn-migrate')) document.getElementById('btn-migrate').disabled = false;\n"
                 + "        }\n"
                 + "      } catch (e) {}\n"
                 + "\n"
@@ -1006,11 +1054,12 @@ public final class StaticDashboard {
                 + "    }\n"
                 + "\n"
                 + "    function renderPagesTable(pages) {\n"
+                + "      if (typeof renderPagesPreview === 'function') { renderPagesPreview(pages); return; }\n"
                 + "      const tbody = document.querySelector('#table-pages tbody');\n"
                 + "      if (!tbody) return;\n"
                 + "      tbody.innerHTML = (pages && pages.length > 0)\n"
-                + "        ? pages.map(p => `<tr><td><code>${p.path}</code></td><td>${p.title || '-'}</td><td>${p.template || '-'}</td><td><span style=\"color:${p.eligible !== false ? 'var(--accent)' : 'var(--danger)'}; font-weight:700;\">${p.eligible !== false ? '● ELIGIBLE' : '○ EXCLUDED'}</span></td></tr>`).join('')\n"
-                + "        : '<tr><td colspan=\"4\">No pages discovered yet.</td></tr>';\n"
+                + "        ? pages.map(p => `<tr><td><code>${p.path}</code></td><td>${p.title || '-'}</td><td>${p.template || '-'}</td></tr>`).join('')\n"
+                + "        : '<tr><td colspan=\"3\">No pages discovered yet.</td></tr>';\n"
                 + "    }\n"
                 + "\n"
                 + "    function renderComponentsTable(components) {\n"
@@ -1076,5 +1125,10 @@ public final class StaticDashboard {
                 + "  </script>\n"
                 + "</body>\n"
                 + "</html>\n";
+    }
+
+    /** Breaks javac's 64KB string-constant folding for this generated page. */
+    private static String runtimeJoin() {
+        return new String();
     }
 }

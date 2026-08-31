@@ -8,8 +8,6 @@ import com.adobe.aem.modernizer.ai.routing.AiRoutingPolicy;
 import com.adobe.aem.modernizer.connectors.*;
 import com.adobe.aem.modernizer.mock.*;
 import com.adobe.aem.modernizer.persistence.Store;
-import com.adobe.aem.modernizer.scopes.MarkerEvaluator;
-import com.adobe.aem.modernizer.services.ClarificationService;
 import com.adobe.aem.modernizer.services.EstimatorService;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -26,9 +24,7 @@ public class ModernizerBundleActivator {
     private static final Logger LOG = LoggerFactory.getLogger(ModernizerBundleActivator.class);
 
     @Reference private transient Store store;
-    @Reference private transient MarkerEvaluator marker;
     @Reference private transient EstimatorService estimator;
-    @Reference private transient ClarificationService clarifications;
     @Reference private transient Orchestrator orchestrator;
     @Reference private transient AiGateway ai;
     @Reference(cardinality = org.osgi.service.component.annotations.ReferenceCardinality.OPTIONAL)
@@ -63,7 +59,6 @@ public class ModernizerBundleActivator {
         // otherwise fall back to MockGitHubClient.
         AemClient aemAuthor = (realAemClient != null) ? realAemClient
                 : new MockAemClient("https://mock-aem.local", "author", 42, true);
-        AemClient aemPublish = new MockAemClient("https://mock-aem.local", "publish", 42, true);
         GitHubClient gh = (gitHubClient != null) ? gitHubClient : new MockGitHubClient();
         FigmaClient figma = new MockFigmaClient("https://www.figma.com/design/abcdef/WKND");
         EdsClient eds = new MockEdsClient("https://eds-mock.local");
@@ -72,34 +67,34 @@ public class ModernizerBundleActivator {
         if (orchestrator != null) {
             // Register Core Phase 1 Agents
             orchestrator.registerCoreAgents(
-                    new ConnectionAgent(aemAuthor, aemPublish, gh, figma, eds, browser, store, ai),
-                    new DiscoveryAgent(aemAuthor, store, ai, marker),
+                    new ConnectionAgent(aemAuthor, gh, eds, browser, store),
+                    new DiscoveryAgent(aemAuthor, store),
                     new ComponentIntelligenceAgent(store, ai),
                     new ComponentMappingAgent(store, ai),
-                    new TemplateAnalysisAgent(store, ai),
-                    new ContentAnalysisAgent(store, ai),
-                    new AssetAnalysisAgent(aemAuthor, store, ai),
-                    new ContentFragmentAnalysisAgent(store, ai),
-                    new MsmAnalysisAgent(store, ai),
-                    new FigmaAnalysisAgent(figma, store, ai),
-                    new MigrationPlannerAgent(store, ai, estimator),
+                    new TemplateAnalysisAgent(store),
+                    new ContentAnalysisAgent(store),
+                    new AssetAnalysisAgent(store),
+                    new ContentFragmentAnalysisAgent(store),
+                    new MsmAnalysisAgent(store),
+                    new FigmaAnalysisAgent(figma, store),
+                    new MigrationPlannerAgent(store, estimator),
                     new BlockGenerationAgent(store, ai),
                     new CodeGenerationAgent(store, ai),
                     new ContentMigrationAgent(store, ai),
-                    new AuthoringAgent(aemAuthor, store, ai),
+                    new AuthoringAgent(store),
                     new PreviewAgent(gh, eds, store, ai),
-                    new ValidationAgent(browser, store, ai),
-                    new VisualValidationAgent(browser, store, ai),
+                    new ValidationAgent(browser, store),
+                    new VisualValidationAgent(store),
                     new SelfRepairAgent(store, ai),
-                    new PublishingAgent(gh, store, ai),
-                    new VerificationAgent(browser, store, ai)
+                    new PublishingAgent(gh, store),
+                    new VerificationAgent(store)
             );
 
             // Register Phase 2 Advanced Agents
-            orchestrator.register(new AdvancedFigmaIntelligenceAgent(figma, store, ai));
-            orchestrator.register(new AdvancedVisualValidationAgent(browser, store, ai));
+            orchestrator.register(new AdvancedFigmaIntelligenceAgent(store, ai));
+            orchestrator.register(new AdvancedVisualValidationAgent(store, ai));
             orchestrator.register(new AdvancedRepairAgent(store, ai, 5));
-            orchestrator.register(new AdvancedRolloutAgent(store, ai, RolloutPolicy.defaultPolicy()));
+            orchestrator.register(new AdvancedRolloutAgent(store, RolloutPolicy.defaultPolicy()));
 
             LOG.info("Modernizer OSGi agent graph wired: {} agents ready.", orchestrator.getAgents().size());
         }

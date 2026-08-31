@@ -4,7 +4,6 @@ import com.adobe.aem.modernizer.ModernizerException;
 import com.adobe.aem.modernizer.agents.Orchestrator;
 import com.adobe.aem.modernizer.connectors.GitHubClient;
 import com.adobe.aem.modernizer.connectors.GitHubFlow;
-import com.adobe.aem.modernizer.connectors.RealGitHubClient;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.*;
 import com.adobe.aem.modernizer.util.JsonUtil;
@@ -151,6 +150,11 @@ public class ApiRouter {
                 if (tokens.length >= 3) {
                     String sub = tokens[2];
 
+                    if ("delete".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
+                        if (store != null) store.deleteProject(projectId);
+                        return "{\"status\":\"DELETED\"}";
+                    }
+
                     if ("dryrun".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
                         ProjectRecord p = getOrCreateStubProject(projectId);
                         JobRecord job = (orchestrator != null) ? orchestrator.runDryRun(p, "admin") : new JobRecord("job-mock", projectId, "DRY_RUN");
@@ -172,12 +176,6 @@ public class ApiRouter {
                     if ("publish".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
                         ProjectRecord p = getOrCreateStubProject(projectId);
                         JobRecord job = (orchestrator != null) ? orchestrator.openPullRequest(p, "admin") : new JobRecord("job-mock", projectId, "PUBLISH");
-                        return JsonUtil.toJson(job);
-                    }
-
-                    if ("push".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
-                        ProjectRecord p = getOrCreateStubProject(projectId);
-                        JobRecord job = (orchestrator != null) ? orchestrator.pushToPreviewBranch(p, "admin") : new JobRecord("job-mock", projectId, "PREVIEW");
                         return JsonUtil.toJson(job);
                     }
 
@@ -424,8 +422,7 @@ public class ApiRouter {
         }
 
         String branch = GitHubFlow.featureBranch(project.getId());
-        GitHubClient client = gitHubClient instanceof RealGitHubClient
-                ? ((RealGitHubClient) gitHubClient).forProject(project) : gitHubClient;
+        GitHubClient client = GitHubFlow.clientFor(gitHubClient, project);
 
         if ("install-workflow".equals(command)) {
             try {
@@ -486,8 +483,7 @@ public class ApiRouter {
             return "{\"error\":\"GitHub client not available\"}";
         }
         ProjectRecord project = store != null ? store.getProject(projectId).orElse(null) : null;
-        GitHubClient client = (gitHubClient instanceof RealGitHubClient && project != null)
-                ? ((RealGitHubClient) gitHubClient).forProject(project) : gitHubClient;
+        GitHubClient client = GitHubFlow.clientFor(gitHubClient, project);
         Map<String, Object> run = client.getWorkflowRun(runId);
         if (run == null) {
             if (resp != null) resp.setStatus(404);
@@ -587,8 +583,7 @@ public class ApiRouter {
         String baseBranch = project.getEdsBranch() != null && !project.getEdsBranch().isBlank()
                 ? project.getEdsBranch().trim() : gitHubClient.getDefaultBranch();
 
-        GitHubClient client = gitHubClient instanceof RealGitHubClient
-                ? ((RealGitHubClient) gitHubClient).forProject(project) : gitHubClient;
+        GitHubClient client = GitHubFlow.clientFor(gitHubClient, project);
 
         List<Map<String, Object>> changedFiles;
         Map<String, Object> latestRun;
@@ -834,10 +829,7 @@ public class ApiRouter {
     }
 
     private GitHubClient clientFor(ProjectRecord project) {
-        if (gitHubClient instanceof RealGitHubClient && project != null) {
-            return ((RealGitHubClient) gitHubClient).forProject(project);
-        }
-        return gitHubClient;
+        return GitHubFlow.clientFor(gitHubClient, project);
     }
 
     private String requiredBranch(String body, HttpServletResponse resp) {

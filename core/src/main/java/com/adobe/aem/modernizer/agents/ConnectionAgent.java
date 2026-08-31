@@ -1,7 +1,10 @@
 package com.adobe.aem.modernizer.agents;
 
-import com.adobe.aem.modernizer.ai.AiGateway;
-import com.adobe.aem.modernizer.connectors.*;
+import com.adobe.aem.modernizer.connectors.AemClient;
+import com.adobe.aem.modernizer.connectors.BrowserClient;
+import com.adobe.aem.modernizer.connectors.EdsClient;
+import com.adobe.aem.modernizer.connectors.GitHubClient;
+import com.adobe.aem.modernizer.connectors.GitHubFlow;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.JobEventRecord;
 import org.slf4j.Logger;
@@ -17,25 +20,18 @@ public class ConnectionAgent implements Agent {
     private static final Logger LOG = LoggerFactory.getLogger(ConnectionAgent.class);
 
     private final AemClient aemAuthor;
-    private final AemClient aemPublish;
     private final GitHubClient gitHub;
-    private final FigmaClient figma;
     private final EdsClient eds;
     private final BrowserClient browser;
     private final Store store;
-    private final AiGateway ai;
 
-    public ConnectionAgent(AemClient aemAuthor, AemClient aemPublish, GitHubClient gitHub,
-                           FigmaClient figma, EdsClient eds, BrowserClient browser,
-                           Store store, AiGateway ai) {
+    public ConnectionAgent(AemClient aemAuthor, GitHubClient gitHub, EdsClient eds,
+                           BrowserClient browser, Store store) {
         this.aemAuthor = aemAuthor;
-        this.aemPublish = aemPublish;
         this.gitHub = gitHub;
-        this.figma = figma;
         this.eds = eds;
         this.browser = browser;
         this.store = store;
-        this.ai = ai;
     }
 
     @Override
@@ -50,9 +46,7 @@ public class ConnectionAgent implements Agent {
 
     @Override
     public void execute(AgentContext ctx) throws com.adobe.aem.modernizer.ModernizerException {
-        GitHubClient gh = (gitHub instanceof com.adobe.aem.modernizer.connectors.RealGitHubClient && ctx.getProject() != null)
-                ? ((com.adobe.aem.modernizer.connectors.RealGitHubClient) gitHub).forProject(ctx.getProject())
-                : gitHub;
+        GitHubClient gh = GitHubFlow.clientFor(gitHub, ctx.getProject());
 
         boolean authorOk = aemAuthor == null || aemAuthor.testConnection();
         boolean ghOk = gh == null || gh.testConnection();

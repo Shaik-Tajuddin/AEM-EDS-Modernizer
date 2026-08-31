@@ -1,11 +1,9 @@
 package com.adobe.aem.modernizer.agents;
 
-import com.adobe.aem.modernizer.ai.AiGateway;
 import com.adobe.aem.modernizer.connectors.AemClient;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.JobEventRecord;
 import com.adobe.aem.modernizer.persistence.model.SiteInventory;
-import com.adobe.aem.modernizer.scopes.MarkerEvaluator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,14 +18,10 @@ public class DiscoveryAgent implements Agent {
 
     private final AemClient aemClient;
     private final Store store;
-    private final AiGateway ai;
-    private final MarkerEvaluator markerEvaluator;
 
-    public DiscoveryAgent(AemClient aemClient, Store store, AiGateway ai, MarkerEvaluator markerEvaluator) {
+    public DiscoveryAgent(AemClient aemClient, Store store) {
         this.aemClient = aemClient;
         this.store = store;
-        this.ai = ai;
-        this.markerEvaluator = markerEvaluator;
     }
 
     @Override

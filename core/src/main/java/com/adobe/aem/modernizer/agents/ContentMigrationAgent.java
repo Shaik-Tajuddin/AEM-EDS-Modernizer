@@ -10,6 +10,7 @@ import com.adobe.aem.modernizer.persistence.model.GeneratedFileRecord;
 import com.adobe.aem.modernizer.persistence.model.JobEventRecord;
 import com.adobe.aem.modernizer.persistence.model.SiteInventory;
 import com.adobe.aem.modernizer.persistence.model.UrlRedirectRecord;
+import com.adobe.aem.modernizer.dashboard.DaDocumentBuilder;
 import com.adobe.aem.modernizer.services.DependencyGraphService;
 import com.adobe.aem.modernizer.services.UrlRedirectService;
 import org.slf4j.Logger;
@@ -90,6 +91,8 @@ public class ContentMigrationAgent implements Agent {
                 }
             }
 
+            String daHtml = DaDocumentBuilder.fromMarkdown(markdown, pageTitle, page.getPath());
+
             GeneratedFileRecord file = new GeneratedFileRecord(
                     UUID.randomUUID().toString(),
                     ctx.getProject().getId(),
@@ -103,6 +106,18 @@ public class ContentMigrationAgent implements Agent {
 
             if (store != null) {
                 store.saveGeneratedFile(file);
+                String daPath = MIGRATED_PAGES_DIR + "/" + relative + ".html";
+                GeneratedFileRecord daFile = new GeneratedFileRecord(
+                        UUID.randomUUID().toString(),
+                        ctx.getProject().getId(),
+                        ctx.getJob().getId(),
+                        daPath,
+                        "DA_HTML",
+                        daHtml
+                );
+                daFile.setSourcePath(page.getPath());
+                daFile.setVirtualDiffOnly(ctx.isDryRun());
+                store.saveGeneratedFile(daFile);
             }
         }
 

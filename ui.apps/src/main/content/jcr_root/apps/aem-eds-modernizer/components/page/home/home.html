@@ -255,11 +255,13 @@
           <div class="block-detail">
             <div class="block-detail-header">
               <div class="block-file-tabs">
-                <button id="filetab-demo" class="block-file-tab active" onclick="switchBlockFileTab('demo')">👁️ Live Demo (UE HTML)</button>
-                <button id="filetab-json" class="block-file-tab" onclick="switchBlockFileTab('json')">⚙️ Model (_*.json)</button>
-                <button id="filetab-js" class="block-file-tab" onclick="switchBlockFileTab('js')">📄 Script (*.js)</button>
-                <button id="filetab-css" class="block-file-tab" onclick="switchBlockFileTab('css')">🎨 Style (*.css)</button>
-                <button id="filetab-readme" class="block-file-tab" onclick="switchBlockFileTab('readme')">📖 README.md</button>
+                <button id="filetab-demo" class="block-file-tab active" onclick="switchBlockFileTab('demo')">HTML view</button>
+                <button id="filetab-da" class="block-file-tab" onclick="switchBlockFileTab('da')">DA compatible</button>
+                <button id="filetab-ue" class="block-file-tab" onclick="switchBlockFileTab('ue')">UE authoring</button>
+                <button id="filetab-json" class="block-file-tab" onclick="switchBlockFileTab('json')">Model (_*.json)</button>
+                <button id="filetab-js" class="block-file-tab" onclick="switchBlockFileTab('js')">Script</button>
+                <button id="filetab-css" class="block-file-tab" onclick="switchBlockFileTab('css')">Style</button>
+                <button id="filetab-readme" class="block-file-tab" onclick="switchBlockFileTab('readme')">README</button>
               </div>
               <div style="font-size:0.8rem; color:var(--text-dim);" id="block-file-path">blocks/...</div>
             </div>
@@ -278,9 +280,15 @@
             <div id="block-view-demo" class="preview-frame-container">
               <div class="preview-card" id="block-demo-rendered">
                 <div style="text-align:center; padding:40px 20px; color:#64748b;">
-                  Select a generated block to view its Universal Editor rendered demo.
+                  Select a generated block to view its HTML demo.
                 </div>
               </div>
+            </div>
+            <div id="block-view-da" class="preview-frame-container" style="display:none;">
+              <div class="preview-card" id="block-da-rendered"></div>
+            </div>
+            <div id="block-view-ue" class="preview-frame-container" style="display:none;">
+              <div class="preview-card" id="block-ue-rendered"></div>
             </div>
           </div>
         </div>
@@ -299,7 +307,7 @@
       <div class="card" style="margin-bottom: 20px;">
         <div class="card-title">Discovered Pages & Content Migration Inspector</div>
         <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:16px;">
-          Select a page on the left to preview its compiled Document Authoring (DA) preview showing sections, block tables, and properties extracted from AEM JCR.
+          Select a page to preview HTML, Document Authoring (DA) markup, and Universal Editor authoring instructions.
         </p>
         <div class="block-explorer">
           <!-- Left: List of Pages -->
@@ -320,9 +328,10 @@
           <div class="block-detail">
             <div class="block-detail-header">
               <div class="block-file-tabs">
-                <button id="pagetab-preview" class="block-file-tab active" onclick="switchPageFileTab('preview')">👁️ DA Preview</button>
-                <button id="pagetab-source" class="block-file-tab" onclick="switchPageFileTab('source')">📝 Markdown Source</button>
-                <button id="pagetab-html" class="block-file-tab" onclick="switchPageFileTab('html')">🌐 Live HTML Page</button>
+                <button id="pagetab-html" class="block-file-tab active" onclick="switchPageFileTab('html')">HTML view</button>
+                <button id="pagetab-preview" class="block-file-tab" onclick="switchPageFileTab('preview')">DA compatible</button>
+                <button id="pagetab-ue" class="block-file-tab" onclick="switchPageFileTab('ue')">UE authoring</button>
+                <button id="pagetab-source" class="block-file-tab" onclick="switchPageFileTab('source')">Markdown source</button>
               </div>
               <div style="font-size:0.8rem; color:var(--text-dim);" id="page-preview-path">Select a page to preview</div>
             </div>
@@ -335,19 +344,22 @@
               <pre id="page-source-content" class="code-viewer">// Select a page to view Markdown source</pre>
             </div>
             <!-- Full live HTML page view, rendered from the page root path + its authored blocks -->
-            <div id="page-view-html" class="preview-frame-container" style="display:none;">
+            <div id="page-view-html" class="preview-frame-container">
               <div class="preview-card" id="page-html-rendered" style="padding:0; border:none; background:transparent;">
                 <div style="text-align:center; padding:40px 20px; color:#64748b;">
                   Select a page to view its complete authored HTML page.
                 </div>
               </div>
             </div>
-            <div id="page-view-preview" class="preview-frame-container">
+            <div id="page-view-preview" class="preview-frame-container" style="display:none;">
               <div class="preview-card" id="page-preview-rendered" style="background: white; padding: 20px; border-radius: 6px; border: 1px solid #e2e8f0; min-height: 350px;">
                 <div style="text-align:center; padding:40px 20px; color:#64748b;">
                   Select a page to view its Document Authoring preview.
                 </div>
               </div>
+            </div>
+            <div id="page-view-ue" class="preview-frame-container" style="display:none;">
+              <div class="preview-card" id="page-ue-rendered" style="background: white; padding: 20px; border-radius: 6px; border: 1px solid #e2e8f0; min-height: 350px;"></div>
             </div>
           </div>
         </div>

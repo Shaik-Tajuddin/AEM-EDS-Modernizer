@@ -235,7 +235,7 @@ async function deleteCurrentProject() {
   if (!confirm(`Delete project "${label}"?\n\nThis removes its saved config, jobs, inventory and generated blocks. This cannot be undone.`)) return;
 
   try {
-    await api(`projects/${encodeURIComponent(currentProjectId)}`, { method: "DELETE" });
+    await api(`projects/${encodeURIComponent(currentProjectId)}/delete`, { method: "POST" });
     showToast(`🗑️ Project '${label}' deleted`);
     projectsList = projectsList.filter((x) => x.id !== currentProjectId);
     currentProjectId = (projectsList && projectsList.length > 0) ? projectsList[0].id : "wknd-site";
@@ -560,10 +560,24 @@ async function loadWorkspaceFiles(branch) {
     tree.innerHTML = files
       .map((f) => {
         const safe = String(f.path).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
-        const js = String(f.path).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-        return `<li class="ws-file-row"><button type="button" class="ws-file-btn" data-path="${safe}" onclick="openWorkspaceFile('${js}')">${safe}</button><button type="button" class="ws-file-del" title="Delete from branch" onclick="deleteWorkspaceFile('${js}')">Delete</button></li>`;
+        return `<li class="ws-file-row"><button type="button" class="ws-file-btn" data-path="${safe}">${safe}</button><button type="button" class="ws-file-del" data-path="${safe}" title="Delete from branch">Delete</button></li>`;
       })
       .join("");
+    if (!tree.dataset.bound) {
+      tree.dataset.bound = "1";
+      tree.addEventListener("click", (ev) => {
+        const del = ev.target.closest(".ws-file-del");
+        const open = ev.target.closest(".ws-file-btn");
+        if (del && del.dataset.path) {
+          ev.preventDefault();
+          deleteWorkspaceFile(del.dataset.path);
+          return;
+        }
+        if (open && open.dataset.path) {
+          openWorkspaceFile(open.dataset.path);
+        }
+      });
+    }
     const keepOpen = workspaceOpenPath && files.some((f) => f.path === workspaceOpenPath);
     if (keepOpen) {
       await openWorkspaceFile(workspaceOpenPath);
@@ -980,7 +994,7 @@ function selectBlock(name) {
 
 function switchBlockFileTab(tabName) {
   activeFileTab = tabName;
-  ["demo", "json", "js", "css", "readme"].forEach((t) => {
+  ["demo", "da", "ue", "json", "js", "css", "readme"].forEach((t) => {
     const el = document.getElementById("filetab-" + t);
     if (el) {
       if (t === tabName) el.classList.add("active");
@@ -1000,6 +1014,8 @@ function renderActiveBlockDetail() {
   const codeContent = document.getElementById("block-code-content");
   const demoContainer = document.getElementById("block-view-demo");
   const demoRendered = document.getElementById("block-demo-rendered");
+  const daContainer = document.getElementById("block-view-da");
+  const ueContainer = document.getElementById("block-view-ue");
 
   if (pathEl) {
     pathEl.innerText = fileObj
@@ -1018,6 +1034,26 @@ function renderActiveBlockDetail() {
       sourcePathEl.textContent = "—";
       sourceRefEl.style.display = "none";
     }
+  }
+
+  if (daContainer) daContainer.style.display = "none";
+  if (ueContainer) ueContainer.style.display = "none";
+
+  if (activeFileTab === "da") {
+    if (codeContainer) codeContainer.style.display = "none";
+    if (demoContainer) demoContainer.style.display = "none";
+    if (daContainer) daContainer.style.display = "block";
+    const daEl = document.getElementById("block-da-rendered");
+    if (daEl) daEl.innerHTML = renderBlockDaMarkup(b);
+    return;
+  }
+  if (activeFileTab === "ue") {
+    if (codeContainer) codeContainer.style.display = "none";
+    if (demoContainer) demoContainer.style.display = "none";
+    if (ueContainer) ueContainer.style.display = "block";
+    const ueEl = document.getElementById("block-ue-rendered");
+    if (ueEl) ueEl.innerHTML = renderBlockUeGuide(b);
+    return;
   }
 
   if (activeFileTab === "demo") {
@@ -1077,7 +1113,7 @@ function copyActiveCode() {
 }
 
 let activePagePath = "";
-let activePageTab = "preview"; // preview, source
+let activePageTab = "html";
 
 function renderPagesTable(pages) {
   const tbody = document.querySelector("#table-pages tbody");
@@ -1104,7 +1140,7 @@ function selectPageRow(path) {
   const tr = document.querySelector(`#table-pages tbody tr[data-path="${path}"]`);
   if (tr) tr.classList.add("active-row");
 
-  const fileObj = generatedFiles.find(f => f.sourcePath === path && f.path.endsWith(".md"));
+  const fileObj = generatedFiles.find(f => f.sourcePath === path && f.path && f.path.indexOf("docs/migrated-pages/") === 0 && f.path.endsWith(".md"));
   const pathLabel = document.getElementById("page-preview-path");
   if (pathLabel) pathLabel.textContent = fileObj ? fileObj.path : "No migrated file found";
 
@@ -1160,7 +1196,7 @@ function jumpToBlock(blockName) {
 
 function switchPageFileTab(tab) {
   activePageTab = tab;
-  document.querySelectorAll("#pagetab-preview, #pagetab-source, #pagetab-html").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll("#pagetab-preview, #pagetab-source, #pagetab-html, #pagetab-ue").forEach(b => b.classList.remove("active"));
   const activeBtn = document.getElementById("pagetab-" + tab);
   if (activeBtn) activeBtn.classList.add("active");
 
@@ -1174,9 +1210,14 @@ function renderActivePageDetail() {
   const sourceContent = document.getElementById("page-source-content");
   const htmlContainer = document.getElementById("page-view-html");
   const htmlRendered = document.getElementById("page-html-rendered");
+  const ueContainer = document.getElementById("page-view-ue");
+  const ueRendered = document.getElementById("page-ue-rendered");
 
-  const fileObj = generatedFiles.find(f => f.sourcePath === activePagePath && f.path.endsWith(".md"));
+  const fileObj = generatedFiles.find(f => f.sourcePath === activePagePath && f.path && f.path.indexOf("docs/migrated-pages/") === 0 && f.path.endsWith(".md"))
+    || generatedFiles.find(f => f.fileType === "SECTION_MD" && f.sourcePath === activePagePath);
   const markdown = fileObj ? fileObj.content : "";
+
+  if (ueContainer) ueContainer.style.display = "none";
 
   if (activePageTab === "preview") {
     if (sourceContainer) sourceContainer.style.display = "none";
@@ -1184,7 +1225,19 @@ function renderActivePageDetail() {
     if (previewContainer) previewContainer.style.display = "block";
     if (previewRendered) {
       if (markdown) {
-        previewRendered.innerHTML = formatMarkdownToDA(markdown);
+        const titleMatch = markdown.match(/^#\s+(.+)$/m);
+        const title = (titleMatch && titleMatch[1]) || "";
+        const daFile = generatedFiles.find((f) => f.sourcePath === activePagePath && f.fileType === "DA_HTML");
+        const html = (daFile && daFile.content) || daFromMarkdownClient(markdown, title, activePagePath);
+        const paste = daPasteInner(html);
+        window.__daPaste = paste;
+        const daPath = daDocPathClient(activePagePath);
+        previewRendered.innerHTML =
+          `<p style="font-size:0.82rem;color:#334155;margin:0 0 8px;">DA document path (from AEM root): <code>${escapeAttr(daPath)}</code></p>` +
+          `<p style="font-size:0.78rem;color:#64748b;margin:0 0 10px;">Paste these tables into Document Authoring. The first row of each table is the block name. Styled markdown tables will not render as blocks.</p>` +
+          `<button type="button" class="btn btn-primary" onclick="copyDaPaste()">Copy for Document Authoring</button>` +
+          `<div class="da-editor" style="background:#fff;color:#202124;padding:16px;margin-top:12px;border:1px solid #dadce0;">${daPasteInner(html)}</div>` +
+          `<textarea id="da-paste-src" style="width:100%;min-height:180px;margin-top:10px;font-family:ui-monospace,Menlo,monospace;font-size:0.75rem;background:#0f172a;color:#e2e8f0;padding:12px;border-radius:6px;">${escapeAttr(paste)}</textarea>`;
       } else {
         previewRendered.innerHTML = `
           <div style="text-align:center; padding:40px 20px; color:#64748b;">
@@ -1193,6 +1246,12 @@ function renderActivePageDetail() {
         `;
       }
     }
+  } else if (activePageTab === "ue") {
+    if (sourceContainer) sourceContainer.style.display = "none";
+    if (htmlContainer) htmlContainer.style.display = "none";
+    if (previewContainer) previewContainer.style.display = "none";
+    if (ueContainer) ueContainer.style.display = "block";
+    if (ueRendered) ueRendered.innerHTML = renderPageUeGuide(markdown);
   } else if (activePageTab === "html") {
     if (sourceContainer) sourceContainer.style.display = "none";
     if (previewContainer) previewContainer.style.display = "none";
@@ -1216,6 +1275,186 @@ function renderActivePageDetail() {
       sourceContent.innerText = markdown || "// No migrated markdown content available for this page.";
     }
   }
+}
+
+function inferUeFieldType(name) {
+  const n = String(name || "").toLowerCase();
+  if (n.includes("image") || n.includes("file") || n.includes("asset")) return "reference";
+  if (n.includes("link") || n.includes("url") || n.includes("path")) return "aem-content";
+  if (n.includes("text") || n.includes("title") || n.includes("desc") || n.includes("copy")) return "richtext";
+  return "text";
+}
+
+function parseMarkdownBlockTables(markdown) {
+  const blocks = [];
+  if (!markdown) return blocks;
+  let current = null;
+  let headers = [];
+  markdown.split("\n").forEach((raw) => {
+    const line = raw.trim();
+    if (line.startsWith("### ")) {
+      current = { name: line.substring(4).trim(), fields: [] };
+      blocks.push(current);
+      headers = [];
+      return;
+    }
+    if (!current || !line.startsWith("|")) return;
+    const cols = line.split("|").map((c) => c.trim()).filter((c, i, a) => i > 0 && i < a.length - 1);
+    if (cols.every((c) => c.startsWith("-"))) return;
+    if (!headers.length) {
+      headers = cols;
+      return;
+    }
+    cols.forEach((val, i) => current.fields.push({ name: headers[i] || `col${i + 1}`, value: val }));
+  });
+  return blocks;
+}
+
+function daDocPathClient(aemPath) {
+  if (!aemPath) return "/index";
+  let p = aemPath;
+  if (p.startsWith("/content/wknd")) p = p.substring("/content/wknd".length);
+  else if (p.startsWith("/content/")) {
+    const i = p.indexOf("/", "/content/".length);
+    if (i > 0) p = p.substring(i);
+  }
+  return p || "/index";
+}
+
+function daPasteInner(html) {
+  const m = String(html || "").match(/<main>([\s\S]*?)<\/main>/i);
+  return m ? m[1].trim() : String(html || "").trim();
+}
+
+function copyDaPaste() {
+  const t = window.__daPaste || "";
+  navigator.clipboard.writeText(t).then(() => {
+    showToast("Copied DA HTML for " + daDocPathClient(activePagePath));
+  });
+}
+
+function daTableHtml(name, rows) {
+  let width = 1;
+  (rows || []).forEach((r) => {
+    width = Math.max(width, r.length || 1);
+  });
+  const header = name === "Metadata" ? "Metadata" : name;
+  let s = `<table>\n<tr><td colspan="${width}">${escapeAttr(header)}</td></tr>\n`;
+  if (!rows || !rows.length) s += "<tr><td></td></tr>\n";
+  (rows || []).forEach((r) => {
+    s += "<tr>";
+    for (let i = 0; i < width; i++) {
+      const c = r[i] || "";
+      const lower = String(c).toLowerCase();
+      const cell =
+        lower.startsWith("/content/dam/") || /\.(png|jpe?g|gif|webp|svg)$/.test(lower)
+          ? `<img src="${escapeAttr(c)}" alt="">`
+          : escapeAttr(c);
+      s += `<td>${cell}</td>`;
+    }
+    s += "</tr>\n";
+  });
+  return s + "</table>\n";
+}
+
+function daFromMarkdownClient(markdown, title, aemPath) {
+  const blocks = parseMarkdownBlockTables(markdown);
+  let inner = `<h1>${escapeAttr(title || "Page")}</h1>`;
+  blocks.forEach((b) => {
+    const rows = (b.fields || []).map((f) => [f.name, f.value]);
+    inner += daTableHtml(b.name, rows);
+  });
+  inner += daTableHtml("Metadata", [
+    ["title", title || ""],
+    ["source-path", aemPath || ""],
+  ]);
+  return `<body>\n<header></header>\n<main>\n<div>\n${inner}\n</div>\n</main>\n<footer></footer>\n</body>`;
+}
+
+function buildDaDocument(markdown) {
+  return daFromMarkdownClient(markdown, (markdown.match(/^#\s+(.+)$/m) || [])[1] || "", activePagePath);
+}
+
+function renderPageUeGuide(markdown) {
+  const blocks = parseMarkdownBlockTables(markdown);
+  const mapped = getBlocksForPagePath(activePagePath);
+  let html = `<div class="ue-guide" style="color:#0f172a;">
+    <h3 style="margin:0 0 8px;">Author this page in Universal Editor</h3>
+    <ol style="margin:0 0 16px 18px; line-height:1.6;">
+      <li>Open the page in AEM Universal Editor (authoring strategy UNIVERSAL_EDITOR).</li>
+      <li>Keep the JCR source <code>${escapeAttr(activePagePath || "")}</code>.</li>
+      <li>Insert each block from the component palette. Fields map to <code>_<block>.json</code> / component-models.json.</li>
+      <li>Migrated markdown is stored under <code>docs/migrated-pages/</code>. Do not edit fstab.yaml.</li>
+    </ol>`;
+  const names = new Set(blocks.map((b) => b.name));
+  mapped.forEach((b) => names.add(b.name));
+  if (!names.size) {
+    html += `<p>Generate the site to produce UE field instructions for this page.</p></div>`;
+    return html;
+  }
+  blocks.forEach((b) => {
+    html += `<h3 style="font-size:1rem;">Block: ${escapeAttr(b.name)}</h3>
+      <table style="width:100%; border-collapse:collapse; margin-bottom:12px; font-size:0.82rem;">
+      <thead><tr><th style="text-align:left;border-bottom:1px solid #cbd5e1;padding:6px;">Field</th><th style="text-align:left;border-bottom:1px solid #cbd5e1;padding:6px;">UE component</th><th style="text-align:left;border-bottom:1px solid #cbd5e1;padding:6px;">Sample</th></tr></thead><tbody>`;
+    b.fields.forEach((f) => {
+      html += `<tr><td style="padding:6px;border-bottom:1px solid #e2e8f0;"><code>${escapeAttr(f.name)}</code></td><td style="padding:6px;border-bottom:1px solid #e2e8f0;">${escapeAttr(inferUeFieldType(f.name))}</td><td style="padding:6px;border-bottom:1px solid #e2e8f0;">${escapeAttr(f.value)}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+  });
+  mapped.forEach((b) => {
+    const json = b.files && b.files.json ? b.files.json.content : "";
+    html += renderBlockUeGuide(b, json);
+  });
+  return html + `</div>`;
+}
+
+function renderBlockDaMarkup(b) {
+  const fields = ueFieldsFromBlock(b);
+  const rows = fields.length ? fields.map((f) => [f.name, ""]) : [];
+  const table = daTableHtml(b.name, rows);
+  window.__daPaste = table;
+  return `<p style="font-size:0.82rem;color:#334155;">Paste this table into Document Authoring. First row is the block name (colspan).</p>
+    <button type="button" class="btn btn-primary" onclick="copyDaPaste()">Copy for Document Authoring</button>
+    <div class="da-editor" style="background:#fff;color:#202124;padding:16px;margin-top:12px;border:1px solid #dadce0;">${table}</div>
+    <textarea style="width:100%;min-height:140px;margin-top:10px;font-family:ui-monospace,Menlo,monospace;font-size:0.75rem;background:#0f172a;color:#e2e8f0;padding:12px;">${escapeAttr(table)}</textarea>`;
+}
+
+function ueFieldsFromBlock(b) {
+  const raw = b.files && b.files.json ? b.files.json.content : "";
+  if (!raw) return [];
+  try {
+    const j = JSON.parse(raw);
+    const models = Array.isArray(j.models) ? j.models : Array.isArray(j) ? j : j.models ? [j.models] : [];
+    const fields = [];
+    models.forEach((m) => (m.fields || []).forEach((f) => fields.push({ name: f.name || f.id || "", component: f.component || inferUeFieldType(f.name) })));
+    return fields;
+  } catch (e) {
+    return [];
+  }
+}
+
+function renderBlockUeGuide(b) {
+  const fields = ueFieldsFromBlock(b);
+  let html = `<div class="ue-guide" style="color:#0f172a;">
+    <h3 style="margin:0 0 8px;">Author <code>${escapeAttr(b.name)}</code> in Universal Editor</h3>
+    <ol style="margin:0 0 12px 18px; line-height:1.6;">
+      <li>Use the generated model <code>blocks/${escapeAttr(b.name)}/_${escapeAttr(b.name)}.json</code>.</li>
+      <li>In UE, insert the block from the component palette onto the section.</li>
+      <li>Fill the property panel. Images use <code>reference</code>, links use <code>aem-content</code>, rich copy uses <code>richtext</code>.</li>
+    </ol>`;
+  if (fields.length) {
+    html += `<table style="width:100%;border-collapse:collapse;font-size:0.82rem;"><thead><tr><th style="text-align:left;padding:6px;border-bottom:1px solid #cbd5e1;">Field</th><th style="text-align:left;padding:6px;border-bottom:1px solid #cbd5e1;">Component</th></tr></thead><tbody>`;
+    fields.forEach((f) => {
+      html += `<tr><td style="padding:6px;border-bottom:1px solid #e2e8f0;"><code>${escapeAttr(f.name)}</code></td><td style="padding:6px;border-bottom:1px solid #e2e8f0;">${escapeAttr(f.component || inferUeFieldType(f.name))}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+  } else {
+    html += `<p>Generate blocks to create the UE model for this component.</p>`;
+  }
+  if (b.files && b.files.readme && b.files.readme.content) {
+    html += `<h3 style="font-size:1rem;margin-top:16px;">README</h3><pre style="white-space:pre-wrap;font-size:0.78rem;background:#0f172a;color:#e2e8f0;padding:12px;border-radius:6px;">${escapeAttr(b.files.readme.content)}</pre>`;
+  }
+  return html + `</div>`;
 }
 
 /**

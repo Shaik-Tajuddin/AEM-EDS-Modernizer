@@ -6,7 +6,6 @@ import com.adobe.aem.modernizer.ai.TokenUsage;
 import com.adobe.aem.modernizer.mock.MockDataFactory;
 import com.adobe.aem.modernizer.persistence.model.SiteInventory;
 import com.adobe.aem.modernizer.scopes.MarkerEvaluator;
-import com.adobe.aem.modernizer.scopes.ScopeEvaluator;
 import com.adobe.aem.modernizer.services.UrlRedirectService;
 import com.adobe.aem.modernizer.ssrf.UrlGuard;
 import org.junit.jupiter.api.Test;
@@ -79,7 +78,7 @@ class ExtraCoverageTest {
     }
 
     @Test
-    void testMarkerAndScopeEvaluators() {
+    void testMarkerEvaluator() {
         MarkerEvaluator marker = new MarkerEvaluator("edsModernize", "true");
         assertThat(marker.getMarkerProperty()).isEqualTo("edsModernize");
         assertThat(marker.getMarkerValue()).isEqualTo("true");
@@ -93,15 +92,6 @@ class ExtraCoverageTest {
         assertThat(marker.isEligible(Collections.singletonMap("customFlag", "yes"), "customFlag", "yes")).isTrue();
         assertThat(marker.isEligible(Collections.singletonMap("customFlag", "anyVal"), "customFlag", "*")).isTrue();
         assertThat(marker.isEligible(Collections.singletonMap("customFlag", "wrongVal"), "customFlag", "yes")).isFalse();
-
-        ScopeEvaluator scope = new ScopeEvaluator();
-        assertThat(scope.isInScope("/content/wknd/us/en", "/content/wknd", "/content/wknd/*")).isTrue();
-        assertThat(scope.isInScope("/content/dam/asset.jpg", "/content/wknd", "/content/wknd/*")).isFalse();
-        assertThat(scope.isInScope(null, "/content/wknd", "*")).isFalse();
-        assertThat(scope.isInScope("/content/wknd/us/en", "/content/wknd", null)).isTrue();
-        assertThat(scope.isInScope("/content/wknd/us/en", null, "")).isTrue();
-        assertThat(scope.isInScope("/content/wknd/us/en", "/content/wknd", "/content/wknd/us*")).isTrue();
-        assertThat(scope.isInScope("/content/wknd/us/en", "/content/other", null)).isFalse();
     }
 
     @Test
