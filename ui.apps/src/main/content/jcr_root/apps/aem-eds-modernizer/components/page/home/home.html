@@ -30,7 +30,7 @@
         <button class="btn btn-outline" onclick="showTab('setup')">⚙️ Project Configuration</button>
         <button id="btn-dryrun" class="btn btn-primary" onclick="runDryRun()">🔍 Run Dry Run</button>
         <button id="btn-migrate" class="btn btn-primary" onclick="runMigration()" disabled>⚡ Generate & Build Blocks</button>
-        <button id="btn-publish" class="btn btn-accent" onclick="runPushToGit()" disabled>🚀 Commit & Push to Git</button>
+        <button id="btn-publish" class="btn btn-accent" onclick="runPushToGit()" disabled>🚀 Create PR</button>
       </div>
       <div class="actions-right">
         <button id="btn-delete-project" class="btn btn-danger" title="Delete this project" onclick="deleteCurrentProject()">🗑️ Delete Project</button>
@@ -474,7 +474,7 @@
         <div class="card-title">Confirm review</div>
         <label style="display:flex; gap:10px; align-items:flex-start; cursor:pointer; font-size:0.9rem;">
           <input type="checkbox" id="chk-vscode-reviewed" onchange="onVsCodeReviewToggle()" style="margin-top:4px;">
-          <span>I have reviewed this branch in VS Code. Enable <b>Commit &amp; Push to Git</b> to open a Pull Request from this branch (files will not be re-committed).</span>
+          <span>I have reviewed this branch in VS Code. Enable <b>Create PR</b> to open a Pull Request from this branch (files will not be re-committed).</span>
         </label>
       </div>
 

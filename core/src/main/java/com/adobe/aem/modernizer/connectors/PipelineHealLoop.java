@@ -136,7 +136,7 @@ public final class PipelineHealLoop {
                     || applyRepairs(client, ctx, store, ai, branch, logs);
             repaired = repaired || committed;
             if (!blockJsonValid(client, ctx, store, branch)) {
-                record(store, ctx, "Block _*.json is still invalid. Not dispatching modernizer-npm until JSON is repaired.");
+                record(store, ctx, "Block _*.json is still invalid. Not dispatching the Build workflow until JSON is repaired.");
                 putMeta(job, store, "ciHeal", "stuck");
                 return;
             }

@@ -88,6 +88,7 @@ public class PreviewAgent implements Agent {
             if (!toCommit.isEmpty()) {
                 gh.commitFiles(branch, toCommit, "feat: modernizer automated migration preview");
             }
+            GitHubFlow.deleteLegacyNpmWorkflow(gh, branch);
             PipelineHealLoop.restoreFstabFromBase(gh, ctx.getProject(), branch);
             PipelineHealLoop.start(gh, ctx, store, ai);
         }

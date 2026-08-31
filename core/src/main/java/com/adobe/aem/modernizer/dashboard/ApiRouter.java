@@ -344,7 +344,7 @@ public class ApiRouter {
         prompt.append("\nGuidelines:");
         prompt.append("\n- Keep answers concise (2-5 sentences) unless asked for detail.");
         prompt.append("\n- Reference the actual project state below when relevant.");
-        prompt.append("\n- Suggest concrete next steps in the migration pipeline (Connect → Dry Run → Generate Blocks → Review → Commit & Push).");
+        prompt.append("\n- Suggest concrete next steps in the migration pipeline (Connect → Dry Run → Generate Blocks → Review → Create PR).");
         prompt.append("\n- You can tell the operator to run actions like 'run dry run', 'show blocks', 'show events' — the dashboard executes them locally.");
         prompt.append("\n\n=== PROJECT CONTEXT ===");
         prompt.append("\nProject id: ").append(projectId);
@@ -545,7 +545,8 @@ public class ApiRouter {
         for (String target : targets) {
             try {
                 client.commitFiles(target, Collections.singletonList(yaml),
-                        "chore: add modernizer-npm GitHub Actions workflow");
+                        "chore: fold npm scripts into the Build workflow");
+                GitHubFlow.deleteLegacyNpmWorkflow(client, target);
                 committed = true;
             } catch (RuntimeException e) {
                 last = e;

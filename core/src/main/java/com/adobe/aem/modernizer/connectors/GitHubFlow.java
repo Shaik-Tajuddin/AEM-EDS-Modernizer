@@ -7,8 +7,9 @@ import com.adobe.aem.modernizer.persistence.model.ProjectRecord;
  */
 public final class GitHubFlow {
 
-    public static final String NPM_WORKFLOW_FILE = "modernizer-npm.yml";
+    public static final String NPM_WORKFLOW_FILE = "main.yaml";
     public static final String NPM_WORKFLOW_PATH = ".github/workflows/" + NPM_WORKFLOW_FILE;
+    public static final String LEGACY_NPM_WORKFLOW_PATH = ".github/workflows/modernizer-npm.yml";
     public static final String FSTAB_PATH = "fstab.yaml";
 
     public static boolean skipFromCommit(String path) {
@@ -94,5 +95,19 @@ public final class GitHubFlow {
             out.append(java.net.URLEncoder.encode(parts[i], java.nio.charset.StandardCharsets.UTF_8).replace("+", "%20"));
         }
         return out.toString();
+    }
+
+    /** Removes the leftover standalone npm workflow after it was folded into {@code main.yaml}. */
+    public static void deleteLegacyNpmWorkflow(GitHubClient client, String branch) {
+        if (client == null || branch == null || branch.isBlank()) {
+            return;
+        }
+        try {
+            if (client.getFileContent(branch, LEGACY_NPM_WORKFLOW_PATH) != null) {
+                client.deleteFile(branch, LEGACY_NPM_WORKFLOW_PATH);
+            }
+        } catch (RuntimeException ignored) {
+            // Best-effort cleanup when the file is already gone or the token cannot delete it.
+        }
     }
 }
