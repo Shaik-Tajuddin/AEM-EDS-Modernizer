@@ -277,7 +277,7 @@ mvn clean install -Pdeploy -Daem.host=http://localhost:4502 -Daem.user=admin -Da
 
 Access the control plane inside AEM:
 
-- **Direct SPA Route**: `http://localhost:4502/aem-eds-modernizer`
+- **Direct SPA Route**: `http://localhost:4502/content/aem-eds-modernizer/home.html`
 - **AEM Page Route**: `http://localhost:4502/content/aem-eds-modernizer/home.html`
 
 ---

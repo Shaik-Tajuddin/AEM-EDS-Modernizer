@@ -198,6 +198,21 @@ public class RealGitHubClient implements GitHubClient {
     }
 
     @Override
+    public String getRepositoryDefaultBranch() {
+        try {
+            ensureOwnerRepo();
+            JsonNode repoJson = get("/repos/" + owner + "/" + repo);
+            String remoteDefault = repoJson.path("default_branch").asText("");
+            if (!remoteDefault.isBlank()) {
+                return remoteDefault;
+            }
+        } catch (IOException | RuntimeException e) {
+            LOG.warn("Could not read repository default branch: {}", e.getMessage());
+        }
+        return getDefaultBranch();
+    }
+
+    @Override
     public boolean branchExists(String branch) {
         try {
             ensureOwnerRepo();
@@ -233,6 +248,19 @@ public class RealGitHubClient implements GitHubClient {
 
     @Override
     public void commitFiles(String branch, List<GeneratedFileRecord> files, String commitMessage) {
+        commitFilesInternal(branch, files, commitMessage, false);
+    }
+
+    /** Restores {@code fstab.yaml} from the EDS base branch; normal commits skip that path. */
+    public void commitPathAllowingFstab(String branch, GeneratedFileRecord file, String commitMessage) {
+        if (file == null) {
+            return;
+        }
+        commitFilesInternal(branch, List.of(file), commitMessage, true);
+    }
+
+    private void commitFilesInternal(String branch, List<GeneratedFileRecord> files, String commitMessage,
+                                     boolean allowFstab) {
         if (files == null || files.isEmpty()) {
             LOG.warn("commitFiles called with no files; skipping");
             return;
@@ -252,6 +280,9 @@ public class RealGitHubClient implements GitHubClient {
             for (GeneratedFileRecord file : files) {
                 String path = normalizePath(file.getPath());
                 if (path == null || file.getContent() == null) {
+                    continue;
+                }
+                if (!allowFstab && GitHubFlow.skipFromCommit(path)) {
                     continue;
                 }
                 String blobSha = createBlob(file.getContent());
@@ -349,6 +380,7 @@ public class RealGitHubClient implements GitHubClient {
             }
             JsonNode run = runs.get(0);
             Map<String, Object> result = new LinkedHashMap<>();
+            result.put("runId", run.path("id").asText());
             result.put("name", run.path("name").asText());
             result.put("status", run.path("status").asText());
             result.put("conclusion", run.path("conclusion").isNull() ? null : run.path("conclusion").asText());
@@ -359,6 +391,190 @@ public class RealGitHubClient implements GitHubClient {
         } catch (IOException | RuntimeException e) {
             LOG.warn("Could not fetch latest workflow run for branch '{}': {}", branch, e.getMessage());
             return null;
+        }
+    }
+
+    @Override
+    public Map<String, Object> dispatchWorkflow(String ref, String workflowFile, Map<String, String> inputs) {
+        ensureOwnerRepo();
+        String file = (workflowFile == null || workflowFile.isBlank())
+                ? GitHubFlow.NPM_WORKFLOW_FILE : workflowFile.trim();
+        try {
+            ObjectNode body = mapper.createObjectNode();
+            body.put("ref", ref);
+            ObjectNode in = body.putObject("inputs");
+            if (inputs != null) {
+                inputs.forEach(in::put);
+            }
+            post("/repos/" + owner + "/" + repo + "/actions/workflows/" + urlEncode(file) + "/dispatches", body);
+
+            String runId = null;
+            Map<String, Object> found = null;
+            for (int i = 0; i < 12 && found == null; i++) {
+                sleepQuietly(500);
+                JsonNode resp = get("/repos/" + owner + "/" + repo + "/actions/workflows/"
+                        + urlEncode(file) + "/runs?event=workflow_dispatch&per_page=5");
+                JsonNode runs = resp.path("workflow_runs");
+                if (runs.isArray()) {
+                    for (JsonNode run : runs) {
+                        if (ref != null && ref.equals(run.path("head_branch").asText())) {
+                            found = workflowRunMap(run);
+                            runId = run.path("id").asText();
+                            break;
+                        }
+                    }
+                }
+            }
+            if (found == null) {
+                found = new LinkedHashMap<>();
+                found.put("status", "queued");
+                found.put("conclusion", null);
+                found.put("htmlUrl", null);
+            }
+            if (runId != null) {
+                found.put("runId", runId);
+            }
+            found.put("branch", ref);
+            found.put("workflowFile", file);
+            return found;
+        } catch (IOException | RuntimeException e) {
+            throw new IllegalStateException("Failed to dispatch workflow '" + file + "' on '" + ref + "': " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public Map<String, Object> getWorkflowRun(String runId) {
+        ensureOwnerRepo();
+        if (runId == null || runId.isBlank()) {
+            return null;
+        }
+        try {
+            JsonNode run = get("/repos/" + owner + "/" + repo + "/actions/runs/" + urlEncode(runId.trim()));
+            Map<String, Object> result = workflowRunMap(run);
+            result.put("runId", run.path("id").asText(runId));
+            return result;
+        } catch (IOException | RuntimeException e) {
+            LOG.warn("Could not fetch workflow run '{}': {}", runId, e.getMessage());
+            return null;
+        }
+    }
+
+    @Override
+    public String getWorkflowRunLogs(String runId) {
+        ensureOwnerRepo();
+        if (runId == null || runId.isBlank()) {
+            return "";
+        }
+        try {
+            JsonNode jobsResp = get("/repos/" + owner + "/" + repo + "/actions/runs/"
+                    + urlEncode(runId.trim()) + "/jobs");
+            JsonNode jobs = jobsResp.path("jobs");
+            StringBuilder out = new StringBuilder();
+            if (jobs.isArray()) {
+                for (JsonNode job : jobs) {
+                    out.append("== ").append(job.path("name").asText("job")).append(" (")
+                            .append(job.path("status").asText()).append("/").append(job.path("conclusion").asText(""))
+                            .append(") ==\n");
+                    String jobId = job.path("id").asText();
+                    if (!jobId.isEmpty()) {
+                        try {
+                            String logs = getText("/repos/" + owner + "/" + repo + "/actions/jobs/"
+                                    + urlEncode(jobId) + "/logs");
+                            if (logs != null && !logs.isBlank()) {
+                                out.append(logs);
+                                if (!logs.endsWith("\n")) {
+                                    out.append('\n');
+                                }
+                            }
+                        } catch (IOException e) {
+                            JsonNode steps = job.path("steps");
+                            if (steps.isArray()) {
+                                for (JsonNode step : steps) {
+                                    out.append("  - ").append(step.path("name").asText())
+                                            .append(": ").append(step.path("conclusion").asText("pending"))
+                                            .append('\n');
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            String text = out.toString();
+            return text.length() > 32000 ? text.substring(text.length() - 32000) : text;
+        } catch (IOException | RuntimeException e) {
+            LOG.warn("Could not fetch logs for workflow run '{}': {}", runId, e.getMessage());
+            return "";
+        }
+    }
+
+    @Override
+    public String getFileContent(String ref, String path) {
+        ensureOwnerRepo();
+        if (path == null || path.isBlank()) {
+            return null;
+        }
+        try {
+            String encodedPath = java.net.URLEncoder.encode(path.replace('\\', '/').replaceFirst("^/+", ""),
+                    StandardCharsets.UTF_8).replace("+", "%20").replace("%2F", "/");
+            String q = (ref == null || ref.isBlank()) ? "" : ("?ref=" + urlEncode(ref.trim()));
+            JsonNode node = get("/repos/" + owner + "/" + repo + "/contents/" + encodedPath + q);
+            String encoded = node.path("content").asText("");
+            if (encoded.isBlank()) {
+                return null;
+            }
+            return new String(Base64.getDecoder().decode(encoded.replace("\n", "")), StandardCharsets.UTF_8);
+        } catch (IOException | RuntimeException e) {
+            LOG.warn("Could not read '{}' on '{}': {}", path, ref, e.getMessage());
+            return null;
+        }
+    }
+
+    @Override
+    public void deleteFile(String branch, String path) {
+        ensureOwnerRepo();
+        String normalized = normalizePath(path);
+        if (normalized == null || GitHubFlow.skipFromCommit(normalized)) {
+            throw new IllegalArgumentException("Cannot delete this path");
+        }
+        try {
+            String encodedPath = java.net.URLEncoder.encode(normalized, StandardCharsets.UTF_8)
+                    .replace("+", "%20").replace("%2F", "/");
+            String q = (branch == null || branch.isBlank()) ? "" : ("?ref=" + urlEncode(branch.trim()));
+            JsonNode node = get("/repos/" + owner + "/" + repo + "/contents/" + encodedPath + q);
+            String sha = node.path("sha").asText();
+            if (sha == null || sha.isBlank()) {
+                throw new IllegalStateException("No blob sha for " + normalized);
+            }
+            ObjectNode body = mapper.createObjectNode();
+            body.put("message", "chore: remove unused " + normalized);
+            body.put("sha", sha);
+            if (branch != null && !branch.isBlank()) {
+                body.put("branch", branch.trim());
+            }
+            deleteJson("/repos/" + owner + "/" + repo + "/contents/" + encodedPath, body);
+            LOG.info("Deleted '{}' from branch '{}'", normalized, branch);
+        } catch (IOException | RuntimeException e) {
+            throw new IllegalStateException("Failed to delete '" + normalized + "': " + e.getMessage(), e);
+        }
+    }
+
+    private static Map<String, Object> workflowRunMap(JsonNode run) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("name", run.path("name").asText());
+        result.put("status", run.path("status").asText());
+        result.put("conclusion", run.path("conclusion").isNull() ? null : run.path("conclusion").asText());
+        result.put("htmlUrl", run.path("html_url").asText());
+        result.put("createdAt", run.path("created_at").asText());
+        result.put("updatedAt", run.path("updated_at").asText());
+        result.put("headBranch", run.path("head_branch").asText());
+        return result;
+    }
+
+    private static void sleepQuietly(long ms) {
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -413,12 +629,43 @@ public class RealGitHubClient implements GitHubClient {
         }
     }
 
+    private String getText(String path) throws IOException {
+        try {
+            java.net.http.HttpResponse<String> resp = http.send(baseRequest(path).GET().build(),
+                    java.net.http.HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            String text = resp.body() != null ? resp.body() : "";
+            if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
+                throw new IOException("GitHub API " + resp.statusCode() + ": " + truncate(text));
+            }
+            return text;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted: " + e.getMessage(), e);
+        }
+    }
+
     private JsonNode post(String path, ObjectNode body) throws IOException {
         try {
             byte[] bytes = mapper.writeValueAsBytes(body);
             java.net.http.HttpRequest req = baseRequest(path)
                     .header("Content-Type", "application/json")
                     .POST(java.net.http.HttpRequest.BodyPublishers.ofByteArray(bytes))
+                    .build();
+            java.net.http.HttpResponse<String> resp = http.send(req,
+                    java.net.http.HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            return readBody(resp);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted: " + e.getMessage(), e);
+        }
+    }
+
+    private JsonNode deleteJson(String path, ObjectNode body) throws IOException {
+        try {
+            byte[] bytes = mapper.writeValueAsBytes(body);
+            java.net.http.HttpRequest req = baseRequest(path)
+                    .header("Content-Type", "application/json")
+                    .method("DELETE", java.net.http.HttpRequest.BodyPublishers.ofByteArray(bytes))
                     .build();
             java.net.http.HttpResponse<String> resp = http.send(req,
                     java.net.http.HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));

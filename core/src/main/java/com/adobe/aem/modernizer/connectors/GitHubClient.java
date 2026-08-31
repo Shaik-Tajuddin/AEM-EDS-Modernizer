@@ -17,6 +17,11 @@ public interface GitHubClient {
         return "main";
     }
 
+    /** GitHub repository default branch (from the repo API), used to register workflow_dispatch workflows. */
+    default String getRepositoryDefaultBranch() {
+        return getDefaultBranch();
+    }
+
     boolean branchExists(String branch);
     void createBranch(String branch);
     void commitFiles(String branch, List<GeneratedFileRecord> files, String commitMessage);
@@ -27,4 +32,32 @@ public interface GitHubClient {
 
     /** Returns the most recent GitHub Actions workflow run for the given branch, or null if none/unavailable. */
     Map<String, Object> getLatestWorkflowRun(String branch);
+
+    /**
+     * Dispatches a {@code workflow_dispatch} workflow on {@code ref} and returns a run summary
+     * ({@code runId}, {@code status}, {@code htmlUrl}) when the run can be resolved.
+     */
+    default Map<String, Object> dispatchWorkflow(String ref, String workflowFile, Map<String, String> inputs) {
+        throw new UnsupportedOperationException("dispatchWorkflow is not supported by this GitHub client");
+    }
+
+    /** Poll a workflow run by numeric id. */
+    default Map<String, Object> getWorkflowRun(String runId) {
+        return null;
+    }
+
+    /** Best-effort job logs for a workflow run (may be truncated). */
+    default String getWorkflowRunLogs(String runId) {
+        return "";
+    }
+
+    /** File text at {@code path} on {@code ref}, or null if missing. */
+    default String getFileContent(String ref, String path) {
+        return null;
+    }
+
+    /** Deletes {@code path} on {@code branch} (new commit). */
+    default void deleteFile(String branch, String path) {
+        throw new UnsupportedOperationException("deleteFile is not supported by this GitHub client");
+    }
 }

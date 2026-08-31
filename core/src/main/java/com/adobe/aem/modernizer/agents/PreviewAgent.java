@@ -3,6 +3,9 @@ package com.adobe.aem.modernizer.agents;
 import com.adobe.aem.modernizer.ai.AiGateway;
 import com.adobe.aem.modernizer.connectors.EdsClient;
 import com.adobe.aem.modernizer.connectors.GitHubClient;
+import com.adobe.aem.modernizer.connectors.GitHubFlow;
+import com.adobe.aem.modernizer.connectors.ModernizerNpmWorkflow;
+import com.adobe.aem.modernizer.connectors.PipelineHealLoop;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.GeneratedFileRecord;
 import com.adobe.aem.modernizer.persistence.model.JobEventRecord;
@@ -10,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -57,7 +61,7 @@ public class PreviewAgent implements Agent {
             return;
         }
 
-        String branch = "feat/" + ctx.getProject().getId();
+        String branch = GitHubFlow.featureBranch(ctx.getProject().getId());
         LOG.info("PreviewAgent pushing generated files to branch: {}", branch);
 
         if (gitHub != null) {
@@ -66,12 +70,40 @@ public class PreviewAgent implements Agent {
                     : gitHub;
             gh.createBranch(branch);
             List<GeneratedFileRecord> files = (store != null) ? store.getGeneratedFiles(ctx.getJob().getId()) : null;
-            if (files != null && !files.isEmpty()) {
-                gh.commitFiles(branch, files, "feat: modernizer automated migration preview");
+            List<GeneratedFileRecord> toCommit = new java.util.ArrayList<>();
+            if (files != null) {
+                for (GeneratedFileRecord file : files) {
+                    if (!GitHubFlow.skipFromCommit(file.getPath())
+                            && !GitHubFlow.skipLegacyPageMarkdown(file.getPath())) {
+                        toCommit.add(file);
+                    }
+                }
             }
+            toCommit.add(new GeneratedFileRecord(
+                    UUID.randomUUID().toString(),
+                    ctx.getProject().getId(),
+                    ctx.getJob().getId(),
+                    GitHubFlow.NPM_WORKFLOW_PATH,
+                    "CONFIG",
+                    ModernizerNpmWorkflow.YAML
+            ));
+            if (!toCommit.isEmpty()) {
+                gh.commitFiles(branch, toCommit, "feat: modernizer automated migration preview");
+            }
+            PipelineHealLoop.restoreFstabFromBase(gh, ctx.getProject(), branch);
+            PipelineHealLoop.start(gh, ctx, store, ai);
         }
 
+        String vscodeUrl = GitHubFlow.vscodeUrl(
+                ctx.getProject() != null ? ctx.getProject().getEdsGitRepoUrl() : null,
+                branch);
         String previewUrl = (eds != null) ? eds.getPreviewUrl(branch, "/index") : ("https://eds-mock.local/preview/" + branch);
+
+        Map<String, Object> meta = ctx.getJob().getMetadata();
+        meta.put("branch", branch);
+        meta.put("vscodeUrl", vscodeUrl);
+        meta.put("previewUrl", previewUrl);
+        ctx.getJob().setMetadata(meta);
 
         if (store != null) {
             store.recordEvent(new JobEventRecord(

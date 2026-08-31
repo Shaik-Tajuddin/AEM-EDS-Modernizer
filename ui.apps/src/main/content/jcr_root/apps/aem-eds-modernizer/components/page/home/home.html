@@ -43,36 +43,70 @@
       <div id="step-connect" class="step-item active">1. CONNECT</div>
       <div id="step-dryrun" class="step-item">2. DRY RUN</div>
       <div id="step-build" class="step-item">3. GENERATE BLOCKS</div>
-      <div id="step-validate" class="step-item">4. REVIEW & VALIDATE</div>
-      <div id="step-publish" class="step-item">5. COMMIT & PUSH TO GIT</div>
+      <div id="step-validate" class="step-item">4. REVIEW &amp; VALIDATE</div>
+      <div id="step-vscode" class="step-item">5. REVIEW IN VS CODE</div>
+      <div id="step-publish" class="step-item">6. OPEN PULL REQUEST</div>
     </div>
 
-    <div class="nav-tabs">
-      <button class="nav-tab active" onclick="showTab('overview')">Overview</button>
-      <button class="nav-tab" onclick="showTab('setup')">Project Setup & Details</button>
-      <button class="nav-tab" onclick="showTab('components')">Generated Blocks & Code</button>
-      <button class="nav-tab" onclick="showTab('pages')">Pages & Scope</button>
-      <button class="nav-tab" onclick="showTab('estimate')">Estimate & Cost</button>
-      <button class="nav-tab" onclick="showTab('redirects')">301 Redirects</button>
-      <button class="nav-tab" onclick="showTab('dependencies')">Dependencies Graph</button>
-      <button class="nav-tab" onclick="showTab('rollout')">Rollout Stages</button>
-      <button class="nav-tab" onclick="showTab('repairs')">Self-Repair Log</button>
-      <button class="nav-tab" onclick="showTab('benchmarks')">Benchmarks</button>
-      <button class="nav-tab" onclick="showTab('chat')">💬 Agent Chat</button>
-      <button class="nav-tab" onclick="showTab('github')">💻 VS Code & GitHub</button>
-    </div>
+    <nav class="nav-tabs" aria-label="Dashboard sections">
+      <div class="nav-group">
+        <div class="nav-group-label">Results</div>
+        <button class="nav-tab active" onclick="showTab('overview')">Overview</button>
+        <button class="nav-tab" onclick="showTab('components')">Components</button>
+        <button class="nav-tab" onclick="showTab('estimate')">Estimates</button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">Content</div>
+        <button class="nav-tab" onclick="showTab('pages')">Pages &amp; Scope</button>
+        <button class="nav-tab" onclick="showTab('github')">VS Code &amp; GitHub</button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">Ops</div>
+        <button class="nav-tab" onclick="showTab('redirects')">301 Redirects</button>
+        <button class="nav-tab" onclick="showTab('dependencies')">Dependencies</button>
+        <button class="nav-tab" onclick="showTab('rollout')">Rollout</button>
+        <button class="nav-tab" onclick="showTab('repairs')">Self-Repair</button>
+        <button class="nav-tab" onclick="showTab('benchmarks')">Benchmarks</button>
+        <button class="nav-tab" onclick="showTab('chat')">Agent Chat</button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">Config</div>
+        <button class="nav-tab" onclick="showTab('setup')">Project Setup</button>
+      </div>
+    </nav>
 
     <!-- Tab: Overview -->
     <div id="tab-overview" class="tab-content">
-      <div class="grid">
-        <div class="card"><div class="card-title">Total Pages Discovered</div><div class="card-val" id="stat-pages">${model.pagesCount}</div><div class="card-sub" id="stat-eligible">Scope: ${model.activeProject.pageScope || 'All'}</div></div>
-        <div class="card"><div class="card-title">Components Mapped</div><div class="card-val" id="stat-components">${model.componentsCount}</div><div class="card-sub">Edge Delivery block mappings</div></div>
-        <div class="card"><div class="card-title">Expected AI Cost</div><div class="card-val" id="stat-cost">$${model.expectedCost}</div><div class="card-sub" id="stat-requests">Max Budget: $${model.activeProject.maxBudgetUsd}</div></div>
-        <div class="card"><div class="card-title">Estimated Duration</div><div class="card-val" id="stat-time">${model.expectedTimeSec}s</div><div class="card-sub" id="stat-range">Lo: 0s | Hi: 0s</div></div>
-      </div>
-      <div class="card">
-        <div class="card-title">Live Event Stream & Audit Log</div>
-        <div id="terminal" class="log-terminal" style="height:450px;">AEM → EDS Modernizer initialized. Connected to ${model.activeProject.aemAuthorUrl}</div>
+      <div class="split-layout">
+        <div class="card metric-panel">
+          <div class="card-title">Migration snapshot</div>
+          <ul class="metric-list">
+            <li class="metric-row">
+              <span class="metric-label">Pages discovered</span>
+              <span class="metric-value" id="stat-pages">${model.pagesCount}</span>
+              <span class="metric-hint" id="stat-eligible">Scope: ${model.activeProject.pageScope || 'All'}</span>
+            </li>
+            <li class="metric-row">
+              <span class="metric-label">Components mapped</span>
+              <span class="metric-value" id="stat-components">${model.componentsCount}</span>
+              <span class="metric-hint">EDS block mappings</span>
+            </li>
+            <li class="metric-row">
+              <span class="metric-label">Expected AI cost</span>
+              <span class="metric-value" id="stat-cost">$${model.expectedCost}</span>
+              <span class="metric-hint" id="stat-requests">Max budget: $${model.activeProject.maxBudgetUsd}</span>
+            </li>
+            <li class="metric-row">
+              <span class="metric-label">Estimated duration</span>
+              <span class="metric-value" id="stat-time">${model.expectedTimeSec}s</span>
+              <span class="metric-hint" id="stat-range">Lo: 0s | Hi: 0s</span>
+            </li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-title">Live event stream</div>
+          <div id="terminal" class="log-terminal" style="height:420px;">AEM → EDS Modernizer initialized. Connected to ${model.activeProject.aemAuthorUrl}</div>
+        </div>
       </div>
     </div>
 
@@ -253,8 +287,10 @@
       </div>
 
       <div class="card">
-        <div class="card-title">Component Intelligence & Block Mapping Table</div>
-        <table id="table-components"><thead><tr><th>AEM Resource Type</th><th>Title</th><th>Group</th><th>Proposed EDS Block</th><th>Capability Classification</th></tr></thead><tbody><tr><td colspan="5">Run a Dry Run to classify components.</td></tr></tbody></table>
+        <div class="card-title">Component → block mapping</div>
+        <ul id="table-components" class="data-list">
+          <li class="data-list-empty">Run a Dry Run to classify components.</li>
+        </ul>
       </div>
     </div>
 
@@ -321,8 +357,10 @@
     <!-- Tab: Estimate -->
     <div id="tab-estimate" class="tab-content" style="display:none;">
       <div class="card">
-        <div class="card-title">Step-by-Step Derivation Trail & Cost Modeling</div>
-        <pre id="estimate-trail" style="font-family:var(--font-mono); font-size:0.85rem; color:#38bdf8; line-height:1.7; background:#060911; padding:18px; border-radius:6px; border:1px solid var(--surface-border);">Run a Dry Run to compute formal mathematical derivation trail.</pre>
+        <div class="card-title">Cost &amp; duration derivation</div>
+        <ol id="estimate-trail" class="estimate-list">
+          <li class="data-list-empty">Run a Dry Run to compute the estimate trail.</li>
+        </ol>
       </div>
     </div>
 
@@ -393,7 +431,7 @@
       <div class="card" style="margin-bottom: 20px;">
         <div class="card-title">💻 Remote Branch & VS Code Editor Workspace</div>
         <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:16px;">
-          Push generated blocks to the preview branch, launch the <code>vscode.dev</code> IDE to inspect or lint code, generate <code>component-models.json</code> for Universal Editor, and verify GitHub Actions CI status before opening a Pull Request.
+          Generated files are pushed to the preview branch first (no PR). Review them in vscode.dev, run <code>npm run lint:fix</code> / <code>npm run build:json</code> via GitHub Actions, then confirm to open a Pull Request against this branch.
         </p>
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
           <div style="flex:1; min-width:260px; display:flex; gap:8px; align-items:center;">
@@ -407,22 +445,57 @@
         </div>
       </div>
 
+      <div class="card" style="margin-bottom: 20px;">
+        <div class="card-title">npm scripts (GitHub Actions)</div>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
+          vscode.dev has no terminal. These buttons dispatch Actions on <code>feat/{projectId}</code> and stream logs here. <code>lint:fix</code> commits auto-fixed files back to the same branch; <code>build:json</code> commits regenerated component JSON.
+        </p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+          <button class="btn btn-outline" id="btn-npm-lint" onclick="runNpmScript('lint:fix')">▶ npm run lint:fix</button>
+          <button class="btn btn-outline" id="btn-npm-json" onclick="runNpmScript('build:json')">▶ npm run build:json</button>
+        </div>
+        <pre id="npm-log-terminal" class="log-terminal" style="height:220px; white-space:pre-wrap;">No npm run yet. Push the branch first, then click a script above.</pre>
+      </div>
+
+      <div class="card" style="margin-bottom: 20px;">
+        <div class="card-title">Confirm review</div>
+        <label style="display:flex; gap:10px; align-items:flex-start; cursor:pointer; font-size:0.9rem;">
+          <input type="checkbox" id="chk-vscode-reviewed" onchange="onVsCodeReviewToggle()" style="margin-top:4px;">
+          <span>I have reviewed this branch in VS Code. Enable <b>Commit &amp; Push to Git</b> to open a Pull Request from this branch (files will not be re-committed).</span>
+        </label>
+      </div>
+
       <!-- VS Code Embedded Workspace Frame -->
       <div class="card" style="margin-bottom: 20px; padding: 12px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding: 0 4px;">
           <div class="card-title" style="margin:0; font-size:0.95rem;">⚡ VS Code Web Workspace (<span id="vscode-branch-display">feat/wknd-site</span>)</div>
-          <div style="font-size:0.8rem; color:var(--text-muted);" id="vscode-frame-hint">Powered by vscode.dev web editor</div>
+          <div style="font-size:0.8rem; color:var(--text-muted);" id="vscode-frame-hint">Branch file editor — vscode.dev opens in a new tab</div>
         </div>
         <div id="vscode-frame-container" style="position:relative; width:100%; height:720px; background:#1e1e1e; border-radius:6px; overflow:hidden; border:1px solid var(--surface-border);">
           <div id="vscode-placeholder" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:#94a3b8; text-align:center; padding:20px;">
             <div style="font-size:2.5rem; margin-bottom:12px;">💻</div>
             <div style="font-size:1.1rem; font-weight:600; margin-bottom:6px; color:#f1f5f9;">VS Code Web Workspace Ready</div>
-            <p style="max-width:520px; font-size:0.85rem; line-height:1.6; color:#94a3b8; margin-bottom:18px;">
-              Click <b>"🚀 Push Blocks & Open VS Code"</b> or <b>"🔎 Check CI & Changed Files"</b> to load your branch files directly inside this editor. You can review block scripts, validate styles, create <code>component-models.json</code>, and commit changes straight to GitHub.
+            <p style="max-width:560px; font-size:0.85rem; line-height:1.6; color:#94a3b8; margin-bottom:18px;">
+              vscode.dev cannot run inside AEM (it blocks iframes). Load the branch file list here, edit and save to GitHub, or use <b>Open in New Tab</b> for the full vscode.dev editor.
             </p>
-            <button class="btn btn-primary" onclick="loadVsCodeFrame()">⚡ Load VS Code Workspace</button>
+            <button class="btn btn-primary" onclick="loadVsCodeFrame()">⚡ Load branch workspace</button>
           </div>
-          <iframe id="vscode-frame" src="" style="width:100%; height:100%; border:none; display:none;" allow="clipboard-read; clipboard-write; camera; microphone; geolocation"></iframe>
+          <div id="vscode-workspace" class="ws-layout" style="display:none;">
+            <aside class="ws-sidebar">
+              <div class="ws-tree-title">Branch files</div>
+              <ul id="ws-file-tree"></ul>
+            </aside>
+            <div class="ws-main">
+              <div class="ws-toolbar">
+                <span id="ws-open-path">Select a file</span>
+                <button type="button" class="btn btn-outline" onclick="saveWorkspaceFile()">Save to branch</button>
+              </div>
+              <div class="ws-editor-pane">
+                <pre id="ws-line-numbers" class="ws-line-numbers" aria-hidden="true">1</pre>
+                <textarea id="ws-editor" class="ws-editor" spellcheck="false" wrap="off" oninput="syncWsLineNumbers()" onscroll="syncWsLineScroll()"></textarea>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

@@ -9,7 +9,7 @@ Before anything else, try the **shortcut URL** that does NOT require
 the seeded page to be installed:
 
 ```
-http://localhost:4502/aem-eds-modernizer
+http://localhost:4502/content/aem-eds-modernizer/home.html
 ```
 
 (or its Cloud Manager equivalent: `https://author-pXXXX-eYYYY.adobeaemcloud.com/aem-eds-modernizer`)

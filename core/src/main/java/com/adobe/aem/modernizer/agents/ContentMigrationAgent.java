@@ -24,6 +24,8 @@ import java.util.UUID;
 public class ContentMigrationAgent implements Agent {
 
     private static final Logger LOG = LoggerFactory.getLogger(ContentMigrationAgent.class);
+    /** Git path for migrated page markdown (e.g. language-masters/en/about-us.md). */
+    static final String MIGRATED_PAGES_DIR = "docs/migrated-pages";
 
     private final Store store;
     private final AiGateway ai;
@@ -56,9 +58,14 @@ public class ContentMigrationAgent implements Agent {
             if (!page.isEligible()) continue;
 
             String edsPath = UrlRedirectService.transformToEdsPath(page.getPath());
-            String filePath = edsPath.startsWith("/") ? edsPath.substring(1) : edsPath;
-            if (filePath.isEmpty()) filePath = "index";
-            filePath += ".md";
+            String relative = edsPath.startsWith("/") ? edsPath.substring(1) : edsPath;
+            if (relative.isEmpty()) {
+                relative = "index";
+            }
+            if (relative.endsWith(".md")) {
+                relative = relative.substring(0, relative.length() - 3);
+            }
+            String filePath = MIGRATED_PAGES_DIR + "/" + relative + ".md";
 
             // Traverse page hierarchy to build sequence of blocks with real content data
             String pageTitle = page.getTitle();

@@ -51,7 +51,7 @@
         <aem.user>admin</aem.user>
         <aem.password>admin</aem.password>
         <aem.skipSslValidation>true</aem.skipSslValidation>
-        <aem.packageService>/crx/packmgr/service.jsp</aem.packageService>
+        <aem.packageService>/crx/packmgr/service/.json</aem.packageService>
         <skipBundleDeploy>true</skipBundleDeploy>
         <skipPackageDeploy>true</skipPackageDeploy>
     </properties>
@@ -316,6 +316,8 @@
                                             <arg value="${aem.user}:${aem.password}"/>
                                             <arg value="-F"/>
                                             <arg value="file=@${project.build.directory}/${project.build.finalName}.zip"/>
+                                            <arg value="-F"/>
+                                            <arg value="name=${project.artifactId}"/>
                                             <arg value="-F"/>
                                             <arg value="force=true"/>
                                             <arg value="-F"/>

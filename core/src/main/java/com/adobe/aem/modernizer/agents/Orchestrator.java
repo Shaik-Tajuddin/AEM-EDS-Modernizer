@@ -4,6 +4,7 @@ import com.adobe.aem.modernizer.ModernizerException;
 import com.adobe.aem.modernizer.ai.AiGateway;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.*;
+import com.adobe.aem.modernizer.connectors.GitHubFlow;
 import com.adobe.aem.modernizer.services.EstimatorService;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -209,28 +210,54 @@ public class Orchestrator {
     }
 
     /**
-     * Executes the final Commit & Push to Git and Pull Request creation step.
+     * Pushes generated files to {@code feat/{projectId}} without opening a Pull Request
+     * so the operator can review the branch in vscode.dev.
+     */
+    public JobRecord pushToPreviewBranch(ProjectRecord project, String actor) throws ModernizerException {
+        JobRecord job = resumeOrCreateJob(project, actor, "PREVIEW");
+        AgentContext ctx = new AgentContext(project, job);
+        ctx.setDryRun(false);
+        try {
+            transition(ctx, MigrationState.PREVIEWING);
+            invokeAgent("preview", ctx);
+            attachPreviewMetadata(job, project);
+            job.setFinishedAt(System.currentTimeMillis());
+            if (store != null) {
+                store.saveJob(job);
+            }
+        } catch (ModernizerException | RuntimeException e) {
+            job.setState(MigrationState.FAILED.name());
+            job.setLastError(e.getMessage());
+            job.setFinishedAt(System.currentTimeMillis());
+            if (store != null) {
+                store.saveJob(job);
+            }
+            throw new ModernizerException("Git preview push failed for job " + job.getId() + ": " + e.getMessage(), e);
+        }
+        return job;
+    }
+
+    /**
+     * Opens a Pull Request from the preview branch. Does not re-commit generated files
+     * so vscode.dev edits on the remote branch are preserved.
+     */
+    public JobRecord openPullRequest(ProjectRecord project, String actor) throws ModernizerException {
+        return pushToGitHub(project, actor);
+    }
+
+    /**
+     * Opens the production Pull Request (and verifies). Does not push files again.
      */
     public JobRecord pushToGitHub(ProjectRecord project, String actor) throws ModernizerException {
         if (project == null) {
             throw new ModernizerException("Project cannot be null");
         }
 
-        JobRecord latestJob = (store != null) ? store.getLatestJob(project.getId()).orElse(null) : null;
-        String jobId = latestJob != null ? latestJob.getId() : ("job-" + UUID.randomUUID().toString().substring(0, 8));
-        JobRecord job = latestJob != null ? latestJob : new JobRecord(jobId, project.getId(), "PUBLISH");
-        job.setActor(actor != null ? actor : "admin");
-        if (store != null) {
-            store.saveJob(job);
-        }
-
+        JobRecord job = resumeOrCreateJob(project, actor, "PUBLISH");
         AgentContext ctx = new AgentContext(project, job);
         ctx.setDryRun(false);
 
         try {
-            transition(ctx, MigrationState.PREVIEWING);
-            invokeAgent("preview", ctx);
-
             transition(ctx, MigrationState.PUBLISHING);
             invokeAgent("publishing", ctx);
 
@@ -254,10 +281,35 @@ public class Orchestrator {
             if (store != null) {
                 store.saveJob(job);
             }
-            throw new ModernizerException("Git push / publish failed for job " + jobId + ": " + e.getMessage(), e);
+            throw new ModernizerException("Git push / publish failed for job " + job.getId() + ": " + e.getMessage(), e);
         }
 
         return job;
+    }
+
+    private JobRecord resumeOrCreateJob(ProjectRecord project, String actor, String type) throws ModernizerException {
+        if (project == null) {
+            throw new ModernizerException("Project cannot be null");
+        }
+        JobRecord latestJob = (store != null) ? store.getLatestJob(project.getId()).orElse(null) : null;
+        String jobId = latestJob != null ? latestJob.getId() : ("job-" + UUID.randomUUID().toString().substring(0, 8));
+        JobRecord job = latestJob != null ? latestJob : new JobRecord(jobId, project.getId(), type);
+        job.setActor(actor != null ? actor : "admin");
+        if (store != null) {
+            store.saveJob(job);
+        }
+        return job;
+    }
+
+    private void attachPreviewMetadata(JobRecord job, ProjectRecord project) {
+        if (job == null || project == null) {
+            return;
+        }
+        String branch = GitHubFlow.featureBranch(project.getId());
+        Map<String, Object> meta = job.getMetadata();
+        meta.put("branch", branch);
+        meta.put("vscodeUrl", GitHubFlow.vscodeUrl(project.getEdsGitRepoUrl(), branch));
+        job.setMetadata(meta);
     }
 
     private void invokeAgent(String name, AgentContext ctx) throws ModernizerException {

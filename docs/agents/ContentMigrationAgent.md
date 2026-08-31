@@ -20,7 +20,7 @@
 - One `GeneratedFileRecord` per page:
   - `operation=CREATE`
   - `stage=CONTENT_MIGRATION`
-  - `path={eds-path}.md`
+  - `path=docs/migrated-pages/{eds-path}.md`
   - `content` = the EDS section model
 
 The content is a YAML front matter + a sequence of section

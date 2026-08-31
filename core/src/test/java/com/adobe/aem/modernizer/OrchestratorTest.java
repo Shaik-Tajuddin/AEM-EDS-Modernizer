@@ -10,6 +10,7 @@ import com.adobe.aem.modernizer.connectors.*;
 import com.adobe.aem.modernizer.mock.*;
 import com.adobe.aem.modernizer.persistence.InMemoryStore;
 import com.adobe.aem.modernizer.persistence.Store;
+import com.adobe.aem.modernizer.persistence.model.GeneratedFileRecord;
 import com.adobe.aem.modernizer.persistence.model.JobRecord;
 import com.adobe.aem.modernizer.persistence.model.ProjectRecord;
 import com.adobe.aem.modernizer.scopes.MarkerEvaluator;
@@ -24,6 +25,7 @@ class OrchestratorTest {
     private Store store;
     private Orchestrator orchestrator;
     private ProjectRecord project;
+    private MockGitHubClient gitHub;
 
     @BeforeEach
     void setUp() {
@@ -49,13 +51,13 @@ class OrchestratorTest {
 
         AemClient aemAuthor = new MockAemClient("https://mock-aem.local", "author", 42, true);
         AemClient aemPublish = new MockAemClient("https://mock-aem.local", "publish", 42, true);
-        GitHubClient gh = new MockGitHubClient("https://github.com/company/wknd-eds");
+        gitHub = new MockGitHubClient("https://github.com/company/wknd-eds");
         FigmaClient figma = new MockFigmaClient("https://www.figma.com/design/abcdef/WKND");
         EdsClient eds = new MockEdsClient("https://eds-mock.local");
         BrowserClient browser = new MockBrowserClient();
 
         orchestrator.registerCoreAgents(
-                new ConnectionAgent(aemAuthor, aemPublish, gh, figma, eds, browser, store, ai),
+                new ConnectionAgent(aemAuthor, aemPublish, gitHub, figma, eds, browser, store, ai),
                 new DiscoveryAgent(aemAuthor, store, ai, marker),
                 new ComponentIntelligenceAgent(store, ai),
                 new ComponentMappingAgent(store, ai),
@@ -70,11 +72,11 @@ class OrchestratorTest {
                 new CodeGenerationAgent(store, ai),
                 new ContentMigrationAgent(store, ai),
                 new AuthoringAgent(aemAuthor, store, ai),
-                new PreviewAgent(gh, eds, store, ai),
+                new PreviewAgent(gitHub, eds, store, ai),
                 new ValidationAgent(browser, store, ai),
                 new VisualValidationAgent(browser, store, ai),
                 new SelfRepairAgent(store, ai),
-                new PublishingAgent(gh, store, ai),
+                new PublishingAgent(gitHub, store, ai),
                 new VerificationAgent(browser, store, ai)
         );
 
@@ -110,15 +112,50 @@ class OrchestratorTest {
         assertThat(job.isDryRun()).isFalse();
 
         assertThat(store.getGeneratedFiles(job.getId())).isNotEmpty();
+        assertThat(store.getGeneratedFiles(job.getId()))
+                .extracting(GeneratedFileRecord::getPath)
+                .anyMatch(path -> path != null && path.startsWith("docs/migrated-pages/"));
+        assertThat(store.getGeneratedFiles(job.getId()))
+                .extracting(GeneratedFileRecord::getPath)
+                .noneMatch(path -> path != null && path.replace('\\', '/').endsWith("fstab.yaml"));
         assertThat(store.getValidationResults(job.getId())).isNotEmpty();
         assertThat(store.getRepairAttempts(job.getId())).isNotEmpty();
         assertThat(store.getUrlRedirects(job.getId())).isNotEmpty();
         assertThat(store.getDependencyEdges(job.getId())).isNotEmpty();
         assertThat(store.getRolloutStages(job.getId())).isNotEmpty();
 
-        // Push to Git
+        int commitsAfterMigrate = gitHub.getCommitCount();
+        int prsAfterMigrate = gitHub.getPrCount();
+
+        JobRecord previewJob = orchestrator.pushToPreviewBranch(project, "tester");
+        assertThat(previewJob.getState()).isEqualTo("PREVIEWING");
+        assertThat(previewJob.getMetadata()).containsKey("vscodeUrl");
+        assertThat(String.valueOf(previewJob.getMetadata().get("vscodeUrl")))
+                .contains("/tree/feat/test-wknd")
+                .doesNotContain("%2F");
+        assertThat(previewJob.getMetadata()).containsEntry("branch", "feat/test-wknd");
+        assertThat(gitHub.listChangedFiles("main", "feat/test-wknd"))
+                .extracting(row -> String.valueOf(row.get("filename")))
+                .noneMatch(path -> path.endsWith("fstab.yaml"));
+        assertThat(gitHub.getCommitCount()).isGreaterThan(commitsAfterMigrate);
+        assertThat(gitHub.getPrCount()).isEqualTo(prsAfterMigrate);
+
         JobRecord pushJob = orchestrator.pushToGitHub(project, "tester");
         assertThat(pushJob).isNotNull();
         assertThat(pushJob.getState()).isEqualTo("COMPLETED");
+        assertThat(pushJob.getMetadata()).containsKey("prUrl");
+        assertThat(gitHub.getPrCount()).isEqualTo(prsAfterMigrate + 1);
+        assertThat(gitHub.getCommitCount()).isGreaterThan(commitsAfterMigrate);
+    }
+
+    @Test
+    void openPullRequestDoesNotCommitAgain() throws Exception {
+        orchestrator.runMigration(project, "tester");
+        orchestrator.pushToPreviewBranch(project, "tester");
+        int commits = gitHub.getCommitCount();
+        JobRecord pr = orchestrator.openPullRequest(project, "tester");
+        assertThat(pr.getState()).isEqualTo("COMPLETED");
+        assertThat(gitHub.getCommitCount()).isEqualTo(commits);
+        assertThat(gitHub.getPrCount()).isEqualTo(1);
     }
 }

@@ -3,6 +3,7 @@ package com.adobe.aem.modernizer.dashboard;
 import com.adobe.aem.modernizer.ModernizerException;
 import com.adobe.aem.modernizer.agents.Orchestrator;
 import com.adobe.aem.modernizer.connectors.GitHubClient;
+import com.adobe.aem.modernizer.connectors.GitHubFlow;
 import com.adobe.aem.modernizer.connectors.RealGitHubClient;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.*;
@@ -42,6 +43,12 @@ public class ApiRouter {
     public ApiRouter(Store store, Orchestrator orchestrator) {
         this.store = store;
         this.orchestrator = orchestrator;
+    }
+
+    public ApiRouter(Store store, Orchestrator orchestrator, GitHubClient gitHubClient) {
+        this.store = store;
+        this.orchestrator = orchestrator;
+        this.gitHubClient = gitHubClient;
     }
 
     public void handle(HttpServletRequest req, HttpServletResponse resp) throws IOException {
@@ -156,10 +163,30 @@ public class ApiRouter {
                         return JsonUtil.toJson(job);
                     }
 
-                    if (("publish".equalsIgnoreCase(sub) || "push".equalsIgnoreCase(sub)) && "POST".equalsIgnoreCase(method)) {
+                    if ("preview".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
                         ProjectRecord p = getOrCreateStubProject(projectId);
-                        JobRecord job = (orchestrator != null) ? orchestrator.pushToGitHub(p, "admin") : new JobRecord("job-mock", projectId, "PUBLISH");
+                        JobRecord job = (orchestrator != null) ? orchestrator.pushToPreviewBranch(p, "admin") : new JobRecord("job-mock", projectId, "PREVIEW");
                         return JsonUtil.toJson(job);
+                    }
+
+                    if ("publish".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
+                        ProjectRecord p = getOrCreateStubProject(projectId);
+                        JobRecord job = (orchestrator != null) ? orchestrator.openPullRequest(p, "admin") : new JobRecord("job-mock", projectId, "PUBLISH");
+                        return JsonUtil.toJson(job);
+                    }
+
+                    if ("push".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
+                        ProjectRecord p = getOrCreateStubProject(projectId);
+                        JobRecord job = (orchestrator != null) ? orchestrator.pushToPreviewBranch(p, "admin") : new JobRecord("job-mock", projectId, "PREVIEW");
+                        return JsonUtil.toJson(job);
+                    }
+
+                    if ("npm".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
+                        return handleNpmPost(projectId, body, resp);
+                    }
+
+                    if ("npm".equalsIgnoreCase(sub) && "GET".equalsIgnoreCase(method) && tokens.length >= 4) {
+                        return handleNpmGet(projectId, tokens[3], resp);
                     }
 
                     if ("jobs".equalsIgnoreCase(sub)) {
@@ -230,6 +257,19 @@ public class ApiRouter {
 
                     if ("branch-status".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
                         return handleBranchStatus(projectId, body, resp);
+                    }
+
+                    if ("workspace".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
+                        if (tokens.length >= 4 && "file".equalsIgnoreCase(tokens[3])) {
+                            return handleWorkspaceFile(projectId, body, resp);
+                        }
+                        if (tokens.length >= 4 && "save".equalsIgnoreCase(tokens[3])) {
+                            return handleWorkspaceSave(projectId, body, resp);
+                        }
+                        if (tokens.length >= 4 && "delete".equalsIgnoreCase(tokens[3])) {
+                            return handleWorkspaceDelete(projectId, body, resp);
+                        }
+                        return handleWorkspaceList(projectId, body, resp);
                     }
 
                     // ─────────────────────────────────────────────────────────────
@@ -364,6 +404,144 @@ public class ApiRouter {
         return JsonUtil.toJson(result);
     }
 
+    private String handleNpmPost(String projectId, String body, HttpServletResponse resp) {
+        if (gitHubClient == null) {
+            if (resp != null) resp.setStatus(503);
+            return "{\"error\":\"GitHub client not available\"}";
+        }
+        ProjectRecord project = store != null ? store.getProject(projectId).orElse(null) : null;
+        if (project == null) {
+            if (resp != null) resp.setStatus(404);
+            return "{\"error\":\"Project not found\"}";
+        }
+        Map<?, ?> payload = (body != null && !body.trim().isEmpty())
+                ? JsonUtil.fromJson(body, Map.class) : null;
+        String command = payload != null ? Objects.toString(payload.get("command"), "") : "";
+        command = command.trim();
+        if (!"lint:fix".equals(command) && !"build:json".equals(command) && !"install-workflow".equals(command)) {
+            if (resp != null) resp.setStatus(400);
+            return "{\"error\":\"command must be lint:fix, build:json, or install-workflow\"}";
+        }
+
+        String branch = GitHubFlow.featureBranch(project.getId());
+        GitHubClient client = gitHubClient instanceof RealGitHubClient
+                ? ((RealGitHubClient) gitHubClient).forProject(project) : gitHubClient;
+
+        if ("install-workflow".equals(command)) {
+            try {
+                installNpmWorkflow(client, project, branch);
+                Map<String, Object> result = new LinkedHashMap<>();
+                result.put("status", "installed");
+                result.put("branch", branch);
+                result.put("path", GitHubFlow.NPM_WORKFLOW_PATH);
+                return JsonUtil.toJson(result);
+            } catch (RuntimeException e) {
+                if (resp != null) resp.setStatus(502);
+                return "{\"error\":\"Failed to install workflow: " + escapeJson(e.getMessage()) + "\"}";
+            }
+        }
+
+        Map<String, String> inputs = new LinkedHashMap<>();
+        inputs.put("command", command);
+        try {
+            Map<String, Object> run = client.dispatchWorkflow(branch, GitHubFlow.NPM_WORKFLOW_FILE, inputs);
+            if (run == null) {
+                run = new LinkedHashMap<>();
+            }
+            run.put("command", command);
+            run.put("branch", branch);
+            return JsonUtil.toJson(run);
+        } catch (RuntimeException e) {
+            String msg = e.getMessage() != null ? e.getMessage() : "";
+            if (msg.contains("404") || msg.toLowerCase().contains("workflow")) {
+                try {
+                    installNpmWorkflow(client, project, branch);
+                    try {
+                        Thread.sleep(4000);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                    Map<String, Object> run = client.dispatchWorkflow(branch, GitHubFlow.NPM_WORKFLOW_FILE, inputs);
+                    if (run == null) {
+                        run = new LinkedHashMap<>();
+                    }
+                    run.put("command", command);
+                    run.put("branch", branch);
+                    run.put("workflowInstalled", true);
+                    return JsonUtil.toJson(run);
+                } catch (RuntimeException retry) {
+                    if (resp != null) resp.setStatus(502);
+                    return "{\"error\":\"GitHub Actions dispatch failed. The workflow must exist on the repository default branch, and the token needs Actions write. "
+                            + escapeJson(retry.getMessage()) + "\"}";
+                }
+            }
+            if (resp != null) resp.setStatus(502);
+            return "{\"error\":\"GitHub Actions dispatch failed: " + escapeJson(msg) + "\"}";
+        }
+    }
+
+    private String handleNpmGet(String projectId, String runId, HttpServletResponse resp) {
+        if (gitHubClient == null) {
+            if (resp != null) resp.setStatus(503);
+            return "{\"error\":\"GitHub client not available\"}";
+        }
+        ProjectRecord project = store != null ? store.getProject(projectId).orElse(null) : null;
+        GitHubClient client = (gitHubClient instanceof RealGitHubClient && project != null)
+                ? ((RealGitHubClient) gitHubClient).forProject(project) : gitHubClient;
+        Map<String, Object> run = client.getWorkflowRun(runId);
+        if (run == null) {
+            if (resp != null) resp.setStatus(404);
+            return "{\"error\":\"Workflow run not found\"}";
+        }
+        String logs = client.getWorkflowRunLogs(runId);
+        run.put("logs", logs != null ? logs : "");
+        return JsonUtil.toJson(run);
+    }
+
+    private void installNpmWorkflow(GitHubClient client, ProjectRecord project, String branch) {
+        String jobId = store != null ? store.getLatestJob(project.getId()).map(JobRecord::getId).orElse("preview") : "preview";
+        GeneratedFileRecord yaml = new GeneratedFileRecord(
+                UUID.randomUUID().toString(),
+                project.getId(),
+                jobId,
+                GitHubFlow.NPM_WORKFLOW_PATH,
+                "CONFIG",
+                com.adobe.aem.modernizer.connectors.ModernizerNpmWorkflow.YAML
+        );
+        java.util.LinkedHashSet<String> targets = new java.util.LinkedHashSet<>();
+        String repoDefault = client.getRepositoryDefaultBranch();
+        if (repoDefault != null && !repoDefault.isBlank()) {
+            targets.add(repoDefault);
+        }
+        String edsBranch = project.getEdsBranch();
+        if (edsBranch != null && !edsBranch.isBlank()) {
+            targets.add(edsBranch);
+        }
+        if (branch != null && !branch.isBlank()) {
+            client.createBranch(branch);
+            targets.add(branch);
+        }
+        RuntimeException last = null;
+        boolean committed = false;
+        for (String target : targets) {
+            try {
+                client.commitFiles(target, Collections.singletonList(yaml),
+                        "chore: add modernizer-npm GitHub Actions workflow");
+                committed = true;
+            } catch (RuntimeException e) {
+                last = e;
+            }
+        }
+        if (!committed && last != null) {
+            throw last;
+        }
+    }
+
+    private static String escapeJson(String raw) {
+        if (raw == null) return "";
+        return raw.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", " ").replace("\r", " ");
+    }
+
     /**
      * Loads the project, or creates a minimal stub if it doesn't exist yet. The stub's EDS
      * Git repository URL / branch come from the OSGi-configured {@link GitHubClient} fallback
@@ -427,17 +605,7 @@ public class ApiRouter {
             latestRun = null;
         }
 
-        String vscodeUrl = null;
-        String repoUrl = project.getEdsGitRepoUrl();
-        if (repoUrl != null && !repoUrl.isBlank()) {
-            String cleaned = repoUrl.trim();
-            if (cleaned.endsWith(".git")) cleaned = cleaned.substring(0, cleaned.length() - 4);
-            if (cleaned.endsWith("/")) cleaned = cleaned.substring(0, cleaned.length() - 1);
-            if (cleaned.startsWith("https://github.com/")) {
-                String ownerRepo = cleaned.substring("https://github.com/".length());
-                vscodeUrl = "https://vscode.dev/github/" + ownerRepo + "/tree/" + branch;
-            }
-        }
+        String vscodeUrl = GitHubFlow.vscodeUrl(project.getEdsGitRepoUrl(), branch);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("branch", branch);
@@ -663,5 +831,199 @@ public class ApiRouter {
             LOG.warn("Could not scan local block files: {}", e.getMessage());
         }
         return list;
+    }
+
+    private GitHubClient clientFor(ProjectRecord project) {
+        if (gitHubClient instanceof RealGitHubClient && project != null) {
+            return ((RealGitHubClient) gitHubClient).forProject(project);
+        }
+        return gitHubClient;
+    }
+
+    private String requiredBranch(String body, HttpServletResponse resp) {
+        Map<?, ?> payload = (body != null && !body.trim().isEmpty())
+                ? JsonUtil.fromJson(body, Map.class) : null;
+        String branch = payload != null ? Objects.toString(payload.get("branch"), "") : "";
+        if (branch.isBlank()) {
+            if (resp != null) resp.setStatus(400);
+            return null;
+        }
+        return branch.trim();
+    }
+
+    private String handleWorkspaceList(String projectId, String body, HttpServletResponse resp) {
+        ProjectRecord project = store != null ? store.getProject(projectId).orElse(null) : null;
+        if (project == null) {
+            if (resp != null) resp.setStatus(404);
+            return "{\"error\":\"Project not found\"}";
+        }
+        String branch = requiredBranch(body, resp);
+        if (branch == null) {
+            return "{\"error\":\"Missing required field: branch\"}";
+        }
+        LinkedHashSet<String> paths = new LinkedHashSet<>();
+        GitHubClient client = clientFor(project);
+        if (client != null) {
+            String base = project.getEdsBranch() != null && !project.getEdsBranch().isBlank()
+                    ? project.getEdsBranch().trim() : client.getDefaultBranch();
+            try {
+                for (Map<String, Object> changed : client.listChangedFiles(base, branch)) {
+                    Object name = changed.get("filename");
+                    if (name != null && !GitHubFlow.skipFromCommit(String.valueOf(name))) {
+                        paths.add(String.valueOf(name));
+                    }
+                }
+            } catch (RuntimeException e) {
+                LOG.warn("[Workspace] listChangedFiles failed: {}", e.getMessage());
+            }
+        }
+        if (store != null) {
+            store.getLatestJob(projectId).ifPresent(job -> {
+                for (GeneratedFileRecord file : store.getGeneratedFiles(job.getId())) {
+                    if (file.getPath() != null && !GitHubFlow.skipFromCommit(file.getPath())) {
+                        paths.add(file.getPath());
+                    }
+                }
+            });
+        }
+        List<Map<String, Object>> files = new ArrayList<>();
+        for (String path : paths) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("path", path);
+            files.add(row);
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("branch", branch);
+        result.put("vscodeUrl", GitHubFlow.vscodeUrl(project.getEdsGitRepoUrl(), branch));
+        result.put("files", files);
+        result.put("note", "vscode.dev cannot be embedded in AEM. Review files here or open vscode.dev in a new tab.");
+        if (store != null) {
+            store.getLatestJob(projectId).ifPresent(job -> {
+                if (job.getMetadata() != null && job.getMetadata().get("ciHeal") != null) {
+                    result.put("ciHeal", job.getMetadata().get("ciHeal"));
+                }
+            });
+        }
+        return JsonUtil.toJson(result);
+    }
+
+    private String handleWorkspaceFile(String projectId, String body, HttpServletResponse resp) {
+        ProjectRecord project = store != null ? store.getProject(projectId).orElse(null) : null;
+        if (project == null) {
+            if (resp != null) resp.setStatus(404);
+            return "{\"error\":\"Project not found\"}";
+        }
+        Map<?, ?> payload = (body != null && !body.trim().isEmpty())
+                ? JsonUtil.fromJson(body, Map.class) : null;
+        String branch = payload != null ? Objects.toString(payload.get("branch"), "").trim() : "";
+        String path = payload != null ? Objects.toString(payload.get("path"), "").trim() : "";
+        if (branch.isEmpty() || path.isEmpty()) {
+            if (resp != null) resp.setStatus(400);
+            return "{\"error\":\"Missing required fields: branch, path\"}";
+        }
+        String content = null;
+        GitHubClient client = clientFor(project);
+        if (client != null) {
+            content = client.getFileContent(branch, path);
+        }
+        if (content == null && store != null) {
+            Optional<JobRecord> latest = store.getLatestJob(projectId);
+            if (latest.isPresent()) {
+                for (GeneratedFileRecord file : store.getGeneratedFiles(latest.get().getId())) {
+                    if (path.equals(file.getPath())) {
+                        content = file.getContent();
+                        break;
+                    }
+                }
+            }
+        }
+        if (content == null) {
+            if (resp != null) resp.setStatus(404);
+            return "{\"error\":\"File not found on branch or in generated files\"}";
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("path", path);
+        result.put("branch", branch);
+        result.put("content", content);
+        result.put("readOnly", GitHubFlow.skipFromCommit(path));
+        return JsonUtil.toJson(result);
+    }
+
+    private String handleWorkspaceSave(String projectId, String body, HttpServletResponse resp) {
+        ProjectRecord project = store != null ? store.getProject(projectId).orElse(null) : null;
+        if (project == null) {
+            if (resp != null) resp.setStatus(404);
+            return "{\"error\":\"Project not found\"}";
+        }
+        if (gitHubClient == null) {
+            if (resp != null) resp.setStatus(503);
+            return "{\"error\":\"GitHub client not available\"}";
+        }
+        Map<?, ?> payload = (body != null && !body.trim().isEmpty())
+                ? JsonUtil.fromJson(body, Map.class) : null;
+        String branch = payload != null ? Objects.toString(payload.get("branch"), "").trim() : "";
+        String path = payload != null ? Objects.toString(payload.get("path"), "").trim() : "";
+        String content = payload != null ? Objects.toString(payload.get("content"), null) : null;
+        if (branch.isEmpty() || path.isEmpty() || content == null) {
+            if (resp != null) resp.setStatus(400);
+            return "{\"error\":\"Missing required fields: branch, path, content\"}";
+        }
+        if (GitHubFlow.skipFromCommit(path)) {
+            if (resp != null) resp.setStatus(400);
+            return "{\"error\":\"fstab.yaml is not edited by Modernizer\"}";
+        }
+        GitHubClient client = clientFor(project);
+        GeneratedFileRecord file = new GeneratedFileRecord(
+                UUID.randomUUID().toString(),
+                projectId,
+                store.getLatestJob(projectId).map(JobRecord::getId).orElse("workspace"),
+                path,
+                path.endsWith(".css") ? "BLOCK_CSS" : path.endsWith(".md") ? "SECTION_MD" : "BLOCK_JS",
+                content
+        );
+        client.commitFiles(branch, List.of(file), "chore: dashboard workspace edit " + path);
+        if (store != null) {
+            store.saveGeneratedFile(file);
+        }
+        String refreshed = client.getFileContent(branch, path);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("ok", true);
+        result.put("path", path);
+        result.put("branch", branch);
+        result.put("content", refreshed != null ? refreshed : content);
+        result.put("committed", true);
+        return JsonUtil.toJson(result);
+    }
+
+    private String handleWorkspaceDelete(String projectId, String body, HttpServletResponse resp) {
+        ProjectRecord project = store != null ? store.getProject(projectId).orElse(null) : null;
+        if (project == null) {
+            if (resp != null) resp.setStatus(404);
+            return "{\"error\":\"Project not found\"}";
+        }
+        if (gitHubClient == null) {
+            if (resp != null) resp.setStatus(503);
+            return "{\"error\":\"GitHub client not available\"}";
+        }
+        Map<?, ?> payload = (body != null && !body.trim().isEmpty())
+                ? JsonUtil.fromJson(body, Map.class) : null;
+        String branch = payload != null ? Objects.toString(payload.get("branch"), "").trim() : "";
+        String path = payload != null ? Objects.toString(payload.get("path"), "").trim() : "";
+        if (branch.isEmpty() || path.isEmpty()) {
+            if (resp != null) resp.setStatus(400);
+            return "{\"error\":\"Missing required fields: branch, path\"}";
+        }
+        if (GitHubFlow.skipFromCommit(path)) {
+            if (resp != null) resp.setStatus(400);
+            return "{\"error\":\"fstab.yaml is not edited by Modernizer\"}";
+        }
+        GitHubClient client = clientFor(project);
+        client.deleteFile(branch, path);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("ok", true);
+        result.put("deleted", true);
+        result.put("path", path);
+        result.put("branch", branch);
+        return JsonUtil.toJson(result);
     }
 }

@@ -9,6 +9,7 @@ import com.adobe.aem.modernizer.dashboard.servlets.MigrationServlet;
 import com.adobe.aem.modernizer.dashboard.servlets.ModernizerHomeServlet;
 import com.adobe.aem.modernizer.dashboard.servlets.ProjectServlet;
 import com.adobe.aem.modernizer.mock.MockDataFactory;
+import com.adobe.aem.modernizer.mock.MockGitHubClient;
 import com.adobe.aem.modernizer.persistence.InMemoryStore;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.BenchmarkSampleRecord;
@@ -28,6 +29,7 @@ import javax.servlet.FilterChain;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
@@ -327,6 +329,68 @@ class DashboardServletsAndApiTest {
         String html = StaticDashboard.html("http://localhost:4502/bin/aem-eds-modernizer/api");
         assertThat(html).contains("AEM → EDS Modernizer");
         assertThat(html).contains("http://localhost:4502/bin/aem-eds-modernizer/api");
+        assertThat(html).contains("REVIEW IN VS CODE");
+        assertThat(html).contains("npm run lint:fix");
+        assertThat(html).contains("chk-vscode-reviewed");
+        assertThat(html).contains("projects/${currentProjectId}/preview");
+        assertThat(html).contains("ws-file-tree");
+        assertThat(html).contains("workspace/save");
+        assertThat(html).contains("workspace/delete");
+        assertThat(html).contains("ws-file-del");
+        assertThat(html).contains("ws-line-numbers");
+    }
+
+    @Test
+    void previewPushDoesNotOpenPrAndNpmDispatches() {
+        MockGitHubClient gh = new MockGitHubClient("https://github.com/company/wknd-eds");
+        Orchestrator orch = new Orchestrator(store, null, null);
+        orch.register(new com.adobe.aem.modernizer.agents.PreviewAgent(
+                gh, new com.adobe.aem.modernizer.mock.MockEdsClient("https://eds-mock.local"), store, null));
+        orch.register(new com.adobe.aem.modernizer.agents.PublishingAgent(gh, store, null));
+        ApiRouter wired = new ApiRouter(store, orch, gh);
+        store.saveProject(new ProjectRecord("proj-1", "WKND Site", "http://localhost:4502", "/content/wknd", "https://github.com/company/wknd-eds"));
+
+        String preview = wired.route("POST", "/projects/proj-1/preview", null, null);
+        assertThat(preview).contains("PREVIEWING");
+        assertThat(preview).contains("vscodeUrl");
+        assertThat(gh.getPrCount()).isEqualTo(0);
+        assertThat(gh.getCommitCount()).isGreaterThan(0);
+
+        String publish = wired.route("POST", "/projects/proj-1/publish", null, null);
+        assertThat(publish).contains("COMPLETED");
+        assertThat(gh.getPrCount()).isEqualTo(1);
+        int commitsAfterPr = gh.getCommitCount();
+
+        String npm = wired.route("POST", "/projects/proj-1/npm", "{\"command\":\"lint:fix\"}", null);
+        assertThat(npm).contains("runId");
+        assertThat(npm).contains("lint:fix");
+        assertThat(gh.getCommitCount()).isEqualTo(commitsAfterPr);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> npmJson = JsonUtil.fromJson(npm, Map.class);
+        String runId = String.valueOf(npmJson.get("runId"));
+        String npmGet = wired.route("GET", "/projects/proj-1/npm/" + runId, null, null);
+        assertThat(npmGet).contains("completed");
+        assertThat(npmGet).contains("npm run lint:fix");
+
+        String workspace = wired.route("POST", "/projects/proj-1/workspace", "{\"branch\":\"feat/proj-1\"}", null);
+        assertThat(workspace).doesNotContain("fstab.yaml");
+        assertThat(workspace).contains("/tree/feat/proj-1").doesNotContain("%2F");
+
+        gh.commitFiles("feat/proj-1", java.util.List.of(new com.adobe.aem.modernizer.persistence.model.GeneratedFileRecord(
+                "legacy-md", "proj-1", "preview", "language-masters/en/about-us.md", "SECTION_MD", "# old")), "legacy");
+        String listed = wired.route("POST", "/projects/proj-1/workspace", "{\"branch\":\"feat/proj-1\"}", null);
+        assertThat(listed).contains("language-masters/en/about-us.md");
+        String deleted = wired.route("POST", "/projects/proj-1/workspace/delete",
+                "{\"branch\":\"feat/proj-1\",\"path\":\"language-masters/en/about-us.md\"}", null);
+        assertThat(deleted).contains("\"deleted\":true");
+        String afterDelete = wired.route("POST", "/projects/proj-1/workspace", "{\"branch\":\"feat/proj-1\"}", null);
+        assertThat(afterDelete).doesNotContain("language-masters/en/about-us.md");
+
+        String saved = wired.route("POST", "/projects/proj-1/workspace/save",
+                "{\"branch\":\"feat/proj-1\",\"path\":\"docs/migrated-pages/language-masters/en/about-us.md\",\"content\":\"# About\"}", null);
+        assertThat(saved).contains("\"committed\":true");
+        assertThat(saved).contains("# About");
     }
 }
 

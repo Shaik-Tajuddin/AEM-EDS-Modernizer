@@ -30,11 +30,19 @@ const api = async (path, opts = {}) => {
   opts.headers = headers;
 
   const res = await fetch(url, opts);
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`HTTP ${res.status}: ${(errText || "").substring(0, 200)}`);
+  const errText = await res.text();
+  let data = {};
+  try {
+    data = errText ? JSON.parse(errText) : {};
+  } catch (parseErr) {
+    throw new Error(
+      `HTTP ${res.status}: ${(errText || "").substring(0, 200)}`,
+    );
   }
-  return res.json();
+  if (!res.ok) {
+    throw new Error(data.error || `HTTP ${res.status}: ${(errText || "").substring(0, 200)}`);
+  }
+  return data;
 };
 
 function showToast(msg) {
@@ -252,6 +260,7 @@ async function onProjectSelectChange() {
     showTab("setup");
   } else {
     currentProjectId = val;
+    resetVsCodeReviewGate();
     await populateFormFromProject(val);
     await refreshDashboard();
   }
@@ -290,6 +299,68 @@ let generatedFiles = [];
 let blockFilesMap = {};
 let activeBlockName = null;
 let activeFileTab = "demo";
+let vscodeReviewConfirmed = false;
+
+function resetVsCodeReviewGate() {
+  vscodeReviewConfirmed = false;
+  const chk = document.getElementById("chk-vscode-reviewed");
+  if (chk) chk.checked = false;
+  const btnPublish = document.getElementById("btn-publish");
+  if (btnPublish) btnPublish.disabled = true;
+}
+
+function onVsCodeReviewToggle() {
+  const chk = document.getElementById("chk-vscode-reviewed");
+  vscodeReviewConfirmed = !!(chk && chk.checked);
+  const btnPublish = document.getElementById("btn-publish");
+  if (btnPublish) btnPublish.disabled = !vscodeReviewConfirmed;
+  if (vscodeReviewConfirmed) {
+    setPipelineStep("vscode", "done");
+    setPipelineStep("publish", "active");
+  }
+}
+
+function featureBranchName() {
+  return "feat/" + currentProjectId;
+}
+
+function applyPreviewBranch(branch) {
+  const name = branch || featureBranchName();
+  const input = document.getElementById("github-branch-input");
+  if (input) input.value = name;
+  const branchDisplay = document.getElementById("vscode-branch-display");
+  if (branchDisplay) branchDisplay.innerText = name;
+}
+
+async function previewToBranch() {
+  resetVsCodeReviewGate();
+  setPipelineStep("validate", "done");
+  setPipelineStep("vscode", "active");
+  applyPreviewBranch(featureBranchName());
+  log("preview", `Pushing generated files to branch '${featureBranchName()}' (no PR)...`);
+  const job = await api(`projects/${currentProjectId}/preview`, {
+    method: "POST",
+  });
+  const meta = job.metadata || {};
+  const branch = meta.branch || featureBranchName();
+  applyPreviewBranch(branch);
+  const vscodeUrl = meta.vscodeUrl || getVsCodeUrlForBranch(branch);
+  showTab("github");
+  loadVsCodeFrame(vscodeUrl);
+  setPipelineStep("vscode", "done");
+  setPipelineStep("publish", "active");
+  log(
+    "preview",
+    `Branch '${branch}' is ready. Review in vscode.dev, run npm scripts if needed, then confirm to open a PR.`,
+  );
+  showToast("Branch pushed. Review in VS Code, then confirm to open the PR.");
+  try {
+    await checkBranchStatus();
+  } catch (e) {
+    /* optional */
+  }
+  return job;
+}
 
 async function runDryRun() {
   const btn = document.getElementById("btn-dryrun");
@@ -333,17 +404,18 @@ async function runMigration() {
     });
     log("orchestrator", `Block Generation finished with state: ${job.state}`);
     setPipelineStep("build", "done");
-    setPipelineStep("validate", "active");
+    setPipelineStep("validate", "done");
     await refreshDashboard();
 
-    // Enable the final Commit & Push button so the operator has time to inspect blocks
-    const btnPublish = document.getElementById("btn-publish");
-    if (btnPublish) btnPublish.disabled = false;
-
     showTab("components");
-    showToast(
-      "⚡ Blocks Generated! Please inspect and validate them before committing to Git.",
-    );
+    showToast("Blocks generated. Pushing preview branch for VS Code review...");
+    try {
+      await previewToBranch();
+    } catch (previewErr) {
+      log("error", `Preview push failed: ${previewErr.message}`);
+      showTab("github");
+      showToast("Generate succeeded but branch push failed. Use Push Blocks & Open VS Code to retry.");
+    }
   } catch (err) {
     log("error", `Generation failed: ${err.message}`);
   } finally {
@@ -352,31 +424,50 @@ async function runMigration() {
 }
 
 async function runPushToGit() {
+  if (!vscodeReviewConfirmed) {
+    showToast("Confirm you have reviewed the branch in VS Code first.");
+    showTab("github");
+    return;
+  }
   const btnPublish = document.getElementById("btn-publish");
   if (btnPublish) btnPublish.disabled = true;
-  setPipelineStep("validate", "done");
+  setPipelineStep("vscode", "done");
   setPipelineStep("publish", "active");
   log(
     "publishing",
-    `🚀 Committing and Pushing generated blocks & models to remote Git repository...`,
+    `Opening Pull Request from '${featureBranchName()}' (no re-commit of generated files)...`,
   );
   try {
     const job = await api(`projects/${currentProjectId}/publish`, {
       method: "POST",
     });
+    const prUrl = (job.metadata && job.metadata.prUrl) || job.prUrl;
     log(
       "publishing",
-      `Successfully committed blocks to preview branch and opened Pull Request! State: ${job.state}`,
+      prUrl
+        ? `Pull Request opened: ${prUrl}`
+        : `Publish job finished with state: ${job.state}`,
     );
     setPipelineStep("publish", "done");
     await refreshDashboard();
-    showToast("🚀 Successfully committed and pushed blocks to GitHub!");
+    const resultEl = document.getElementById("github-pr-result");
+    if (resultEl && prUrl) {
+      resultEl.innerHTML = `<a href="${prUrl}" target="_blank" style="font-weight:700; color:var(--accent);">Pull Request opened: ${prUrl}</a>`;
+    }
+    showToast(prUrl ? "Pull Request opened against the review branch." : "Publish job completed.");
   } catch (err) {
-    log("error", `Git push failed: ${err.message}`);
-    showToast("Error pushing to Git: " + err.message);
+    log("error", `Git PR failed: ${err.message}`);
+    showToast("Error opening PR: " + err.message);
   } finally {
-    if (btnPublish) btnPublish.disabled = false;
+    if (btnPublish) btnPublish.disabled = !vscodeReviewConfirmed;
   }
+}
+
+function encodeBranchSegments(branch) {
+  return String(branch || "main")
+    .split("/")
+    .map(encodeURIComponent)
+    .join("/");
 }
 
 function getVsCodeUrlForBranch(branch) {
@@ -394,65 +485,188 @@ function getVsCodeUrlForBranch(branch) {
   if (cleaned.endsWith(".git")) cleaned = cleaned.substring(0, cleaned.length - 4);
   if (cleaned.endsWith("/")) cleaned = cleaned.substring(0, cleaned.length - 1);
   if (cleaned.startsWith("https://github.com/")) {
-    const ownerRepo = cleaned.substring("https://github.com/".length());
-    return `https://vscode.dev/github/${ownerRepo}/tree/${encodeURIComponent(branch || "feat/" + currentProjectId)}`;
+    const ownerRepo = cleaned.substring("https://github.com/".length);
+    return `https://vscode.dev/github/${ownerRepo}/tree/${encodeBranchSegments(branch || "feat/" + currentProjectId)}`;
   }
   return "https://vscode.dev";
+}
+
+let workspaceOpenPath = "";
+
+function syncWsLineNumbers() {
+  const editor = document.getElementById("ws-editor");
+  const gutter = document.getElementById("ws-line-numbers");
+  if (!editor || !gutter) return;
+  const text = editor.value || "";
+  const count = text.split(/\r\n|\r|\n/).length;
+  let lines = "";
+  for (let i = 1; i <= count; i++) {
+    lines += i + (i === count ? "" : "\n");
+  }
+  gutter.textContent = lines || "1";
+  syncWsLineScroll();
+}
+
+function syncWsLineScroll() {
+  const editor = document.getElementById("ws-editor");
+  const gutter = document.getElementById("ws-line-numbers");
+  if (editor && gutter) {
+    gutter.scrollTop = editor.scrollTop;
+  }
 }
 
 function loadVsCodeFrame(customUrl) {
   const input = document.getElementById("github-branch-input");
   const branch = (input && input.value.trim()) || `feat/${currentProjectId}`;
   const url = customUrl || getVsCodeUrlForBranch(branch);
-
-  const frame = document.getElementById("vscode-frame");
   const placeholder = document.getElementById("vscode-placeholder");
+  const workspace = document.getElementById("vscode-workspace");
   const newTabBtn = document.getElementById("btn-open-vscode-newtab");
   const branchDisplay = document.getElementById("vscode-branch-display");
+  const hint = document.getElementById("vscode-frame-hint");
 
   if (branchDisplay) branchDisplay.innerText = branch;
-
   if (newTabBtn) {
     newTabBtn.href = url;
     newTabBtn.style.display = "inline-flex";
   }
-
-  if (frame) {
-    if (frame.src !== url) {
-      frame.src = url;
-    }
-    frame.style.display = "block";
+  if (hint) {
+    hint.textContent = "In-dashboard editor (vscode.dev cannot be embedded in AEM)";
   }
-  if (placeholder) {
-    placeholder.style.display = "none";
-  }
+  if (placeholder) placeholder.style.display = "none";
+  if (workspace) workspace.style.display = "flex";
+  loadWorkspaceFiles(branch);
 }
 
 function reloadVsCodeFrame() {
-  const frame = document.getElementById("vscode-frame");
+  loadVsCodeFrame();
+  showToast("Reloaded branch workspace");
+}
+
+async function loadWorkspaceFiles(branch) {
+  const tree = document.getElementById("ws-file-tree");
+  if (!tree) return;
+  tree.innerHTML = "<li class=\"ws-tree-empty\">Loading files…</li>";
+  try {
+    const data = await api(`projects/${currentProjectId}/workspace`, {
+      method: "POST",
+      body: JSON.stringify({ branch }),
+    });
+    const files = data.files || [];
+    if (!files.length) {
+      tree.innerHTML = "<li class=\"ws-tree-empty\">No changed files yet. Push the preview branch first.</li>";
+      return;
+    }
+    tree.innerHTML = files
+      .map((f) => {
+        const safe = String(f.path).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+        const js = String(f.path).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+        return `<li class="ws-file-row"><button type="button" class="ws-file-btn" data-path="${safe}" onclick="openWorkspaceFile('${js}')">${safe}</button><button type="button" class="ws-file-del" title="Delete from branch" onclick="deleteWorkspaceFile('${js}')">Delete</button></li>`;
+      })
+      .join("");
+    const keepOpen = workspaceOpenPath && files.some((f) => f.path === workspaceOpenPath);
+    if (keepOpen) {
+      await openWorkspaceFile(workspaceOpenPath);
+    } else if (files[0] && files[0].path) {
+      await openWorkspaceFile(files[0].path);
+    }
+  } catch (err) {
+    tree.innerHTML = `<li class="ws-tree-empty">${err.message}</li>`;
+  }
+}
+
+async function openWorkspaceFile(path) {
   const input = document.getElementById("github-branch-input");
   const branch = (input && input.value.trim()) || `feat/${currentProjectId}`;
-  const url = getVsCodeUrlForBranch(branch);
-  if (frame) {
-    frame.src = url;
-    frame.style.display = "block";
+  const editor = document.getElementById("ws-editor");
+  const label = document.getElementById("ws-open-path");
+  workspaceOpenPath = path;
+  if (label) label.textContent = path;
+  document.querySelectorAll(".ws-file-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.getAttribute("data-path") === path);
+  });
+  if (editor) editor.value = "Loading…";
+  try {
+    const data = await api(`projects/${currentProjectId}/workspace/file`, {
+      method: "POST",
+      body: JSON.stringify({ branch, path }),
+    });
+    if (editor) {
+      editor.value = data.content || "";
+      editor.readOnly = !!data.readOnly;
+    }
+    syncWsLineNumbers();
+  } catch (err) {
+    if (editor) editor.value = err.message;
+    syncWsLineNumbers();
   }
-  const placeholder = document.getElementById("vscode-placeholder");
-  if (placeholder) placeholder.style.display = "none";
-  showToast("🔄 Reloaded VS Code editor frame");
+}
+
+async function saveWorkspaceFile() {
+  const input = document.getElementById("github-branch-input");
+  const branch = (input && input.value.trim()) || `feat/${currentProjectId}`;
+  const editor = document.getElementById("ws-editor");
+  if (!workspaceOpenPath || !editor) {
+    showToast("Open a file first.");
+    return;
+  }
+  try {
+    const saved = await api(`projects/${currentProjectId}/workspace/save`, {
+      method: "POST",
+      body: JSON.stringify({ branch, path: workspaceOpenPath, content: editor.value }),
+    });
+    if (saved && typeof saved.content === "string") {
+      editor.value = saved.content;
+    } else {
+      await openWorkspaceFile(workspaceOpenPath);
+    }
+    syncWsLineNumbers();
+    showToast("Committed " + workspaceOpenPath + " on " + branch);
+  } catch (err) {
+    showToast("Save failed: " + err.message);
+  }
+}
+
+async function deleteWorkspaceFile(path) {
+  const input = document.getElementById("github-branch-input");
+  const branch = (input && input.value.trim()) || `feat/${currentProjectId}`;
+  const target = path || workspaceOpenPath;
+  if (!target) {
+    showToast("Select a file first.");
+    return;
+  }
+  if (!window.confirm("Delete " + target + " from " + branch + "? This creates a new commit.")) {
+    return;
+  }
+  try {
+    await api(`projects/${currentProjectId}/workspace/delete`, {
+      method: "POST",
+      body: JSON.stringify({ branch, path: target }),
+    });
+    if (workspaceOpenPath === target) {
+      workspaceOpenPath = "";
+      const editor = document.getElementById("ws-editor");
+      const label = document.getElementById("ws-open-path");
+      if (editor) editor.value = "";
+      if (label) label.textContent = "Select a file";
+      syncWsLineNumbers();
+    }
+    showToast("Deleted " + target + " from " + branch);
+    await loadWorkspaceFiles(branch);
+  } catch (err) {
+    showToast("Delete failed: " + err.message);
+  }
 }
 
 async function pushBlocksAndOpenVsCode() {
   const btn = document.getElementById("btn-push-blocks-tab");
   if (btn) btn.disabled = true;
-  showToast("🚀 Pushing generated blocks to branch...");
+  showToast("Pushing generated blocks to branch...");
   try {
-    await runPushToGit();
-    loadVsCodeFrame();
-    await checkBranchStatus();
-    showToast("✅ Blocks pushed to branch & VS Code workspace loaded!");
+    await previewToBranch();
+    showToast("Blocks pushed to branch and VS Code workspace loaded.");
   } catch (err) {
-    showToast("⚠️ Push failed: " + err.message);
+    showToast("Push failed: " + err.message);
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -503,34 +717,79 @@ async function checkBranchStatus() {
   }
 }
 
+async function runNpmScript(command) {
+  const logEl = document.getElementById("npm-log-terminal");
+  const lintBtn = document.getElementById("btn-npm-lint");
+  const jsonBtn = document.getElementById("btn-npm-json");
+  if (lintBtn) lintBtn.disabled = true;
+  if (jsonBtn) jsonBtn.disabled = true;
+  if (logEl) logEl.textContent = `$ npm run ${command}\nDispatching GitHub Actions on ${featureBranchName()}...\n`;
+  log("npm", `Dispatching npm run ${command} on ${featureBranchName()}...`);
+  try {
+    const started = await api(`projects/${currentProjectId}/npm`, {
+      method: "POST",
+      body: JSON.stringify({ command }),
+    });
+    if (started.error) {
+      if (logEl) logEl.textContent += "ERROR: " + started.error + "\n";
+      showToast("npm dispatch failed: " + started.error);
+      return;
+    }
+    const runId = started.runId;
+    if (started.logs && logEl) {
+      logEl.textContent = started.logs;
+    }
+    if (!runId) {
+      if (logEl) {
+        logEl.textContent += "Dispatched. Run id not available yet — check GitHub Actions.\n";
+        if (started.htmlUrl) logEl.textContent += started.htmlUrl + "\n";
+      }
+      return;
+    }
+    if (started.status === "completed" && started.logs && logEl) {
+      logEl.textContent = started.logs;
+      showToast(`npm run ${command}: ${started.conclusion || started.status}`);
+      return;
+    }
+    for (let i = 0; i < 40; i++) {
+      await new Promise((r) => setTimeout(r, 2500));
+      const data = await api(`projects/${currentProjectId}/npm/${encodeURIComponent(runId)}`);
+      if (data.error) {
+        if (logEl) logEl.textContent += "ERROR: " + data.error + "\n";
+        break;
+      }
+      if (data.logs) logEl.textContent = data.logs;
+      else if (logEl) {
+        logEl.textContent = `status=${data.status} conclusion=${data.conclusion || "pending"}\n`
+          + (data.htmlUrl ? data.htmlUrl + "\n" : "");
+      }
+      if (data.status === "completed" || data.status === "failure" || data.status === "cancelled") {
+        showToast(`npm run ${command}: ${data.conclusion || data.status}`);
+        log("npm", `npm run ${command} finished: ${data.conclusion || data.status}`);
+        break;
+      }
+    }
+  } catch (err) {
+    if (logEl) logEl.textContent += "ERROR: " + err.message + "\n";
+    showToast("npm run failed: " + err.message);
+  } finally {
+    if (lintBtn) lintBtn.disabled = false;
+    if (jsonBtn) jsonBtn.disabled = false;
+  }
+}
+
 async function createPullRequest() {
+  if (!vscodeReviewConfirmed) {
+    showToast("Confirm you have reviewed the branch in VS Code first.");
+    const chk = document.getElementById("chk-vscode-reviewed");
+    if (chk) chk.focus();
+    return;
+  }
   const confirmed = confirm(
-    `This will commit the latest generated files and open a Pull Request on GitHub for project ${currentProjectId}. Continue?`
+    `Open a Pull Request from ${featureBranchName()} for project ${currentProjectId}? Generated files will not be re-committed.`,
   );
   if (!confirmed) return;
-  const btn = document.getElementById("btn-create-pr");
-  const resultEl = document.getElementById("github-pr-result");
-  if (btn) btn.disabled = true;
-  if (resultEl) resultEl.innerHTML = "Opening Pull Request on GitHub...";
-  log("publishing", `Operator confirmed: creating PR for project '${currentProjectId}'...`);
-  try {
-    const job = await api(`projects/${currentProjectId}/publish`, {
-      method: "POST",
-    });
-    const prUrl = (job.metadata && job.metadata.prUrl) || job.prUrl;
-    if (prUrl) {
-      if (resultEl) resultEl.innerHTML = `<a href="${prUrl}" target="_blank" style="font-weight:700; color:var(--accent);">🔗 Pull Request opened: ${prUrl}</a>`;
-    } else {
-      if (resultEl) resultEl.innerHTML = `Job finished with state: ${job.state || "UNKNOWN"}.`;
-    }
-    log("publishing", `Publish job finished with state: ${job.state}`);
-    showToast("Pull Request step completed.");
-  } catch (err) {
-    if (resultEl) resultEl.innerHTML = `<span style="color:var(--danger,#c00)">Failed to create Pull Request: ${err.message}</span>`;
-    log("error", `Publish failed: ${err.message}`);
-  } finally {
-    if (btn) btn.disabled = false;
-  }
+  await runPushToGit();
 }
 
 async function refreshDashboard() {
@@ -572,8 +831,7 @@ async function refreshDashboard() {
       document.getElementById("stat-range").innerText =
         `Lo: ${plan.timeOptimisticSec || 0}s | Hi: ${plan.timePessimisticSec || 0}s`;
       if (plan.derivationTrail) {
-        document.getElementById("estimate-trail").innerText =
-          plan.derivationTrail.join("\n");
+        renderEstimateTrail(plan.derivationTrail);
       }
     }
   } catch (e) {}
@@ -1137,17 +1395,34 @@ function renderDATable(rows) {
 }
 
 function renderComponentsTable(components) {
-  const tbody = document.querySelector("#table-components tbody");
-  if (!tbody) return;
-  tbody.innerHTML =
+  const list = document.getElementById("table-components");
+  if (!list) return;
+  list.innerHTML =
     components && components.length > 0
       ? components
           .map(
             (c) =>
-              `<tr><td><code>${c.resourceType}</code></td><td>${c.title || "-"}</td><td>${c.group || "-"}</td><td><b style="color:var(--primary);">${c.proposedEdsBlock || "-"}</b></td><td><span style="background:rgba(56,189,248,0.1); color:var(--primary); padding:3px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">${c.capabilityClassification || "SUPPORTED"}</span></td></tr>`,
+              `<li class="data-list-item">` +
+              `<div><div class="data-list-title">${escapeAttr(c.title || c.proposedEdsBlock || "Untitled")}</div>` +
+              `<div class="data-list-meta">${escapeAttr(c.resourceType || "-")}${c.group ? " · " + escapeAttr(c.group) : ""}</div></div>` +
+              `<div><div class="data-list-block">${escapeAttr(c.proposedEdsBlock || "-")}</div>` +
+              `<div class="data-list-badge">${escapeAttr(c.capabilityClassification || "SUPPORTED")}</div></div>` +
+              `</li>`,
           )
           .join("")
-      : '<tr><td colspan="5">No components analyzed yet.</td></tr>';
+      : '<li class="data-list-empty">No components analyzed yet.</li>';
+}
+
+function renderEstimateTrail(steps) {
+  const list = document.getElementById("estimate-trail");
+  if (!list) return;
+  if (!steps || !steps.length) {
+    list.innerHTML = '<li class="data-list-empty">Run a Dry Run to compute the estimate trail.</li>';
+    return;
+  }
+  list.innerHTML = steps
+    .map((step) => `<li>${escapeAttr(String(step))}</li>`)
+    .join("");
 }
 
 function renderRedirectsTable(list) {

@@ -15,7 +15,10 @@ import java.io.IOException;
  */
 @Component(service = Servlet.class, immediate = true, property = {
     "sling.servlet.paths=/aem-eds-modernizer",
-    "sling.servlet.paths=/aem-eds-modernizer.html"
+    "sling.servlet.paths=/aem-eds-modernizer.html",
+    "sling.servlet.resourceTypes=aem-eds-modernizer/components/page/home",
+    "sling.servlet.extensions=html",
+    "sling.servlet.methods=GET"
 })
 public class ModernizerHomeServlet extends SlingSafeMethodsServlet {
 

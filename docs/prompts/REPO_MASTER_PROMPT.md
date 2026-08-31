@@ -1296,7 +1296,7 @@ unzip -p ui.config/target/ui.config-0.1.0-SNAPSHOT.zip jcr_root/apps/aem-eds-mod
 unzip -p ui.content/target/ui.content-0.1.0-SNAPSHOT.zip jcr_root/content/aem-eds-modernizer/home/.content.xml
 
 # 5. After install, open in browser
-# http://localhost:4502/aem-eds-modernizer              (recommended; works even if ui.content isn't installed)
+# http://localhost:4502/content/aem-eds-modernizer/home.html              (recommended; works even if ui.content isn't installed)
 # http://localhost:4502/content/aem-eds-modernizer/home.html  (seeded page)
 # http://localhost:4502/bin/aem-eds-modernizer/api/health       (JSON API directly)
 ```
@@ -1411,7 +1411,7 @@ java -jar core/target/core-0.1.0-SNAPSHOT-standalone.jar
 
 # Deploy to AEM SDK
 mvn clean install -Pdeploy
-# Open http://localhost:4502/aem-eds-modernizer
+# Open http://localhost:4502/content/aem-eds-modernizer/home.html
 
 # Deploy to AEM Cloud (Cloud Manager)
 # 1. git push origin main

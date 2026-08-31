@@ -170,28 +170,13 @@ public class CodeGenerationAgent implements Agent {
             }
         }
 
-        // Global styles & fstab.yaml
-        String fstab = "mountpoints:\n  /: " + ctx.getProject().getAemAuthorUrl() + "/bin/aem-eds-modernizer/eds-delivery\n";
-        GeneratedFileRecord fstabFile = new GeneratedFileRecord(
-                UUID.randomUUID().toString(),
-                ctx.getProject().getId(),
-                ctx.getJob().getId(),
-                "fstab.yaml",
-                "CONFIG",
-                fstab
-        );
-        fstabFile.setVirtualDiffOnly(ctx.isDryRun());
-        if (store != null) {
-            store.saveGeneratedFile(fstabFile);
-        }
-
         if (store != null) {
             store.recordEvent(new JobEventRecord(
                     UUID.randomUUID().toString(),
                     ctx.getProject().getId(),
                     ctx.getJob().getId(),
                     getName(),
-                    "Generated CSS stylesheets and fstab.yaml configuration files."
+                    "Generated CSS stylesheets. Existing fstab.yaml was left unchanged."
             ));
         }
     }
