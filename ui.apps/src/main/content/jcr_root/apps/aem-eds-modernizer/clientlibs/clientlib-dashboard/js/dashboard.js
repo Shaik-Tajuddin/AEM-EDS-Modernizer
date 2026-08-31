@@ -735,9 +735,11 @@ async function runNpmScript(command) {
   const logEl = document.getElementById("npm-log-terminal");
   const lintBtn = document.getElementById("btn-npm-lint");
   const jsonBtn = document.getElementById("btn-npm-json");
+  const healBtn = document.getElementById("btn-npm-heal");
   if (lintBtn) lintBtn.disabled = true;
   if (jsonBtn) jsonBtn.disabled = true;
-  if (logEl) logEl.textContent = `$ npm run ${command}\nDispatching GitHub Actions on ${featureBranchName()}...\n`;
+  if (healBtn) healBtn.disabled = true;
+  if (logEl) logEl.textContent = `${command === "heal" ? "$ Heal CI" : "$ npm run " + command}\nDispatching GitHub Actions on ${featureBranchName()}...\n`;
   log("npm", `Dispatching npm run ${command} on ${featureBranchName()}...`);
   try {
     const started = await api(`projects/${currentProjectId}/npm`, {
@@ -752,6 +754,15 @@ async function runNpmScript(command) {
     const runId = started.runId;
     if (started.logs && logEl) {
       logEl.textContent = started.logs;
+    }
+    if (command === "heal") {
+      if (logEl) {
+        logEl.textContent += "Heal loop " + (started.status || "started")
+          + (started.ciHeal ? " (" + started.ciHeal + ")" : "") + ".\n";
+      }
+      showToast("Heal CI: " + (started.ciHeal || started.status || "started"));
+      log("npm", "Heal CI " + (started.status || "started"));
+      return;
     }
     if (!runId) {
       if (logEl) {
@@ -789,6 +800,7 @@ async function runNpmScript(command) {
   } finally {
     if (lintBtn) lintBtn.disabled = false;
     if (jsonBtn) jsonBtn.disabled = false;
+    if (healBtn) healBtn.disabled = false;
   }
 }
 

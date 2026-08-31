@@ -416,13 +416,36 @@ public class ApiRouter {
                 ? JsonUtil.fromJson(body, Map.class) : null;
         String command = payload != null ? Objects.toString(payload.get("command"), "") : "";
         command = command.trim();
-        if (!"lint:fix".equals(command) && !"build:json".equals(command) && !"install-workflow".equals(command)) {
+        if (!"lint:fix".equals(command) && !"build:json".equals(command)
+                && !"install-workflow".equals(command) && !"heal".equals(command)) {
             if (resp != null) resp.setStatus(400);
-            return "{\"error\":\"command must be lint:fix, build:json, or install-workflow\"}";
+            return "{\"error\":\"command must be lint:fix, build:json, heal, or install-workflow\"}";
         }
 
         String branch = GitHubFlow.featureBranch(project.getId());
         GitHubClient client = GitHubFlow.clientFor(gitHubClient, project);
+
+        if ("heal".equals(command)) {
+            JobRecord job = store != null ? store.getLatestJob(project.getId()).orElse(null) : null;
+            if (job == null) {
+                job = new JobRecord(UUID.randomUUID().toString(), project.getId(), "PREVIEWING");
+                if (store != null) {
+                    store.saveJob(job);
+                }
+            }
+            com.adobe.aem.modernizer.agents.AgentContext ctx =
+                    new com.adobe.aem.modernizer.agents.AgentContext(project, job);
+            com.adobe.aem.modernizer.connectors.PipelineHealLoop.start(client, ctx, store, aiGateway);
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("command", "heal");
+            result.put("branch", branch);
+            result.put("status", client instanceof com.adobe.aem.modernizer.connectors.RealGitHubClient
+                    ? "started" : "completed");
+            if (job.getMetadata() != null && job.getMetadata().get("ciHeal") != null) {
+                result.put("ciHeal", job.getMetadata().get("ciHeal"));
+            }
+            return JsonUtil.toJson(result);
+        }
 
         if ("install-workflow".equals(command)) {
             try {

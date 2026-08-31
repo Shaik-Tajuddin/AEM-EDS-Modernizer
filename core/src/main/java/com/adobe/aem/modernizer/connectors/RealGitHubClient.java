@@ -508,6 +508,63 @@ public class RealGitHubClient implements GitHubClient {
     }
 
     @Override
+    public List<String> listFilePaths(String ref, String pathPrefix) {
+        ensureOwnerRepo();
+        List<String> out = new ArrayList<>();
+        String prefix = pathPrefix == null ? "" : pathPrefix.replace('\\', '/');
+        try {
+            String branch = (ref == null || ref.isBlank()) ? defaultBranch : ref.trim();
+            String commitSha = getBranchHeadSha(branch);
+            String treeSha = getCommitTreeSha(commitSha);
+            JsonNode tree = get("/repos/" + owner + "/" + repo + "/git/trees/"
+                    + urlEncode(treeSha) + "?recursive=1");
+            JsonNode items = tree.path("tree");
+            if (items.isArray()) {
+                for (JsonNode item : items) {
+                    if (!"blob".equals(item.path("type").asText())) {
+                        continue;
+                    }
+                    String path = item.path("path").asText("");
+                    if (!path.isBlank() && (prefix.isEmpty() || path.startsWith(prefix))) {
+                        out.add(path);
+                    }
+                }
+            }
+        } catch (IOException | RuntimeException e) {
+            LOG.warn("Could not list files on '{}': {}", ref, e.getMessage());
+        }
+        if (out.isEmpty() && prefix.startsWith("blocks")) {
+            out.addAll(listViaContents(ref, prefix.endsWith("/") ? prefix.substring(0, prefix.length() - 1) : prefix));
+        }
+        return out;
+    }
+
+    private List<String> listViaContents(String ref, String dir) {
+        List<String> out = new ArrayList<>();
+        try {
+            String encodedPath = java.net.URLEncoder.encode(dir.replace('\\', '/').replaceFirst("^/+", ""),
+                    StandardCharsets.UTF_8).replace("+", "%20").replace("%2F", "/");
+            String q = (ref == null || ref.isBlank()) ? "" : ("?ref=" + urlEncode(ref.trim()));
+            JsonNode node = get("/repos/" + owner + "/" + repo + "/contents/" + encodedPath + q);
+            if (!node.isArray()) {
+                return out;
+            }
+            for (JsonNode item : node) {
+                String path = item.path("path").asText("");
+                String type = item.path("type").asText("");
+                if ("file".equals(type) && !path.isBlank()) {
+                    out.add(path);
+                } else if ("dir".equals(type) && !path.isBlank()) {
+                    out.addAll(listViaContents(ref, path));
+                }
+            }
+        } catch (IOException | RuntimeException e) {
+            LOG.warn("Could not list directory '{}' on '{}': {}", dir, ref, e.getMessage());
+        }
+        return out;
+    }
+
+    @Override
     public String getFileContent(String ref, String path) {
         ensureOwnerRepo();
         if (path == null || path.isBlank()) {

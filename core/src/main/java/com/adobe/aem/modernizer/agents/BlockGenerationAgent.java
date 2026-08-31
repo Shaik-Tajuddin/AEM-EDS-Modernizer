@@ -141,10 +141,11 @@ public class BlockGenerationAgent implements Agent {
                     .append("    id: getTextFromBlockRow(rows[0]),\n");
             for (int i = 0; i < propNames.size(); i++) {
                 String pName = propNames.get(i);
+                String jsName = jsSafeIdent(pName);
                 if (pName.toLowerCase().contains("link") || pName.toLowerCase().contains("url") || pName.toLowerCase().contains("path")) {
-                    jsBuilder.append("    ").append(pName).append(": rows[").append(i + 1).append("]?.querySelector('a') ? rows[").append(i + 1).append("].querySelector('a').getAttribute('href') : getTextFromBlockRow(rows[").append(i + 1).append("]),\n");
+                    jsBuilder.append("    ").append(jsName).append(": rows[").append(i + 1).append("]?.querySelector('a') ? rows[").append(i + 1).append("].querySelector('a').getAttribute('href') : getTextFromBlockRow(rows[").append(i + 1).append("]),\n");
                 } else {
-                    jsBuilder.append("    ").append(pName).append(": getHtmlFromBlockRow(rows[").append(i + 1).append("]),\n");
+                    jsBuilder.append("    ").append(jsName).append(": getHtmlFromBlockRow(rows[").append(i + 1).append("]),\n");
                 }
             }
             jsBuilder.append("  };\n")
@@ -154,27 +155,28 @@ public class BlockGenerationAgent implements Agent {
                     .append("  inner.classList.add('").append(blockName).append("-inner');\n\n");
 
             for (String pName : propNames) {
+                String jsName = jsSafeIdent(pName);
                 if (pName.toLowerCase().contains("image") || pName.toLowerCase().contains("file")) {
-                    jsBuilder.append("  if (config.").append(pName).append(") {\n")
+                    jsBuilder.append("  if (config.").append(jsName).append(") {\n")
                             .append("    const imgEl = document.createElement('img');\n")
-                            .append("    imgEl.src = config.").append(pName).append(";\n")
+                            .append("    imgEl.src = config.").append(jsName).append(";\n")
                             .append("    imgEl.alt = config.alt || '").append(titleCase).append("';\n")
                             .append("    imgEl.classList.add('").append(blockName).append("-image');\n")
                             .append("    inner.appendChild(imgEl);\n")
                             .append("  }\n\n");
                 } else if (pName.toLowerCase().contains("link") || pName.toLowerCase().contains("url") || pName.toLowerCase().contains("path")) {
-                    jsBuilder.append("  if (config.").append(pName).append(") {\n")
+                    jsBuilder.append("  if (config.").append(jsName).append(") {\n")
                             .append("    const linkEl = document.createElement('a');\n")
-                            .append("    linkEl.href = config.").append(pName).append(";\n")
+                            .append("    linkEl.href = config.").append(jsName).append(";\n")
                             .append("    linkEl.classList.add('brand-cta');\n")
                             .append("    linkEl.innerHTML = `<span>${config.ctaContent || 'Learn More'}</span>`;\n")
                             .append("    inner.appendChild(linkEl);\n")
                             .append("  }\n\n");
                 } else {
-                    jsBuilder.append("  if (config.").append(pName).append(") {\n")
+                    jsBuilder.append("  if (config.").append(jsName).append(") {\n")
                             .append("    const divEl = document.createElement('div');\n")
-                            .append("    divEl.classList.add('").append(blockName).append("-").append(pName.toLowerCase()).append("');\n")
-                            .append("    divEl.innerHTML = config.").append(pName).append(";\n")
+                            .append("    divEl.classList.add('").append(blockName).append("-").append(jsName.toLowerCase()).append("');\n")
+                            .append("    divEl.innerHTML = config.").append(jsName).append(";\n")
                             .append("    inner.appendChild(divEl);\n")
                             .append("  }\n\n");
                 }
@@ -184,8 +186,7 @@ public class BlockGenerationAgent implements Agent {
                     .append("  if (config.id) block.id = config.id;\n")
                     .append("  config.mainEl = inner;\n")
                     .append("}\n\n")
-                    .append("function appendEvents(config) {\n")
-                    .append("  if (!config?.mainEl) return;\n")
+                    .append("function appendEvents() {\n")
                     .append("}\n\n")
                     .append("export default async function decorate(block) {\n")
                     .append("  await checkAndHandleNestedBlocks(block);\n")
@@ -196,13 +197,14 @@ public class BlockGenerationAgent implements Agent {
                     .append("export function createBlock(options = {}) {\n")
                     .append("  const id = escapeHtml(options.id ?? '');\n");
             for (String pName : propNames) {
-                jsBuilder.append("  const ").append(pName).append(" = typeof options.").append(pName).append(" === 'string' ? options.").append(pName).append(" : '';\n");
+                String jsName = jsSafeIdent(pName);
+                jsBuilder.append("  const ").append(jsName).append(" = typeof options.").append(jsName).append(" === 'string' ? options.").append(jsName).append(" : '';\n");
             }
             jsBuilder.append("  const extra = coerceAuthorClasses(options.classes);\n")
                     .append("  const rootClasses = ['").append(blockName).append("', 'eds-block-").append(blockName).append("', extra].filter(Boolean).join(' ');\n")
                     .append("  return `<div class=\"${escapeHtmlAttribute(rootClasses)}\">${franklinBlockRow(id)}");
             for (String pName : propNames) {
-                jsBuilder.append("${franklinBlockRow(").append(pName).append(")}");
+                jsBuilder.append("${franklinBlockRow(").append(jsSafeIdent(pName)).append(")}");
             }
             jsBuilder.append("</div>`;\n")
                     .append("}\n");
@@ -229,7 +231,9 @@ public class BlockGenerationAgent implements Agent {
             for (int i = 0; i < propNames.size(); i++) {
                 String pName = propNames.get(i);
                 Object pVal = jcrProps.get(pName);
-                String strVal = pVal != null ? pVal.toString().replace("\"", "\\\"") : "";
+                String strVal = pVal != null
+                        ? com.adobe.aem.modernizer.connectors.PipelineHealRepairs.escapeJsonString(pVal.toString())
+                        : "";
                 jsonBuilder.append("              \"").append(pName).append("\": \"").append(strVal).append("\"");
                 if (i < propNames.size() - 1) jsonBuilder.append(",");
                 jsonBuilder.append("\n");
@@ -627,6 +631,32 @@ public class BlockGenerationAgent implements Agent {
             }
         }
         return props;
+    }
+
+    /** Turns JCR names such as {@code jcr:title} into valid JavaScript identifiers. */
+    static String jsSafeIdent(String name) {
+        if (name == null || name.isEmpty()) {
+            return "prop";
+        }
+        StringBuilder out = new StringBuilder();
+        boolean capNext = false;
+        for (int i = 0; i < name.length(); i++) {
+            char c = name.charAt(i);
+            if (c == ':' || c == '-' || c == '.' || c == '/') {
+                capNext = true;
+                continue;
+            }
+            if (out.length() == 0 && !Character.isJavaIdentifierStart(c)) {
+                out.append('p');
+            }
+            if (capNext) {
+                out.append(Character.toUpperCase(c));
+                capNext = false;
+            } else {
+                out.append(c);
+            }
+        }
+        return out.length() == 0 ? "prop" : out.toString();
     }
 
     private void collectComponentNodes(com.fasterxml.jackson.databind.JsonNode node, String resourceType, java.util.List<com.fasterxml.jackson.databind.JsonNode> matches) {

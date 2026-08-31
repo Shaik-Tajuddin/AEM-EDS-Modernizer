@@ -331,6 +331,8 @@ class DashboardServletsAndApiTest {
         assertThat(html).contains("http://localhost:4502/bin/aem-eds-modernizer/api");
         assertThat(html).contains("REVIEW IN VS CODE");
         assertThat(html).contains("npm run lint:fix");
+        assertThat(html).contains("Heal CI");
+        assertThat(html).contains("runNpmScript('heal')");
         assertThat(html).contains("chk-vscode-reviewed");
         assertThat(html).contains("projects/${currentProjectId}/preview");
         assertThat(html).contains("ws-file-tree");
@@ -369,6 +371,10 @@ class DashboardServletsAndApiTest {
         assertThat(publish).contains("COMPLETED");
         assertThat(gh.getPrCount()).isEqualTo(1);
         int commitsAfterPr = gh.getCommitCount();
+
+        String heal = wired.route("POST", "/projects/proj-1/npm", "{\"command\":\"heal\"}", null);
+        assertThat(heal).contains("heal");
+        assertThat(heal).contains("feat/proj-1");
 
         String npm = wired.route("POST", "/projects/proj-1/npm", "{\"command\":\"lint:fix\"}", null);
         assertThat(npm).contains("runId");

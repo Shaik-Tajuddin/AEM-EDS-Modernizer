@@ -460,11 +460,12 @@
       <div class="card" style="margin-bottom: 20px;">
         <div class="card-title">npm scripts (GitHub Actions)</div>
         <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
-          vscode.dev has no terminal. These buttons dispatch Actions on <code>feat/{projectId}</code> and stream logs here. <code>lint:fix</code> commits auto-fixed files back to the same branch; <code>build:json</code> commits regenerated component JSON.
+          vscode.dev has no terminal. These buttons dispatch Actions on <code>feat/{projectId}</code> and stream logs here. <code>lint:fix</code> commits auto-fixed files back to the same branch; <code>build:json</code> commits regenerated component JSON. <b>Heal CI</b> sanitizes block JSON, registers section filters, then runs both.
         </p>
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
           <button class="btn btn-outline" id="btn-npm-lint" onclick="runNpmScript('lint:fix')">▶ npm run lint:fix</button>
           <button class="btn btn-outline" id="btn-npm-json" onclick="runNpmScript('build:json')">▶ npm run build:json</button>
+          <button class="btn btn-outline" id="btn-npm-heal" onclick="runNpmScript('heal')">Heal CI</button>
         </div>
         <pre id="npm-log-terminal" class="log-terminal" style="height:220px; white-space:pre-wrap;">No npm run yet. Push the branch first, then click a script above.</pre>
       </div>

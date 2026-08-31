@@ -56,6 +56,14 @@ public interface GitHubClient {
         return null;
     }
 
+    /**
+     * Blob paths on {@code ref} whose path starts with {@code pathPrefix}
+     * (for example {@code blocks/}). Empty when listing is unsupported.
+     */
+    default List<String> listFilePaths(String ref, String pathPrefix) {
+        return List.of();
+    }
+
     /** Deletes {@code path} on {@code branch} (new commit). */
     default void deleteFile(String branch, String path) {
         throw new UnsupportedOperationException("deleteFile is not supported by this GitHub client");

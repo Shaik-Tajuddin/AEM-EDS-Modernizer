@@ -162,6 +162,27 @@ public class MockGitHubClient implements GitHubClient {
     }
 
     @Override
+    public List<String> listFilePaths(String ref, String pathPrefix) {
+        List<String> out = new ArrayList<>();
+        String prefix = pathPrefix == null ? "" : pathPrefix.replace('\\', '/');
+        List<GeneratedFileRecord> files = branchFiles.get(ref);
+        if (files == null) {
+            return out;
+        }
+        Set<String> seen = new LinkedHashSet<>();
+        for (GeneratedFileRecord file : files) {
+            if (file == null || file.getPath() == null) {
+                continue;
+            }
+            String path = file.getPath().replace('\\', '/');
+            if ((prefix.isEmpty() || path.startsWith(prefix)) && seen.add(path)) {
+                out.add(path);
+            }
+        }
+        return out;
+    }
+
+    @Override
     public String getFileContent(String ref, String path) {
         List<GeneratedFileRecord> files = branchFiles.get(ref);
         if (files == null) {
