@@ -57,7 +57,7 @@ public class AiGateway {
         registerCloudProvider(new GeminiProvider(), "gemini", "https://generativelanguage.googleapis.com/v1beta",
                 "env:GEMINI_API_KEY", "", true);
         registerCloudProvider(new OllamaProvider("http://localhost:11434"), "ollama", "http://localhost:11434",
-                "", "llama3", true);
+                "", "qwen3:8b", true);
     }
 
     private void initBuiltinCapabilities() {
@@ -67,9 +67,6 @@ public class AiGateway {
                 .add(ModelCapability.CAP_CODE)
                 .add(ModelCapability.CAP_VISION)
                 .add(ModelCapability.CAP_LOCAL));
-        capabilityRegistry.add(new ModelCapability("ollama", "llama3", 8192)
-                .add(ModelCapability.CAP_CHAT).add(ModelCapability.CAP_STRUCTURED)
-                .add(ModelCapability.CAP_CODE).add(ModelCapability.CAP_LOCAL));
         capabilityRegistry.add(new ModelCapability("ollama", "qwen3:8b", 8192)
                 .add(ModelCapability.CAP_CHAT).add(ModelCapability.CAP_STRUCTURED)
                 .add(ModelCapability.CAP_CODE).add(ModelCapability.CAP_LOCAL));

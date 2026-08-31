@@ -171,12 +171,12 @@ class DashboardServletsAndApiTest {
         when(req.getServerPort()).thenReturn(4502);
         when(req.getMethod()).thenReturn("GET");
         when(req.getProtocol()).thenReturn("HTTP/1.1");
-
-        StringWriter sw = new StringWriter();
-        when(resp.getWriter()).thenReturn(new PrintWriter(sw));
+        when(req.getQueryString()).thenReturn("project=wknd-site");
 
         servlet.service(req, resp);
-        assertThat(sw.toString()).contains("AEM → EDS Modernizer");
+        Mockito.verify(resp).setStatus(SlingHttpServletResponse.SC_FOUND);
+        Mockito.verify(resp).setHeader("Location",
+                ModernizerHomeServlet.CANONICAL_HOME + "?project=wknd-site");
     }
 
     @Test

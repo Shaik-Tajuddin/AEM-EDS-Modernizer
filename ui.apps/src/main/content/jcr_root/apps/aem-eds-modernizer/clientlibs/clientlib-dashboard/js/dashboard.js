@@ -151,7 +151,7 @@ function onProviderChange() {
       if (!modelInput.value || modelInput.value.indexOf("claude") === 0 || modelInput.value.indexOf("gpt") === 0 || modelInput.value.indexOf("gemini-1") === 0) {
         modelInput.value = "qwen3:8b";
       }
-      modelInput.placeholder = "Ollama model (e.g. qwen3:8b, llama3)";
+      modelInput.placeholder = "Ollama model (e.g. qwen3:8b)";
     } else if (provider === "anthropic") {
       modelInput.value = "claude-3-5-sonnet-20241022";
       modelInput.placeholder = "model identifier";

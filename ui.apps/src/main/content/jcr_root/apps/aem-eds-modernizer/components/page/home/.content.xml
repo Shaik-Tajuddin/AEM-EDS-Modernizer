@@ -2,5 +2,5 @@
 <jcr:root xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:sling="http://sling.apache.org/jcr/sling/1.0"
     jcr:primaryType="cq:Component"
     jcr:title="AEM → EDS Modernizer - Home Page Component"
-    jcr:description="Component rendering the Modernizer dashboard SPA inside AEM author"
-    sling:resourceSuperType="core/wcm/components/page/v2/page"/>
+    jcr:description="HTL + clientlib Modernizer dashboard (canonical UI). Full-document SPA page component."
+    componentGroup=".hidden"/>

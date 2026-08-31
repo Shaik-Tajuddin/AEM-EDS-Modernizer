@@ -1,40 +1,36 @@
 package com.adobe.aem.modernizer.dashboard.servlets;
 
-import com.adobe.aem.modernizer.dashboard.StaticDashboard;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
 import org.apache.sling.api.servlets.SlingSafeMethodsServlet;
-import org.apache.sling.servlets.annotations.SlingServletPaths;
 import org.osgi.service.component.annotations.Component;
 
 import javax.servlet.Servlet;
 import java.io.IOException;
 
 /**
- * Serves the Modernizer Dashboard SPA at direct vanity paths /aem-eds-modernizer (Master §5, §6).
+ * Vanity-path entry for the Modernizer Dashboard.
+ * <p>
+ * The canonical UI is the HTL page component at
+ * {@code /content/aem-eds-modernizer/home} ({@code home.html} + clientlibs).
+ * This servlet only redirects legacy vanity URLs so we do not maintain a second
+ * inline HTML renderer ({@code StaticDashboard}).
  */
 @Component(service = Servlet.class, immediate = true, property = {
     "sling.servlet.paths=/aem-eds-modernizer",
     "sling.servlet.paths=/aem-eds-modernizer.html",
-    "sling.servlet.resourceTypes=aem-eds-modernizer/components/page/home",
-    "sling.servlet.extensions=html",
     "sling.servlet.methods=GET"
 })
 public class ModernizerHomeServlet extends SlingSafeMethodsServlet {
 
+    public static final String CANONICAL_HOME = "/content/aem-eds-modernizer/home.html";
+
     @Override
     protected void doGet(SlingHttpServletRequest request, SlingHttpServletResponse response) throws IOException {
-        String scheme = request.getScheme();
-        String host = request.getServerName();
-        int port = request.getServerPort();
-        String apiBase = scheme + "://" + host
-                + ((port == 80 || port == 443) ? "" : (":" + port))
-                + "/bin/aem-eds-modernizer/";
-
-        String html = StaticDashboard.html(apiBase);
-        response.setContentType("text/html; charset=utf-8");
-        response.setCharacterEncoding("UTF-8");
+        String qs = request.getQueryString();
+        String target = CANONICAL_HOME + (qs == null || qs.isEmpty() ? "" : ("?" + qs));
+        response.setStatus(SlingHttpServletResponse.SC_FOUND);
+        response.setHeader("Location", target);
         response.setHeader("Cache-Control", "no-store");
-        response.getWriter().write(html);
     }
 }

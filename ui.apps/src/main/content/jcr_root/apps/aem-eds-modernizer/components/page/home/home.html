@@ -63,9 +63,9 @@
       <div class="nav-group">
         <div class="nav-group-label">Ops</div>
         <button class="nav-tab" onclick="showTab('redirects')">301 Redirects</button>
-        <button class="nav-tab" onclick="showTab('dependencies')">Dependencies</button>
-        <button class="nav-tab" onclick="showTab('rollout')">Rollout</button>
-        <button class="nav-tab" onclick="showTab('repairs')">Self-Repair</button>
+        <button class="nav-tab" onclick="showTab('dependencies')">Dependencies Graph</button>
+        <button class="nav-tab" onclick="showTab('rollout')">Rollout Stages</button>
+        <button class="nav-tab" onclick="showTab('repairs')">Self-Repair Log</button>
         <button class="nav-tab" onclick="showTab('benchmarks')">Benchmarks</button>
         <button class="nav-tab" onclick="showTab('chat')">Agent Chat</button>
       </div>
@@ -188,17 +188,17 @@
             <div class="form-group">
               <label class="form-label">AI Provider Preference</label>
               <select id="cfg-aiProvider" class="form-control" onchange="onProviderChange()">
-                <optgroup label="Local IDE (no API key)">
-                  <option value="antigravity">Antigravity IDE Agent</option>
-                  <option value="cursor">Cursor IDE Agent</option>
-                  <option value="claudecode">Claude Code IDE Agent</option>
-                  <option value="geminicode">Gemini IDE Agent</option>
+                <optgroup label="Local IDE">
+                  <option value="antigravity" data-sly-attribute.selected="${model.activeProject.aiProvider == 'antigravity'}">Antigravity IDE</option>
+                  <option value="cursor" data-sly-attribute.selected="${model.activeProject.aiProvider == 'cursor'}">Cursor IDE</option>
+                  <option value="claudecode" data-sly-attribute.selected="${model.activeProject.aiProvider == 'claudecode'}">Claude Code IDE</option>
+                  <option value="geminicode" data-sly-attribute.selected="${model.activeProject.aiProvider == 'geminicode'}">Gemini IDE</option>
                 </optgroup>
                 <optgroup label="Cloud API">
-                  <option value="anthropic">Anthropic Claude (API Key)</option>
-                  <option value="openai">OpenAI GPT (API Key)</option>
-                  <option value="gemini">Google Gemini API (API Key)</option>
-                  <option value="ollama">Ollama (Local server)</option>
+                  <option value="anthropic" data-sly-attribute.selected="${model.activeProject.aiProvider == 'anthropic' || !model.activeProject.aiProvider}">Anthropic Claude</option>
+                  <option value="openai" data-sly-attribute.selected="${model.activeProject.aiProvider == 'openai'}">OpenAI GPT</option>
+                  <option value="gemini" data-sly-attribute.selected="${model.activeProject.aiProvider == 'gemini'}">Google Gemini API</option>
+                  <option value="ollama" data-sly-attribute.selected="${model.activeProject.aiProvider == 'ollama'}">Ollama</option>
                 </optgroup>
               </select>
               <div id="ide-agent-banner" style="display:none; margin-top:10px; padding:12px 16px; background:linear-gradient(135deg,#1e1b4b,#312e81); border-radius:8px; border:1px solid #6366f1; color:#e0e7ff; font-size:0.85rem; line-height:1.6;">

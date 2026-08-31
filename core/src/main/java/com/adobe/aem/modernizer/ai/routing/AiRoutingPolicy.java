@@ -28,7 +28,7 @@ public class AiRoutingPolicy {
 
     public String resolveModel(String agentName) {
         if ("LOCAL_ONLY".equalsIgnoreCase(strategy)) {
-            return "llama3";
+            return "qwen3:8b";
         }
         if (agentName != null && agentModelMap.containsKey(agentName)) {
             return agentModelMap.get(agentName);

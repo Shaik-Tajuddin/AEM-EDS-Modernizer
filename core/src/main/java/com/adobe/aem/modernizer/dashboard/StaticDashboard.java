@@ -1,9 +1,13 @@
 package com.adobe.aem.modernizer.dashboard;
 
 /**
- * Generates the self-contained, inlined Modernizer Dashboard SPA (Master §3, §31, ADR 0002).
- * Provides a publish-style control center with interactive project configuration and migration controls.
+ * Legacy inlined Modernizer Dashboard SPA (Master §3, §31, ADR 0002).
+ * <p>
+ * <strong>Deprecated for runtime serving.</strong> The live UI is the HTL page component
+ * {@code aem-eds-modernizer/components/page/home} ({@code home.html} + clientlibs).
+ * Kept for unit tests and offline/standalone HTML generation only.
  */
+@Deprecated
 public final class StaticDashboard {
 
     private StaticDashboard() {}
@@ -579,7 +583,7 @@ public final class StaticDashboard {
                 + "      if (provider === 'anthropic') modelInput.value = 'claude-3-5-sonnet-20241022';\n"
                 + "      else if (provider === 'openai') modelInput.value = 'gpt-4o';\n"
                 + "      else if (provider === 'gemini') modelInput.value = 'gemini-1.5-pro';\n"
-                + "      else if (provider === 'ollama') modelInput.value = 'llama3:8b';\n"
+                + "      else if (provider === 'ollama') modelInput.value = 'qwen3:8b';\n"
                 + "    }\n"
                 + "\n"
                 + "    function loadWkndPreset() {\n"
