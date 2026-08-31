@@ -14,7 +14,8 @@ import java.io.IOException;
  * Serves the Modernizer Dashboard SPA at direct vanity paths /aem-eds-modernizer (Master §5, §6).
  */
 @Component(service = Servlet.class, immediate = true, property = {
-    "sling.servlet.paths=/aem-eds-modernizer"
+    "sling.servlet.paths=/aem-eds-modernizer",
+    "sling.servlet.paths=/aem-eds-modernizer.html"
 })
 public class ModernizerHomeServlet extends SlingSafeMethodsServlet {
 

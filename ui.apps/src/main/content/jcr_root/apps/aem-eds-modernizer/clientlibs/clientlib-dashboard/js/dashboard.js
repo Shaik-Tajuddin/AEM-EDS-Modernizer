@@ -60,6 +60,17 @@ function showTab(tabId) {
   const target = document.getElementById("tab-" + tabId);
   if (target) target.style.display = "block";
   if (tabId === "chat") loadChatHistory();
+  if (tabId === "github") {
+    const input = document.getElementById("github-branch-input");
+    if (input && !input.value) input.value = `feat/${currentProjectId}`;
+    const branchDisplay = document.getElementById("vscode-branch-display");
+    if (branchDisplay && input) branchDisplay.innerText = input.value || `feat/${currentProjectId}`;
+    const newTabBtn = document.getElementById("btn-open-vscode-newtab");
+    if (newTabBtn) {
+      newTabBtn.href = getVsCodeUrlForBranch(input ? input.value : `feat/${currentProjectId}`);
+      newTabBtn.style.display = "inline-flex";
+    }
+  }
 }
 
 function setPipelineStep(stepId, state) {
@@ -365,6 +376,160 @@ async function runPushToGit() {
     showToast("Error pushing to Git: " + err.message);
   } finally {
     if (btnPublish) btnPublish.disabled = false;
+  }
+}
+
+function getVsCodeUrlForBranch(branch) {
+  const repoInput = document.getElementById("cfg-repoUrl");
+  let repoUrl = repoInput ? repoInput.value.trim() : "";
+  if (!repoUrl) {
+    const activePrj = projectsList.find((p) => p.id === currentProjectId);
+    if (activePrj && activePrj.edsGitRepoUrl) {
+      repoUrl = activePrj.edsGitRepoUrl;
+    }
+  }
+  if (!repoUrl) repoUrl = "https://github.com/my-org/wknd-eds";
+
+  let cleaned = repoUrl.trim();
+  if (cleaned.endsWith(".git")) cleaned = cleaned.substring(0, cleaned.length - 4);
+  if (cleaned.endsWith("/")) cleaned = cleaned.substring(0, cleaned.length - 1);
+  if (cleaned.startsWith("https://github.com/")) {
+    const ownerRepo = cleaned.substring("https://github.com/".length());
+    return `https://vscode.dev/github/${ownerRepo}/tree/${encodeURIComponent(branch || "feat/" + currentProjectId)}`;
+  }
+  return "https://vscode.dev";
+}
+
+function loadVsCodeFrame(customUrl) {
+  const input = document.getElementById("github-branch-input");
+  const branch = (input && input.value.trim()) || `feat/${currentProjectId}`;
+  const url = customUrl || getVsCodeUrlForBranch(branch);
+
+  const frame = document.getElementById("vscode-frame");
+  const placeholder = document.getElementById("vscode-placeholder");
+  const newTabBtn = document.getElementById("btn-open-vscode-newtab");
+  const branchDisplay = document.getElementById("vscode-branch-display");
+
+  if (branchDisplay) branchDisplay.innerText = branch;
+
+  if (newTabBtn) {
+    newTabBtn.href = url;
+    newTabBtn.style.display = "inline-flex";
+  }
+
+  if (frame) {
+    if (frame.src !== url) {
+      frame.src = url;
+    }
+    frame.style.display = "block";
+  }
+  if (placeholder) {
+    placeholder.style.display = "none";
+  }
+}
+
+function reloadVsCodeFrame() {
+  const frame = document.getElementById("vscode-frame");
+  const input = document.getElementById("github-branch-input");
+  const branch = (input && input.value.trim()) || `feat/${currentProjectId}`;
+  const url = getVsCodeUrlForBranch(branch);
+  if (frame) {
+    frame.src = url;
+    frame.style.display = "block";
+  }
+  const placeholder = document.getElementById("vscode-placeholder");
+  if (placeholder) placeholder.style.display = "none";
+  showToast("🔄 Reloaded VS Code editor frame");
+}
+
+async function pushBlocksAndOpenVsCode() {
+  const btn = document.getElementById("btn-push-blocks-tab");
+  if (btn) btn.disabled = true;
+  showToast("🚀 Pushing generated blocks to branch...");
+  try {
+    await runPushToGit();
+    loadVsCodeFrame();
+    await checkBranchStatus();
+    showToast("✅ Blocks pushed to branch & VS Code workspace loaded!");
+  } catch (err) {
+    showToast("⚠️ Push failed: " + err.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function checkBranchStatus() {
+  const input = document.getElementById("github-branch-input");
+  const branch = input ? input.value.trim() : "";
+  const resultEl = document.getElementById("github-status-result");
+  if (!branch) {
+    showToast("Enter a branch name first.");
+    return;
+  }
+  if (resultEl) resultEl.innerHTML = "Checking CI runs and changed files...";
+  try {
+    const data = await api(`projects/${currentProjectId}/branch-status`, {
+      method: "POST",
+      body: JSON.stringify({ branch }),
+    });
+    if (data.error) {
+      if (resultEl) resultEl.innerHTML = `<span style="color:var(--danger,#c00)">${data.error}</span>`;
+      return;
+    }
+    let html = "";
+    if (data.vscodeUrl) {
+      html += `<p><a href="${data.vscodeUrl}" target="_blank">🔗 Open branch '${data.branch}' in vscode.dev</a></p>`;
+      loadVsCodeFrame(data.vscodeUrl);
+    }
+    if (data.latestRun) {
+      const r = data.latestRun;
+      html += `<p><b>Latest CI run:</b> ${r.name || "workflow"} — status: <b>${r.status}</b>, conclusion: <b style="color:${r.conclusion === 'success' ? 'var(--accent)' : 'var(--warn)'}">${r.conclusion || "pending"}</b> `
+           + (r.htmlUrl ? `(<a href="${r.htmlUrl}" target="_blank">view run logs</a>)` : "") + `</p>`;
+    } else {
+      html += "<p><i>No GitHub Actions workflow run found for this branch (CI may not be configured on the repo, or no run has triggered yet).</i></p>";
+    }
+    const files = data.changedFiles || [];
+    html += `<p><b>Changed files vs '${data.baseBranch}':</b> ${files.length}</p>`;
+    if (files.length) {
+      html += "<table><thead><tr><th>File</th><th>Status</th><th>+/-</th></tr></thead><tbody>";
+      files.forEach((f) => {
+        html += `<tr><td><code>${f.filename}</code></td><td><span style="font-weight:700;">${f.status}</span></td><td><span style="color:var(--accent);">+${f.additions}</span> / <span style="color:var(--danger);">${f.deletions}</span></td></tr>`;
+      });
+      html += "</tbody></table>";
+    }
+    if (resultEl) resultEl.innerHTML = html;
+  } catch (err) {
+    if (resultEl) resultEl.innerHTML = `<span style="color:var(--danger,#c00)">Check failed: ${err.message}</span>`;
+  }
+}
+
+async function createPullRequest() {
+  const confirmed = confirm(
+    `This will commit the latest generated files and open a Pull Request on GitHub for project ${currentProjectId}. Continue?`
+  );
+  if (!confirmed) return;
+  const btn = document.getElementById("btn-create-pr");
+  const resultEl = document.getElementById("github-pr-result");
+  if (btn) btn.disabled = true;
+  if (resultEl) resultEl.innerHTML = "Opening Pull Request on GitHub...";
+  log("publishing", `Operator confirmed: creating PR for project '${currentProjectId}'...`);
+  try {
+    const job = await api(`projects/${currentProjectId}/publish`, {
+      method: "POST",
+    });
+    const prUrl = (job.metadata && job.metadata.prUrl) || job.prUrl;
+    if (prUrl) {
+      if (resultEl) resultEl.innerHTML = `<a href="${prUrl}" target="_blank" style="font-weight:700; color:var(--accent);">🔗 Pull Request opened: ${prUrl}</a>`;
+    } else {
+      if (resultEl) resultEl.innerHTML = `Job finished with state: ${job.state || "UNKNOWN"}.`;
+    }
+    log("publishing", `Publish job finished with state: ${job.state}`);
+    showToast("Pull Request step completed.");
+  } catch (err) {
+    if (resultEl) resultEl.innerHTML = `<span style="color:var(--danger,#c00)">Failed to create Pull Request: ${err.message}</span>`;
+    log("error", `Publish failed: ${err.message}`);
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -1069,6 +1234,7 @@ const CHAT_COMMANDS = [
   { re: /show (me )?(the )?(generated )?blocks/i, action: () => { showTab("components"); refreshDashboard(); return "📦 Opened the Generated Blocks tab and refreshed the data."; } },
   { re: /show (me )?(the )?(pages|scope|discovered)/i, action: () => { showTab("pages"); refreshDashboard(); return "📄 Opened the Pages & Scope tab."; } },
   { re: /show (me )?(the )?estimate|cost/i,     action: () => { showTab("estimate"); refreshDashboard(); return "💰 Opened the Estimate & Cost tab."; } },
+  { re: /show (me )?(the )?github|checks/i,     action: () => { showTab("github"); return "🔍 Opened the GitHub Checks tab."; } },
   { re: /^refresh( dashboard)?$/i,   action: () => { refreshDashboard(); return "🔄 Dashboard refreshed."; } },
 ];
 

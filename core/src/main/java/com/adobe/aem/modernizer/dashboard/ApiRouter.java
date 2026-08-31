@@ -2,11 +2,14 @@ package com.adobe.aem.modernizer.dashboard;
 
 import com.adobe.aem.modernizer.ModernizerException;
 import com.adobe.aem.modernizer.agents.Orchestrator;
+import com.adobe.aem.modernizer.connectors.GitHubClient;
+import com.adobe.aem.modernizer.connectors.RealGitHubClient;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.*;
 import com.adobe.aem.modernizer.util.JsonUtil;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,6 +34,8 @@ public class ApiRouter {
     @Reference private transient Store store;
     @Reference private transient Orchestrator orchestrator;
     @Reference private transient com.adobe.aem.modernizer.ai.AiGateway aiGateway;
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL)
+    private transient GitHubClient gitHubClient;
 
     public ApiRouter() {}
 
@@ -140,31 +145,19 @@ public class ApiRouter {
                     String sub = tokens[2];
 
                     if ("dryrun".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
-                        ProjectRecord p = store != null ? store.getProject(projectId).orElse(null) : null;
-                        if (p == null) {
-                            p = new ProjectRecord(projectId, "Project " + projectId, "https://mock-aem.local", "/content/wknd", "https://github.com/company/wknd-eds");
-                            if (store != null) store.saveProject(p);
-                        }
+                        ProjectRecord p = getOrCreateStubProject(projectId);
                         JobRecord job = (orchestrator != null) ? orchestrator.runDryRun(p, "admin") : new JobRecord("job-mock", projectId, "DRY_RUN");
                         return JsonUtil.toJson(job);
                     }
 
                     if ("migrate".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
-                        ProjectRecord p = store != null ? store.getProject(projectId).orElse(null) : null;
-                        if (p == null) {
-                            p = new ProjectRecord(projectId, "Project " + projectId, "https://mock-aem.local", "/content/wknd", "https://github.com/company/wknd-eds");
-                            if (store != null) store.saveProject(p);
-                        }
+                        ProjectRecord p = getOrCreateStubProject(projectId);
                         JobRecord job = (orchestrator != null) ? orchestrator.runMigration(p, "admin") : new JobRecord("job-mock", projectId, "MIGRATE");
                         return JsonUtil.toJson(job);
                     }
 
                     if (("publish".equalsIgnoreCase(sub) || "push".equalsIgnoreCase(sub)) && "POST".equalsIgnoreCase(method)) {
-                        ProjectRecord p = store != null ? store.getProject(projectId).orElse(null) : null;
-                        if (p == null) {
-                            p = new ProjectRecord(projectId, "Project " + projectId, "https://mock-aem.local", "/content/wknd", "https://github.com/company/wknd-eds");
-                            if (store != null) store.saveProject(p);
-                        }
+                        ProjectRecord p = getOrCreateStubProject(projectId);
                         JobRecord job = (orchestrator != null) ? orchestrator.pushToGitHub(p, "admin") : new JobRecord("job-mock", projectId, "PUBLISH");
                         return JsonUtil.toJson(job);
                     }
@@ -233,6 +226,10 @@ public class ApiRouter {
 
                     if ("clarifications".equalsIgnoreCase(sub)) {
                         return JsonUtil.toJson(store != null ? store.getClarificationsForProject(projectId) : Collections.emptyList());
+                    }
+
+                    if ("branch-status".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
+                        return handleBranchStatus(projectId, body, resp);
                     }
 
                     // ─────────────────────────────────────────────────────────────
@@ -364,6 +361,90 @@ public class ApiRouter {
         result.put("provider", providerName);
         result.put("model", modelName);
         result.put("timestamp", System.currentTimeMillis());
+        return JsonUtil.toJson(result);
+    }
+
+    /**
+     * Loads the project, or creates a minimal stub if it doesn't exist yet. The stub's EDS
+     * Git repository URL / branch come from the OSGi-configured {@link GitHubClient} fallback
+     * (Config {@code repoUrl}/{@code defaultBranch}) rather than a hardcoded literal, so each
+     * project can be pointed at its own repo simply by editing it afterwards in the dashboard.
+     */
+    private ProjectRecord getOrCreateStubProject(String projectId) {
+        ProjectRecord p = store != null ? store.getProject(projectId).orElse(null) : null;
+        if (p == null) {
+            String fallbackRepoUrl = gitHubClient != null && gitHubClient.getRepoUrl() != null
+                    && !gitHubClient.getRepoUrl().isBlank() ? gitHubClient.getRepoUrl() : "https://github.com/company/wknd-eds";
+            String fallbackBranch = gitHubClient != null ? gitHubClient.getDefaultBranch() : "main";
+            p = new ProjectRecord(projectId, "Project " + projectId, "https://mock-aem.local", "/content/wknd", fallbackRepoUrl);
+            p.setEdsBranch(fallbackBranch);
+            if (store != null) store.saveProject(p);
+        }
+        return p;
+    }
+
+    /**
+     * Reports the file changes and latest CI status for a given branch of the project's
+     * GitHub repository, plus a ready-to-open vscode.dev link for that branch.
+     */
+    private String handleBranchStatus(String projectId, String body, HttpServletResponse resp) {
+        if (gitHubClient == null) {
+            if (resp != null) resp.setStatus(503);
+            return "{\"error\":\"GitHub client not available\"}";
+        }
+        ProjectRecord project = store != null ? store.getProject(projectId).orElse(null) : null;
+        if (project == null) {
+            if (resp != null) resp.setStatus(404);
+            return "{\"error\":\"Project not found\"}";
+        }
+
+        Map<?, ?> payload = (body != null && !body.trim().isEmpty())
+                ? JsonUtil.fromJson(body, Map.class) : null;
+        String branch = payload != null ? Objects.toString(payload.get("branch"), null) : null;
+        if (branch == null || branch.trim().isEmpty()) {
+            if (resp != null) resp.setStatus(400);
+            return "{\"error\":\"Missing required field: branch\"}";
+        }
+        branch = branch.trim();
+        String baseBranch = project.getEdsBranch() != null && !project.getEdsBranch().isBlank()
+                ? project.getEdsBranch().trim() : gitHubClient.getDefaultBranch();
+
+        GitHubClient client = gitHubClient instanceof RealGitHubClient
+                ? ((RealGitHubClient) gitHubClient).forProject(project) : gitHubClient;
+
+        List<Map<String, Object>> changedFiles;
+        Map<String, Object> latestRun;
+        try {
+            changedFiles = client.listChangedFiles(baseBranch, branch);
+        } catch (Exception e) {
+            LOG.warn("[BranchStatus] listChangedFiles failed for '{}': {}", branch, e.getMessage());
+            changedFiles = Collections.emptyList();
+        }
+        try {
+            latestRun = client.getLatestWorkflowRun(branch);
+        } catch (Exception e) {
+            LOG.warn("[BranchStatus] getLatestWorkflowRun failed for '{}': {}", branch, e.getMessage());
+            latestRun = null;
+        }
+
+        String vscodeUrl = null;
+        String repoUrl = project.getEdsGitRepoUrl();
+        if (repoUrl != null && !repoUrl.isBlank()) {
+            String cleaned = repoUrl.trim();
+            if (cleaned.endsWith(".git")) cleaned = cleaned.substring(0, cleaned.length() - 4);
+            if (cleaned.endsWith("/")) cleaned = cleaned.substring(0, cleaned.length() - 1);
+            if (cleaned.startsWith("https://github.com/")) {
+                String ownerRepo = cleaned.substring("https://github.com/".length());
+                vscodeUrl = "https://vscode.dev/github/" + ownerRepo + "/tree/" + branch;
+            }
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("branch", branch);
+        result.put("baseBranch", baseBranch);
+        result.put("changedFiles", changedFiles);
+        result.put("latestRun", latestRun);
+        result.put("vscodeUrl", vscodeUrl);
         return JsonUtil.toJson(result);
     }
 

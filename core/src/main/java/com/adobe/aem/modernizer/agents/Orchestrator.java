@@ -238,6 +238,11 @@ public class Orchestrator {
             invokeAgent("verification", ctx);
 
             transition(ctx, MigrationState.COMPLETED);
+            if (ctx.getLastGeneratedPrUrl() != null) {
+                Map<String, Object> meta = job.getMetadata();
+                meta.put("prUrl", ctx.getLastGeneratedPrUrl());
+                job.setMetadata(meta);
+            }
             job.setFinishedAt(System.currentTimeMillis());
             if (store != null) {
                 store.saveJob(job);

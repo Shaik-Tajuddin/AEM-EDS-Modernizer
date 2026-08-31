@@ -57,7 +57,7 @@ public class PreviewAgent implements Agent {
             return;
         }
 
-        String branch = "modernizer/" + ctx.getProject().getId() + "/" + ctx.getJob().getId();
+        String branch = "feat/" + ctx.getProject().getId();
         LOG.info("PreviewAgent pushing generated files to branch: {}", branch);
 
         if (gitHub != null) {

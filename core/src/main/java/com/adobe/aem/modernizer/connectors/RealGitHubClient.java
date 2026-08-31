@@ -193,6 +193,11 @@ public class RealGitHubClient implements GitHubClient {
     }
 
     @Override
+    public String getDefaultBranch() {
+        return defaultBranch;
+    }
+
+    @Override
     public boolean branchExists(String branch) {
         try {
             ensureOwnerRepo();
@@ -305,6 +310,62 @@ public class RealGitHubClient implements GitHubClient {
         } catch (IOException | RuntimeException e) {
             throw new IllegalStateException("Failed to create pull request: " + e.getMessage(), e);
         }
+    }
+
+    @Override
+    public List<Map<String, Object>> listChangedFiles(String baseBranch, String headBranch) {
+        ensureOwnerRepo();
+        List<Map<String, Object>> result = new ArrayList<>();
+        String base = (baseBranch == null || baseBranch.isBlank()) ? defaultBranch : baseBranch.trim();
+        try {
+            JsonNode resp = get("/repos/" + owner + "/" + repo + "/compare/"
+                    + urlEncode(base) + "..." + urlEncode(headBranch));
+            JsonNode files = resp.path("files");
+            if (files.isArray()) {
+                for (JsonNode f : files) {
+                    Map<String, Object> entry = new LinkedHashMap<>();
+                    entry.put("filename", f.path("filename").asText());
+                    entry.put("status", f.path("status").asText());
+                    entry.put("additions", f.path("additions").asInt(0));
+                    entry.put("deletions", f.path("deletions").asInt(0));
+                    result.add(entry);
+                }
+            }
+        } catch (IOException | RuntimeException e) {
+            LOG.warn("Could not list changed files between '{}' and '{}': {}", base, headBranch, e.getMessage());
+        }
+        return result;
+    }
+
+    @Override
+    public Map<String, Object> getLatestWorkflowRun(String branch) {
+        ensureOwnerRepo();
+        try {
+            JsonNode resp = get("/repos/" + owner + "/" + repo + "/actions/runs?branch="
+                    + urlEncode(branch) + "&per_page=1");
+            JsonNode runs = resp.path("workflow_runs");
+            if (!runs.isArray() || runs.isEmpty()) {
+                return null;
+            }
+            JsonNode run = runs.get(0);
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("name", run.path("name").asText());
+            result.put("status", run.path("status").asText());
+            result.put("conclusion", run.path("conclusion").isNull() ? null : run.path("conclusion").asText());
+            result.put("htmlUrl", run.path("html_url").asText());
+            result.put("createdAt", run.path("created_at").asText());
+            result.put("updatedAt", run.path("updated_at").asText());
+            return result;
+        } catch (IOException | RuntimeException e) {
+            LOG.warn("Could not fetch latest workflow run for branch '{}': {}", branch, e.getMessage());
+            return null;
+        }
+    }
+
+    /** Owner/repo pair resolved from this client's configured repository URL. */
+    public String[] ownerRepo() {
+        ensureOwnerRepo();
+        return new String[]{owner, repo};
     }
 
     // ------------------------------------------------------------------

@@ -77,4 +77,36 @@ public class MockGitHubClient implements GitHubClient {
         LOG.info("Created mock PR from {} to {}: {}", headBranch, baseBranch, prUrl);
         return prUrl;
     }
+
+    @Override
+    public List<Map<String, Object>> listChangedFiles(String baseBranch, String headBranch) {
+        List<GeneratedFileRecord> files = branchFiles.get(headBranch);
+        List<Map<String, Object>> result = new ArrayList<>();
+        if (files != null) {
+            for (GeneratedFileRecord file : files) {
+                Map<String, Object> entry = new LinkedHashMap<>();
+                entry.put("filename", file.getPath());
+                entry.put("status", "modified");
+                entry.put("additions", 1);
+                entry.put("deletions", 0);
+                result.add(entry);
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public Map<String, Object> getLatestWorkflowRun(String branch) {
+        if (!branches.contains(branch)) {
+            return null;
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("name", "mock-ci");
+        result.put("status", "completed");
+        result.put("conclusion", "success");
+        result.put("htmlUrl", repoUrl + "/actions");
+        result.put("createdAt", "");
+        result.put("updatedAt", "");
+        return result;
+    }
 }
