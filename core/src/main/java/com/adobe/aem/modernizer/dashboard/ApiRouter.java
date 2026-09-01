@@ -236,6 +236,19 @@ public class ApiRouter {
                             branch = GitHubFlow.featureBranch(projectId);
                         }
 
+                        // Run lint:fix and build:json on the branch before creating/opening the PR
+                        if (localEdsRepo != null) {
+                            try {
+                                java.io.File repo = localEdsRepo.edsRepoDir(projectId);
+                                if (!new java.io.File(repo, ".git").exists()) {
+                                    localEdsRepo.cloneOrUpdate(p);
+                                }
+                                localEdsRepo.runLintAndBuild(repo, branch);
+                            } catch (Exception e) {
+                                LOG.warn("[Publish] Pre-PR lint and build: {}", e.getMessage());
+                            }
+                        }
+
                         // Check if an existing PR is already open on GitHub for this branch
                         GitHubClient gh = GitHubFlow.clientFor(gitHubClient, p);
                         String existingPrUrl = null;
@@ -512,8 +525,34 @@ public class ApiRouter {
             }
         }
 
+        if ("lint:fix,build:json".equals(command) || "build".equals(command)) {
+            if (localEdsRepo != null) {
+                try {
+                    java.io.File repo = localEdsRepo.edsRepoDir(project.getId());
+                    if (!new java.io.File(repo, ".git").exists()) {
+                        localEdsRepo.cloneOrUpdate(project);
+                    }
+                    Map<String, Object> localRes = localEdsRepo.runLintAndBuild(repo, branch);
+                    Map<String, Object> run = new LinkedHashMap<>(localRes);
+                    run.put("command", command);
+                    run.put("branch", branch);
+                    run.put("status", "completed");
+                    run.put("conclusion", Boolean.TRUE.equals(localRes.get("ok")) ? "success" : "failure");
+                    run.put("logs", "$ npm run lint:fix && npm run build:json on branch " + branch + "\n"
+                            + "► npm run lint:fix -> " + localRes.get("lintFix") + "\n"
+                            + "► npm run build:json -> " + localRes.get("buildJson") + "\n"
+                            + "► Auto-fixed files committed: " + (Boolean.TRUE.equals(localRes.get("dirty")) ? "YES" : "NO (clean)") + "\n"
+                            + "► Push to origin/" + branch + " -> " + localRes.get("push") + "\n"
+                            + "► Status: " + (Boolean.TRUE.equals(localRes.get("ok")) ? "SUCCESS" : "FAILED"));
+                    return JsonUtil.toJson(run);
+                } catch (Exception e) {
+                    LOG.warn("[LocalEdsRepo] local lint & build failed: {}", e.getMessage());
+                }
+            }
+        }
+
         Map<String, String> inputs = new LinkedHashMap<>();
-        inputs.put("command", command);
+        inputs.put("command", "lint:fix,build:json".equals(command) ? "lint:fix" : command);
         try {
             Map<String, Object> run = client.dispatchWorkflow(branch, GitHubFlow.NPM_WORKFLOW_FILE, inputs);
             if (run == null) {
@@ -930,8 +969,8 @@ public class ApiRouter {
                 store.saveGeneratedFile(rec);
             }
 
-            // Write to local disk so the EDS project has the actual files
-            writeBlockFile(relPath, text);
+            // Write to local disk under eds/<projectId>/
+            writeBlockFile(projectId, relPath, text);
             saved.add(relPath);
         }
 
@@ -950,54 +989,39 @@ public class ApiRouter {
         return JsonUtil.toJson(result);
     }
 
-    /** Writes a block file to the local EDS repo root. */
-    private void writeBlockFile(String relPath, String content) {
-        String[] candidateRoots = {
-            "D:/eds personal/AEM-EDS-Modernizer",
-            "d:/eds personal/AEM-EDS-Modernizer",
-            System.getProperty("user.dir")
-        };
-        for (String root : candidateRoots) {
-            java.io.File dir = new java.io.File(root);
-            if (new java.io.File(dir, "pom.xml").exists() || new java.io.File(dir, "blocks").exists()) {
-                try {
-                    Path target = dir.toPath().resolve(relPath);
-                    Files.createDirectories(target.getParent());
-                    Files.writeString(target, content, StandardCharsets.UTF_8);
-                    LOG.info("[Antigravity] Wrote block file: {}", target);
-                } catch (Exception e) {
-                    LOG.warn("[Antigravity] Could not write block file {}: {}", relPath, e.getMessage());
-                }
-                return;
-            }
+    /** Writes a block file to the project's local EDS workspace (eds/<projectId>/). */
+    private void writeBlockFile(String projectId, String relPath, String content) {
+        if (localEdsRepo != null && projectId != null) {
+            localEdsRepo.writeProjectFile(projectId, relPath, content);
+            return;
+        }
+        File repo = new File("D:/eds personal/AEM-EDS-Modernizer/eds", projectId != null ? projectId : "project");
+        File target = new File(repo, relPath);
+        try {
+            target.getParentFile().mkdirs();
+            Files.writeString(target.toPath(), content, StandardCharsets.UTF_8);
+            LOG.info("[Antigravity] Wrote block file in workspace: {}", target);
+        } catch (Exception e) {
+            LOG.warn("[Antigravity] Could not write block file {}: {}", relPath, e.getMessage());
         }
     }
 
     private List<GeneratedFileRecord> scanLocalBlockFiles(String projectId) {
         List<GeneratedFileRecord> list = new ArrayList<>();
+        if (projectId == null) return list;
         try {
-            String[] candidateRoots = new String[] {
-                "D:/eds personal/AEM-EDS-Modernizer",
-                "d:/eds personal/AEM-EDS-Modernizer",
-                System.getProperty("user.dir")
-            };
-            java.io.File blocksDir = null;
-            for (String root : candidateRoots) {
-                java.io.File d = new java.io.File(root, "blocks");
-                if (d.exists() && d.isDirectory()) {
-                    blocksDir = d;
-                    break;
-                }
-            }
-            if (blocksDir != null && blocksDir.listFiles() != null) {
-                for (java.io.File bFolder : blocksDir.listFiles()) {
+            File blocksDir = (localEdsRepo != null)
+                    ? new File(localEdsRepo.edsRepoDir(projectId), "blocks")
+                    : new File("D:/eds personal/AEM-EDS-Modernizer/eds/" + projectId, "blocks");
+            if (blocksDir.exists() && blocksDir.isDirectory() && blocksDir.listFiles() != null) {
+                for (File bFolder : blocksDir.listFiles()) {
                     if (bFolder.isDirectory()) {
-                        java.io.File[] files = bFolder.listFiles();
+                        File[] files = bFolder.listFiles();
                         if (files != null) {
-                            for (java.io.File f : files) {
+                            for (File f : files) {
                                 if (f.isFile()) {
                                     String rel = "blocks/" + bFolder.getName() + "/" + f.getName();
-                                    String content = java.nio.file.Files.readString(f.toPath(), java.nio.charset.StandardCharsets.UTF_8);
+                                    String content = Files.readString(f.toPath(), StandardCharsets.UTF_8);
                                     String type = "BLOCK_SOURCE";
                                     if (f.getName().endsWith(".js")) type = "BLOCK_JS";
                                     else if (f.getName().endsWith(".css")) type = "BLOCK_CSS";
@@ -1014,7 +1038,7 @@ public class ApiRouter {
                 }
             }
         } catch (Exception e) {
-            LOG.warn("Could not scan local block files: {}", e.getMessage());
+            LOG.warn("Could not scan local block files for {}: {}", projectId, e.getMessage());
         }
         return list;
     }

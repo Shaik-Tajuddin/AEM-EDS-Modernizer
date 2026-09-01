@@ -555,12 +555,11 @@ public class BlockGenerationAgent implements Agent {
                     edsRepo.writeProjectFile(projectId, base + "/" + blockName + "-example.html", htmlContent);
                     edsRepo.writeProjectFile(projectId, base + "/README.md", readmeContent);
                 } else {
-                    // Fallback: legacy top-level blocks/ dir (kept only when no repo manager bound)
-                    writeLocalFile(base + "/" + blockName + ".js", jsContent);
-                    writeLocalFile(base + "/" + blockName + ".css", cssContent);
-                    writeLocalFile(base + "/_" + blockName + ".json", jsonContent);
-                    writeLocalFile(base + "/" + blockName + "-example.html", htmlContent);
-                    writeLocalFile(base + "/README.md", readmeContent);
+                    writeLocalFile(ctx, base + "/" + blockName + ".js", jsContent);
+                    writeLocalFile(ctx, base + "/" + blockName + ".css", cssContent);
+                    writeLocalFile(ctx, base + "/_" + blockName + ".json", jsonContent);
+                    writeLocalFile(ctx, base + "/" + blockName + "-example.html", htmlContent);
+                    writeLocalFile(ctx, base + "/README.md", readmeContent);
                 }
             }
         }
@@ -578,71 +577,48 @@ public class BlockGenerationAgent implements Agent {
 
     private void loadExistingLocalBlockFiles(AgentContext ctx, String blockName) {
         if (store == null || ctx == null || ctx.getProject() == null || ctx.getJob() == null) return;
-        String[] candidateRoots = new String[] {
-            "D:/eds personal/AEM-EDS-Modernizer",
-            "d:/eds personal/AEM-EDS-Modernizer",
-            System.getProperty("user.dir")
-        };
-        for (String root : candidateRoots) {
-            java.io.File blockDir = new java.io.File(root, "blocks/" + blockName);
-            if (blockDir.isDirectory()) {
-                java.io.File[] files = blockDir.listFiles();
-                if (files != null) {
-                    for (java.io.File f : files) {
-                        if (f.isFile()) {
-                            try {
-                                String content = java.nio.file.Files.readString(f.toPath(), java.nio.charset.StandardCharsets.UTF_8);
-                                String relPath = "blocks/" + blockName + "/" + f.getName();
-                                String fileType = f.getName().endsWith(".js") ? "BLOCK_JS"
-                                        : f.getName().endsWith(".css") ? "BLOCK_CSS"
-                                        : f.getName().endsWith(".json") ? "BLOCK_MODEL_JSON"
-                                        : f.getName().endsWith(".html") ? "BLOCK_EXAMPLE_HTML"
-                                        : "BLOCK_README";
-                                GeneratedFileRecord record = new GeneratedFileRecord(
-                                        UUID.randomUUID().toString(),
-                                        ctx.getProject().getId(),
-                                        ctx.getJob().getId(),
-                                        relPath,
-                                        fileType,
-                                        content
-                                );
-                                record.setVirtualDiffOnly(ctx.isDryRun());
-                                store.saveGeneratedFile(record);
-                            } catch (Exception e) {
-                                LOG.warn("Could not read local block file {}: {}", f.getAbsolutePath(), e.getMessage());
-                            }
+        String projectId = ctx.getProject().getId();
+        java.io.File repoDir = (edsRepo != null) ? edsRepo.edsRepoDir(projectId) : new java.io.File("D:/eds personal/AEM-EDS-Modernizer/eds", projectId);
+        java.io.File blockDir = new java.io.File(repoDir, "blocks/" + blockName);
+        if (blockDir.isDirectory()) {
+            java.io.File[] files = blockDir.listFiles();
+            if (files != null) {
+                for (java.io.File f : files) {
+                    if (f.isFile()) {
+                        try {
+                            String content = java.nio.file.Files.readString(f.toPath(), java.nio.charset.StandardCharsets.UTF_8);
+                            String relPath = "blocks/" + blockName + "/" + f.getName();
+                            String fileType = f.getName().endsWith(".js") ? "BLOCK_JS"
+                                    : f.getName().endsWith(".css") ? "BLOCK_CSS"
+                                    : f.getName().endsWith(".json") ? "BLOCK_MODEL_JSON"
+                                    : f.getName().endsWith(".html") ? "BLOCK_EXAMPLE_HTML"
+                                    : "BLOCK_README";
+                            GeneratedFileRecord record = new GeneratedFileRecord(
+                                    UUID.randomUUID().toString(),
+                                    ctx.getProject().getId(),
+                                    ctx.getJob().getId(),
+                                    relPath,
+                                    fileType,
+                                    content
+                            );
+                            record.setVirtualDiffOnly(ctx.isDryRun());
+                            store.saveGeneratedFile(record);
+                        } catch (Exception e) {
+                            LOG.warn("Could not read local block file {}: {}", f.getAbsolutePath(), e.getMessage());
                         }
                     }
                 }
-                break;
             }
         }
     }
 
-    private void writeLocalFile(String relPath, String content) {
+    private void writeLocalFile(AgentContext ctx, String relPath, String content) {
+        String projectId = (ctx != null && ctx.getProject() != null) ? ctx.getProject().getId() : "project";
+        java.io.File target = new java.io.File(new java.io.File("D:/eds personal/AEM-EDS-Modernizer/eds", projectId), relPath);
         try {
-            java.io.File target = null;
-            String[] candidateRoots = new String[] {
-                "D:/eds personal/AEM-EDS-Modernizer",
-                "d:/eds personal/AEM-EDS-Modernizer",
-                System.getProperty("user.dir")
-            };
-            for (String root : candidateRoots) {
-                java.io.File dir = new java.io.File(root);
-                if (new java.io.File(dir, "pom.xml").exists() || new java.io.File(dir, "blocks").exists()) {
-                    target = new java.io.File(dir, relPath);
-                    break;
-                }
-            }
-            if (target == null) {
-                target = new java.io.File("D:/eds personal/AEM-EDS-Modernizer", relPath);
-            }
-            java.io.File parent = target.getParentFile();
-            if (parent != null && !parent.exists()) {
-                parent.mkdirs();
-            }
+            target.getParentFile().mkdirs();
             java.nio.file.Files.writeString(target.toPath(), content, java.nio.charset.StandardCharsets.UTF_8);
-            LOG.info("Wrote local block file: {}", target.getAbsolutePath());
+            LOG.info("Wrote local block file in workspace: {}", target.getAbsolutePath());
         } catch (Exception e) {
             LOG.warn("Could not write local block file {}: {}", relPath, e.getMessage());
         }

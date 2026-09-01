@@ -192,7 +192,7 @@ public class CodeGenerationAgent implements Agent {
                     edsRepo.writeProjectFile(ctx.getProject().getId(),
                             "blocks/" + blockName + "/" + blockName + ".css", cssContent);
                 } else {
-                    writeLocalFile("blocks/" + blockName + "/" + blockName + ".css", cssContent);
+                    writeLocalFile(ctx, "blocks/" + blockName + "/" + blockName + ".css", cssContent);
                 }
             }
         }
@@ -208,32 +208,15 @@ public class CodeGenerationAgent implements Agent {
         }
     }
 
-    private void writeLocalFile(String relPath, String content) {
+    private void writeLocalFile(AgentContext ctx, String relPath, String content) {
+        String projectId = (ctx != null && ctx.getProject() != null) ? ctx.getProject().getId() : "project";
+        java.io.File target = new java.io.File(new java.io.File("D:/eds personal/AEM-EDS-Modernizer/eds", projectId), relPath);
         try {
-            java.io.File target = null;
-            String[] candidateRoots = new String[] {
-                "D:/eds personal/AEM-EDS-Modernizer",
-                "d:/eds personal/AEM-EDS-Modernizer",
-                System.getProperty("user.dir")
-            };
-            for (String root : candidateRoots) {
-                java.io.File dir = new java.io.File(root);
-                if (new java.io.File(dir, "pom.xml").exists() || new java.io.File(dir, "blocks").exists()) {
-                    target = new java.io.File(dir, relPath);
-                    break;
-                }
-            }
-            if (target == null) {
-                target = new java.io.File("D:/eds personal/AEM-EDS-Modernizer", relPath);
-            }
-            java.io.File parent = target.getParentFile();
-            if (parent != null && !parent.exists()) {
-                parent.mkdirs();
-            }
+            target.getParentFile().mkdirs();
             java.nio.file.Files.writeString(target.toPath(), content, java.nio.charset.StandardCharsets.UTF_8);
-            LOG.info("Wrote local block file: {}", target.getAbsolutePath());
+            LOG.info("Wrote local block CSS file in workspace: {}", target.getAbsolutePath());
         } catch (Exception e) {
-            LOG.warn("Could not write local block file {}: {}", relPath, e.getMessage());
+            LOG.warn("Could not write local block CSS file {}: {}", relPath, e.getMessage());
         }
     }
 }
