@@ -1,0 +1,102 @@
+/* image — scoped mobile-first styles */
+.image {
+  display: block;
+  padding: var(--space-s, 16px);
+  background: var(--color-base-background, #ffffff);
+  color: var(--color-base-text, #1e293b);
+  border-radius: 8px;
+}
+
+.image-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-s, 14px);
+}
+
+.image-title h2,
+.image-title p {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-heading, #0f172a);
+  line-height: 1.25;
+}
+
+.image-text p {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--color-text-secondary, #475569);
+}
+
+.image-cta .brand-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--color-primary, #38bdf8);
+  color: #090d16;
+  text-decoration: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.image-cta .brand-cta:hover {
+  background: var(--color-primary-hover, #0ea5e9);
+  transform: translateY(-1px);
+}
+
+.image.image-align-center {
+  text-align: center;
+}
+.image.image-align-center .image-cta {
+  display: flex;
+  justify-content: center;
+}
+
+.image.image-align-right {
+  text-align: right;
+}
+.image.image-align-right .image-cta {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.image.image-tone-emphasis {
+  background-color: var(--color-surface-emphasis, #f0f9ff);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+/* Authorable page-instance overrides (cssClass & blockId from UE model) */
+.image.dark-tone {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.image.compact {
+  padding: 8px;
+  margin: 12px auto;
+}
+
+/* #<blockId> page-specific anchor overrides */
+.image[id] {
+  scroll-margin-top: 96px;
+}
+
+@media (min-width: 768px) {
+  .image {
+    padding: var(--space-m, 24px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .image * {
+    transition: none !important;
+  }
+}
+
+@media print {
+  .image {
+    page-break-inside: avoid;
+  }
+}

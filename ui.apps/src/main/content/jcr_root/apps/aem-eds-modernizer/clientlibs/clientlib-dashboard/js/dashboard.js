@@ -718,30 +718,33 @@ async function runPushToGit() {
   if (btnPublish) { btnPublish.disabled = true; btnPublish.textContent = "Opening PR…"; }
   setPipelineStep("vscode", "done");
   setPipelineStep("publish", "active");
+  const input = document.getElementById("github-branch-input");
+  const branch = (input && input.value.trim()) || featureBranchName();
   log(
     "publishing",
-    `Opening Pull Request from '${featureBranchName()}' (no re-commit of generated files)...`,
+    `Checking & opening Pull Request for branch '${branch}'...`,
   );
   try {
     const job = await api(`projects/${currentProjectId}/publish`, {
       method: "POST",
+      body: JSON.stringify({ branch }),
     });
     const prUrl = (job.metadata && job.metadata.prUrl) || job.prUrl;
     log(
       "publishing",
       prUrl
-        ? `Pull Request ready: ${prUrl}`
+        ? `Pull Request active: ${prUrl}`
         : `Publish job finished with state: ${job.state}`,
     );
     setPipelineStep("publish", "done");
     await refreshDashboard();
     const resultEl = document.getElementById("github-pr-result");
     if (resultEl && prUrl) {
-      resultEl.innerHTML = `<div style="background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); border-radius:6px; padding:10px 14px; margin-top:8px;"><span style="color:#22c55e; font-weight:700;">✅ Pull Request Ready:</span> <a href="${escapeAttr(prUrl)}" target="_blank" style="color:var(--accent); font-weight:700; text-decoration:underline; margin-left:6px;">${escapeHtml(prUrl)}</a></div>`;
+      resultEl.innerHTML = `<div style="background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); border-radius:6px; padding:10px 14px; margin-top:8px;"><span style="color:#22c55e; font-weight:700;">✅ Pull Request Active:</span> <a href="${escapeAttr(prUrl)}" target="_blank" style="color:var(--accent); font-weight:700; text-decoration:underline; margin-left:6px;">${escapeHtml(prUrl)}</a></div>`;
     }
     showToast(
       prUrl
-        ? "Pull Request ready: " + prUrl
+        ? "Pull Request active: " + prUrl
         : "Publish job completed.",
     );
   } catch (err) {

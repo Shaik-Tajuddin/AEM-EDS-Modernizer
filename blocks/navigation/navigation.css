@@ -1,0 +1,102 @@
+/* navigation — scoped mobile-first styles */
+.navigation {
+  display: block;
+  padding: var(--space-s, 16px);
+  background: var(--color-base-background, #ffffff);
+  color: var(--color-base-text, #1e293b);
+  border-radius: 8px;
+}
+
+.navigation-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-s, 14px);
+}
+
+.navigation-title h2,
+.navigation-title p {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-heading, #0f172a);
+  line-height: 1.25;
+}
+
+.navigation-text p {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--color-text-secondary, #475569);
+}
+
+.navigation-cta .brand-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--color-primary, #38bdf8);
+  color: #090d16;
+  text-decoration: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.navigation-cta .brand-cta:hover {
+  background: var(--color-primary-hover, #0ea5e9);
+  transform: translateY(-1px);
+}
+
+.navigation.navigation-align-center {
+  text-align: center;
+}
+.navigation.navigation-align-center .navigation-cta {
+  display: flex;
+  justify-content: center;
+}
+
+.navigation.navigation-align-right {
+  text-align: right;
+}
+.navigation.navigation-align-right .navigation-cta {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.navigation.navigation-tone-emphasis {
+  background-color: var(--color-surface-emphasis, #f0f9ff);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+/* Authorable page-instance overrides (cssClass & blockId from UE model) */
+.navigation.dark-tone {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.navigation.compact {
+  padding: 8px;
+  margin: 12px auto;
+}
+
+/* #<blockId> page-specific anchor overrides */
+.navigation[id] {
+  scroll-margin-top: 96px;
+}
+
+@media (min-width: 768px) {
+  .navigation {
+    padding: var(--space-m, 24px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navigation * {
+    transition: none !important;
+  }
+}
+
+@media print {
+  .navigation {
+    page-break-inside: avoid;
+  }
+}

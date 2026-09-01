@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Video — Universal Editor Demo</title>
+    <style>
+      .video {
+        margin: 28px auto;
+        max-width: 1200px;
+        padding: 0 16px;
+      }
+      
+      .video .video-inner {
+        background: #fff;
+        border-radius: 10px;
+        padding: 24px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 5%);
+      }
+      
+      .video .video-title h2 {
+        margin: 0 0 10px;
+        font-size: 1.6rem;
+        color: #0f172a;
+      }
+      
+      .video .video-text p {
+        color: #475569;
+        font-size: 0.95rem;
+        line-height: 1.6;
+      }
+      
+      .video .video-cta {
+        margin-top: 16px;
+      }
+      
+      .video .video-cta a.brand-cta {
+        display: inline-block;
+        background: #f97316;
+        color: #fff;
+        font-weight: 700;
+        padding: 10px 18px;
+        border-radius: 6px;
+        text-decoration: none;
+      }
+      
+      .video.video-align-center {
+        text-align: center;
+      }
+      
+      .video.video-tone-emphasis .video-inner {
+        background: #0f172a;
+        color: #fff;
+        border-color: #334155;
+      }
+      
+      .video.video-tone-emphasis .video-title h2 {
+        color: #fff;
+      }
+      
+      .video.video-tone-emphasis .video-text p {
+        color: #cbd5e1;
+      }
+      
+    </style>
+  </head>
+  <body style="font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; padding:24px; background:#f8fafc;">
+    <main style="max-width:960px; margin:0 auto;">
+      <div class="block-example-variant-section" style="margin-bottom:32px; background:#fff; padding:24px; border-radius:8px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+        <h2 style="font-size:1.2rem; font-weight:700; margin-top:0; margin-bottom:4px; color:#0f172a;">Video Block</h2>
+        <p style="color:#64748b; font-size:0.85rem; margin-top:0; margin-bottom:20px;">JCR Path: <code>contentRoot</code></p>
+        <div class="video eds-block-video">
+          <div><div>demo-id</div></div>
+          <div><div><p>Video Experience</p></div></div>
+          <div><div><p>Curated adventure and premium digital experiences delivered at lightning speed with Adobe Edge Delivery Services.</p></div></div>
+          <div><div><a href="/content/wknd/language-masters/en/adventures/ski-touring-mont-blanc">/content/wknd/language-masters/en/adventures/ski-touring-mont-blanc</a></div></div>
+          <div><div><p>Explore Stories</p></div></div>
+        </div>
+      </div>
+    </main>
+    <script>
+      (function() {
+        function getText(row) {
+          if (!row) return '';
+          const col = row.querySelector('div');
+          return col ? col.textContent.trim() : '';
+        }
+        function getHtml(row) {
+          if (!row) return '';
+          const col = row.querySelector('div');
+          return col ? col.innerHTML : '';
+        }
+        const block = document.querySelector('.video');
+        if (block) {
+          const rows = [...block.children];
+          const config = {
+            id: getText(rows[0]),
+            title: getHtml(rows[1]),
+            text: getHtml(rows[2]),
+            ctaLink: rows[3]?.querySelector('a') ? rows[3].querySelector('a').getAttribute('href') : getText(rows[3]),
+            ctaContent: getHtml(rows[4]),
+          };
+          const inner = document.createElement('div');
+          inner.className = 'video-inner';
+          if (config.title) {
+            const d = document.createElement('div');
+            d.className = 'video-title';
+            d.innerHTML = config.title;
+            inner.appendChild(d);
+          }
+          if (config.text) {
+            const d = document.createElement('div');
+            d.className = 'video-text';
+            d.innerHTML = config.text;
+            inner.appendChild(d);
+          }
+          if (config.ctaLink) {
+            const a = document.createElement('a');
+            a.href = config.ctaLink;
+            a.className = 'brand-cta';
+            a.style.display = 'inline-block';
+            a.style.marginTop = '12px';
+            a.style.padding = '8px 16px';
+            a.style.background = '#f97316';
+            a.style.color = '#fff';
+            a.style.textDecoration = 'none';
+            a.style.borderRadius = '4px';
+            a.textContent = 'Explore';
+            inner.appendChild(a);
+          }
+          if (config.ctaContent) {
+            const d = document.createElement('div');
+            d.className = 'video-ctacontent';
+            d.innerHTML = config.ctaContent;
+            inner.appendChild(d);
+          }
+          block.innerHTML = '';
+          block.appendChild(inner);
+          if (config.id) block.id = config.id;
+        }
+      })();
+    </script>
+  </body>
+</html>

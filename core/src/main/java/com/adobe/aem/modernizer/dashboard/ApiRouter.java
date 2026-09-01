@@ -1,6 +1,7 @@
 package com.adobe.aem.modernizer.dashboard;
 
 import com.adobe.aem.modernizer.ModernizerException;
+import com.adobe.aem.modernizer.agents.MigrationState;
 import com.adobe.aem.modernizer.agents.Orchestrator;
 import com.adobe.aem.modernizer.connectors.GitHubClient;
 import com.adobe.aem.modernizer.connectors.GitHubFlow;
@@ -226,27 +227,42 @@ public class ApiRouter {
                     if ("compare".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
                         return handleAiCompare(projectId, body, resp);
                     }
-
                     if ("publish".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
                         ProjectRecord p = getOrCreateStubProject(projectId);
-                        // PR gate: only allow when pre-PR healing or preview completed on the branch
-                        if (store != null) {
-                            Optional<JobRecord> latest = store.getLatestJob(projectId);
-                            boolean healed = latest.isPresent() && (
-                                    (latest.get().getMetadata() != null && (
-                                            Boolean.parseBoolean(String.valueOf(latest.get().getMetadata().get("healingOk")))
-                                            || latest.get().getMetadata().containsKey("previewUrl")
-                                            || latest.get().getMetadata().containsKey("branch")
-                                    ))
-                                    || "PREVIEW".equalsIgnoreCase(latest.get().getMode())
-                                    || "PUBLISH".equalsIgnoreCase(latest.get().getMode())
-                            );
-                            if (!healed) {
-                                if (resp != null) resp.setStatus(409);
-                                return "{\"error\":\"Create PR is locked: pre-PR healing (branch checkout, deduplication, lint:fix, build:json, push) has not completed successfully. Run the preview step first.\"}";
+                        Map<?, ?> payload = (body != null && !body.trim().isEmpty())
+                                ? JsonUtil.fromJson(body, Map.class) : null;
+                        String branch = payload != null ? Objects.toString(payload.get("branch"), "") : "";
+                        if (branch.isBlank()) {
+                            branch = GitHubFlow.featureBranch(projectId);
+                        }
+
+                        // Check if an existing PR is already open on GitHub for this branch
+                        GitHubClient gh = GitHubFlow.clientFor(gitHubClient, p);
+                        String existingPrUrl = null;
+                        if (gh != null) {
+                            try {
+                                existingPrUrl = gh.findExistingPullRequest(branch);
+                            } catch (Exception e) {
+                                LOG.debug("Could not lookup existing PR: {}", e.getMessage());
                             }
                         }
-                        JobRecord job = (orchestrator != null) ? orchestrator.openPullRequest(p, "admin") : new JobRecord("job-mock", projectId, "PUBLISH");
+
+                        JobRecord job;
+                        if (existingPrUrl != null && !existingPrUrl.isBlank()) {
+                            job = new JobRecord("job-" + UUID.randomUUID().toString().substring(0, 8), projectId, "PUBLISH");
+                            job.setState(MigrationState.COMPLETED.name());
+                            Map<String, Object> meta = job.getMetadata();
+                            meta.put("prUrl", existingPrUrl);
+                            meta.put("branch", branch);
+                            meta.put("existing", true);
+                            job.setMetadata(meta);
+                            job.setFinishedAt(System.currentTimeMillis());
+                            if (store != null) {
+                                store.saveJob(job);
+                            }
+                        } else {
+                            job = (orchestrator != null) ? orchestrator.openPullRequest(p, "admin") : new JobRecord("job-mock", projectId, "PUBLISH");
+                        }
                         return JsonUtil.toJson(job);
                     }
 

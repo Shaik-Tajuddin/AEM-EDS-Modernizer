@@ -1,0 +1,49 @@
+{
+  "definitions": [
+    {
+      "title": "Video",
+      "id": "video",
+      "plugins": {
+        "xwalk": {
+          "page": {
+            "resourceType": "core/franklin/components/block/v1/block",
+            "template": {
+              "name": "Video",
+              "model": "video",
+              "filter": "video",
+              "id": "video-section-1",
+              "classes": "eds-block-video",
+              "title": "Video Experience",
+              "text": "Curated adventure and premium digital experiences delivered at lightning speed with Adobe Edge Delivery Services.",
+              "ctaLink": "/content/wknd/language-masters/en/adventures/ski-touring-mont-blanc",
+              "ctaContent": "Explore Stories"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "models": [
+    {
+      "id": "video",
+      "fields": [
+        { "component": "tab", "label": "General", "name": "tabGeneral" },
+        { "component": "text", "name": "id", "label": "Block ID (unique page anchor, e.g. wknd-about-us-hero)", "valueType": "string", "value": "video-section-1" },
+        { "component": "multiselect", "name": "classes", "label": "CSS Classes (style variants)", "valueType": "string[]", "options": [
+          { "name": "Dark tone", "value": "dark-tone" },
+          { "name": "Compact spacing", "value": "compact" },
+          { "name": "Emphasis tone", "value": "tone-emphasis" },
+          { "name": "Align center", "value": "align-center" },
+          { "name": "Align right", "value": "align-right" }
+        ], "value": ["eds-block-video"] },
+        { "component": "richtext", "name": "title", "label": "Title" },
+        { "component": "richtext", "name": "text", "label": "Text" },
+        { "component": "aem-content", "name": "ctaLink", "label": "CtaLink" },
+        { "component": "text", "name": "ctaContent", "label": "CtaContent" }
+      ]
+    }
+  ],
+  "filters": [
+    { "id": "video", "components": [] }
+  ]
+}

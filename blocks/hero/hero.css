@@ -1,0 +1,22 @@
+.hero {
+  margin: var(--space-m, 32px) auto;
+  max-width: 1200px;
+  padding: 0 var(--space-s, 16px);
+  color: var(--color-base-text, #334155);
+}
+
+.hero .hero-inner {
+  background: var(--color-base-background, #ffffff);
+  border-radius: var(--radius-md, 10px);
+  padding: var(--space-m, 24px);
+  border: 1px solid var(--color-border, #e2e8f0);
+}
+
+.hero.hero-align-center {
+  text-align: center;
+}
+
+.hero.hero-tone-emphasis {
+  background: var(--color-dark, #0f172a);
+  color: #ffffff;
+}

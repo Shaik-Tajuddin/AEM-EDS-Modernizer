@@ -1,0 +1,102 @@
+/* text — scoped mobile-first styles */
+.text {
+  display: block;
+  padding: var(--space-s, 16px);
+  background: var(--color-base-background, #ffffff);
+  color: var(--color-base-text, #1e293b);
+  border-radius: 8px;
+}
+
+.text-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-s, 14px);
+}
+
+.text-title h2,
+.text-title p {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-heading, #0f172a);
+  line-height: 1.25;
+}
+
+.text-text p {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--color-text-secondary, #475569);
+}
+
+.text-cta .brand-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--color-primary, #38bdf8);
+  color: #090d16;
+  text-decoration: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.text-cta .brand-cta:hover {
+  background: var(--color-primary-hover, #0ea5e9);
+  transform: translateY(-1px);
+}
+
+.text.text-align-center {
+  text-align: center;
+}
+.text.text-align-center .text-cta {
+  display: flex;
+  justify-content: center;
+}
+
+.text.text-align-right {
+  text-align: right;
+}
+.text.text-align-right .text-cta {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.text.text-tone-emphasis {
+  background-color: var(--color-surface-emphasis, #f0f9ff);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+/* Authorable page-instance overrides (cssClass & blockId from UE model) */
+.text.dark-tone {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.text.compact {
+  padding: 8px;
+  margin: 12px auto;
+}
+
+/* #<blockId> page-specific anchor overrides */
+.text[id] {
+  scroll-margin-top: 96px;
+}
+
+@media (min-width: 768px) {
+  .text {
+    padding: var(--space-m, 24px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .text * {
+    transition: none !important;
+  }
+}
+
+@media print {
+  .text {
+    page-break-inside: avoid;
+  }
+}
