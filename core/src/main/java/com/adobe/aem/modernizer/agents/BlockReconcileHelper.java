@@ -51,7 +51,7 @@ public final class BlockReconcileHelper {
     }
 
     public static Set<String> listExistingBlockNames(AgentContext ctx, Store store) {
-        Set<String> names = new LinkedHashSet<>(listFromFilesystem());
+        Set<String> names = new LinkedHashSet<>(listFromFilesystem(ctx));
         if (store != null && ctx != null && ctx.getProject() != null) {
             try {
                 String jobId = ctx.getJob() != null ? ctx.getJob().getId() : null;
@@ -80,23 +80,56 @@ public final class BlockReconcileHelper {
         return names;
     }
 
-    private static Set<String> listFromFilesystem() {
+    private static Set<String> listFromFilesystem(AgentContext ctx) {
         Set<String> names = new LinkedHashSet<>();
         String[] roots = new String[] {
                 "D:/eds personal/AEM-EDS-Modernizer",
                 "d:/eds personal/AEM-EDS-Modernizer",
                 System.getProperty("user.dir")
         };
+        String projectId = (ctx != null && ctx.getProject() != null) ? ctx.getProject().getId() : null;
         for (String root : roots) {
             if (root == null) continue;
-            File blocks = new File(root, "blocks");
-            if (!blocks.isDirectory()) continue;
-            File[] kids = blocks.listFiles(File::isDirectory);
-            if (kids == null) continue;
-            for (File k : kids) {
-                names.add(k.getName().toLowerCase(Locale.ROOT));
+            // 1. Check eds/<projectId>/blocks
+            if (projectId != null) {
+                File projBlocks = new File(root, "eds/" + projectId + "/blocks");
+                if (projBlocks.isDirectory()) {
+                    File[] kids = projBlocks.listFiles(File::isDirectory);
+                    if (kids != null) {
+                        for (File k : kids) {
+                            names.add(k.getName().toLowerCase(Locale.ROOT));
+                        }
+                    }
+                }
             }
-            break;
+            // 2. Check any eds/*/blocks
+            File edsDir = new File(root, "eds");
+            if (edsDir.isDirectory()) {
+                File[] projDirs = edsDir.listFiles(File::isDirectory);
+                if (projDirs != null) {
+                    for (File p : projDirs) {
+                        File pBlocks = new File(p, "blocks");
+                        if (pBlocks.isDirectory()) {
+                            File[] kids = pBlocks.listFiles(File::isDirectory);
+                            if (kids != null) {
+                                for (File k : kids) {
+                                    names.add(k.getName().toLowerCase(Locale.ROOT));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // 3. Check legacy root blocks/
+            File blocks = new File(root, "blocks");
+            if (blocks.isDirectory()) {
+                File[] kids = blocks.listFiles(File::isDirectory);
+                if (kids != null) {
+                    for (File k : kids) {
+                        names.add(k.getName().toLowerCase(Locale.ROOT));
+                    }
+                }
+            }
         }
         return names;
     }

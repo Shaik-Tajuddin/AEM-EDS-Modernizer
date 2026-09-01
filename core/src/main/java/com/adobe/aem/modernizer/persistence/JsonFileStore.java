@@ -175,6 +175,13 @@ public class JsonFileStore extends InMemoryStore {
     }
 
     @Override
+    public boolean deleteGeneratedFile(String jobId, String path) {
+        boolean removed = super.deleteGeneratedFile(jobId, path);
+        if (removed) persist();
+        return removed;
+    }
+
+    @Override
     public void recordEvent(JobEventRecord event) {
         super.recordEvent(event);
         persist();

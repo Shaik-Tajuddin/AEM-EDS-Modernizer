@@ -200,6 +200,16 @@ public class InMemoryStore implements Store {
                 .findFirst();
     }
 
+    @Override
+    public boolean deleteGeneratedFile(String jobId, String path) {
+        if (jobId == null || path == null) return false;
+        List<GeneratedFileRecord> files = generatedFiles.get(jobId);
+        if (files != null) {
+            return files.removeIf(f -> path.equals(f.getPath()));
+        }
+        return false;
+    }
+
     // Validation Results
     @Override
     public void saveValidationResult(ValidationResultRecord result) {

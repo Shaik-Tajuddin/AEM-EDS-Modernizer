@@ -31,6 +31,8 @@ public class ModernizerBundleActivator {
     private transient GitHubClient gitHubClient;
     @Reference(cardinality = org.osgi.service.component.annotations.ReferenceCardinality.OPTIONAL)
     private transient AemClient realAemClient;
+    @Reference(cardinality = org.osgi.service.component.annotations.ReferenceCardinality.OPTIONAL)
+    private transient LocalEdsRepoManager localEdsRepo;
 
     @Activate
     public void activate() {
@@ -78,8 +80,8 @@ public class ModernizerBundleActivator {
                     new MsmAnalysisAgent(store),
                     new FigmaAnalysisAgent(figma, store),
                     new MigrationPlannerAgent(store, estimator),
-                    new BlockGenerationAgent(store, ai),
-                    new CodeGenerationAgent(store, ai),
+                    new BlockGenerationAgent(store, ai, localEdsRepo),
+                    new CodeGenerationAgent(store, ai, localEdsRepo),
                     new ContentMigrationAgent(store, ai),
                     new AuthoringAgent(store),
                     new PreviewAgent(gh, eds, store, ai),

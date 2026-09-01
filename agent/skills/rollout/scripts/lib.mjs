@@ -7,7 +7,15 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from 'no
 import { dirname, join } from 'node:path';
 
 export function readJSON(path, fallback = null) {
-  try { return JSON.parse(readFileSync(path, 'utf8')); } catch { return fallback; }
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch (err) {
+    if (err instanceof SyntaxError) return fallback; // malformed JSON → fallback
+    if (err.code !== 'ENOENT') {
+      console.error(`readJSON(${path}): ${err.message}`); // e.g. permission denied
+    }
+    return fallback;
+  }
 }
 
 export function writeJSON(path, obj) {

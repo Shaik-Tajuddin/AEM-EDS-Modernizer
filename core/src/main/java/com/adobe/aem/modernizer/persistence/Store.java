@@ -35,6 +35,7 @@ public interface Store {
     void saveGeneratedFile(GeneratedFileRecord file);
     List<GeneratedFileRecord> getGeneratedFiles(String jobId);
     Optional<GeneratedFileRecord> getGeneratedFile(String jobId, String path);
+    boolean deleteGeneratedFile(String jobId, String path);
 
     // Validation Results
     void saveValidationResult(ValidationResultRecord result);

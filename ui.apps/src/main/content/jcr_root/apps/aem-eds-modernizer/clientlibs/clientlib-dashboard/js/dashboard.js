@@ -1,4 +1,12 @@
-let currentProjectId = "wknd-site";
+/**
+ * AEM EDS Modernizer dashboard client.
+ * Wrapped in an IIFE so no function or state leaks into the global scope;
+ * everything the markup needs is exported on window.AemEdsDashboard at the bottom.
+ */
+(function () {
+  "use strict";
+
+  let currentProjectId = "wknd-site";
 let projectsList = [];
 
 let csrfTokenPromise = null;
@@ -35,12 +43,12 @@ const api = async (path, opts = {}) => {
   try {
     data = errText ? JSON.parse(errText) : {};
   } catch (parseErr) {
-    throw new Error(
-      `HTTP ${res.status}: ${(errText || "").substring(0, 200)}`,
-    );
+    throw new Error(`HTTP ${res.status}: ${(errText || "").substring(0, 200)}`);
   }
   if (!res.ok) {
-    throw new Error(data.error || `HTTP ${res.status}: ${(errText || "").substring(0, 200)}`);
+    throw new Error(
+      data.error || `HTTP ${res.status}: ${(errText || "").substring(0, 200)}`,
+    );
   }
   return data;
 };
@@ -72,10 +80,13 @@ function showTab(tabId) {
     const input = document.getElementById("github-branch-input");
     if (input && !input.value) input.value = `feat/${currentProjectId}`;
     const branchDisplay = document.getElementById("vscode-branch-display");
-    if (branchDisplay && input) branchDisplay.innerText = input.value || `feat/${currentProjectId}`;
+    if (branchDisplay && input)
+      branchDisplay.innerText = input.value || `feat/${currentProjectId}`;
     const newTabBtn = document.getElementById("btn-open-vscode-newtab");
     if (newTabBtn) {
-      newTabBtn.href = getVsCodeUrlForBranch(input ? input.value : `feat/${currentProjectId}`);
+      newTabBtn.href = getVsCodeUrlForBranch(
+        input ? input.value : `feat/${currentProjectId}`,
+      );
       newTabBtn.style.display = "inline-flex";
     }
   }
@@ -94,10 +105,19 @@ function setPipelineStep(stepId, state) {
   }
 }
 
+function escapeHtml(str) {
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function log(agent, msg) {
   const term = document.getElementById("terminal");
   const time = new Date().toLocaleTimeString();
-  const line = `<div class="log-line"><span class="log-time">[${time}]</span><span class="log-agent">[${agent}]</span><span>${msg}</span></div>`;
+  const line = `<div class="log-line"><span class="log-time">[${escapeHtml(time)}]</span><span class="log-agent">[${escapeHtml(agent)}]</span><span>${escapeHtml(msg)}</span></div>`;
   if (term) {
     term.innerHTML += line;
     term.scrollTop = term.scrollHeight;
@@ -122,7 +142,10 @@ function onProviderChange() {
     gemini: "env:GEMINI_API_KEY",
   };
   const isIde = ideProviders.indexOf(provider) >= 0;
-  const isCloudApi = Object.prototype.hasOwnProperty.call(cloudKeyRefs, provider);
+  const isCloudApi = Object.prototype.hasOwnProperty.call(
+    cloudKeyRefs,
+    provider,
+  );
   if (banner) banner.style.display = isIde ? "block" : "none";
   if (bannerTitle && isIde) {
     const labels = {
@@ -140,7 +163,9 @@ function onProviderChange() {
       openai: "OpenAI GPT",
       gemini: "Google Gemini",
     };
-    if (cloudTitle) cloudTitle.textContent = (cloudLabels[provider] || "Cloud API") + " — API key required";
+    if (cloudTitle)
+      cloudTitle.textContent =
+        (cloudLabels[provider] || "Cloud API") + " — API key required";
     if (cloudKeyRef) cloudKeyRef.textContent = cloudKeyRefs[provider];
   }
   // Local IDE: keep model visible for Ollama chat model; budget still hidden
@@ -148,7 +173,12 @@ function onProviderChange() {
   if (budgetGroup) budgetGroup.style.display = isIde ? "none" : "";
   if (modelInput) {
     if (isIde) {
-      if (!modelInput.value || modelInput.value.indexOf("claude") === 0 || modelInput.value.indexOf("gpt") === 0 || modelInput.value.indexOf("gemini-1") === 0) {
+      if (
+        !modelInput.value ||
+        modelInput.value.indexOf("claude") === 0 ||
+        modelInput.value.indexOf("gpt") === 0 ||
+        modelInput.value.indexOf("gemini-1") === 0
+      ) {
         modelInput.value = "qwen3:8b";
       }
       modelInput.placeholder = "Ollama model (e.g. qwen3:8b)";
@@ -203,7 +233,9 @@ function clearForm() {
 }
 
 async function saveProjectConfig() {
-  const scopeMode = document.querySelector('input[name="cfg-scopeMode"]:checked')
+  const scopeMode = document.querySelector(
+    'input[name="cfg-scopeMode"]:checked',
+  )
     ? document.querySelector('input[name="cfg-scopeMode"]:checked').value
     : "RECURSIVE";
 
@@ -245,7 +277,9 @@ async function saveProjectConfig() {
       "connection",
       `Project '${saved.name}' saved. Scope: ${saved.pageScope || "all"} (${saved.scopeMode || "RECURSIVE"})`,
     );
-    showToast(`Project configuration saved! (${scopeMode === "SINGLE_PAGE" ? "This Page Only" : "Complete Subtree"})`);
+    showToast(
+      `Project configuration saved! (${scopeMode === "SINGLE_PAGE" ? "This Page Only" : "Complete Subtree"})`,
+    );
     document.getElementById("btn-dryrun").disabled = false;
     setPipelineStep("connect", "done");
     setPipelineStep("dryrun", "active");
@@ -278,14 +312,24 @@ async function loadProjectsList() {
 async function deleteCurrentProject() {
   if (!currentProjectId) return;
   const p = projectsList.find((x) => x.id === currentProjectId);
-  const label = p ? (p.name || p.id) : currentProjectId;
-  if (!confirm(`Delete project "${label}"?\n\nThis removes its saved config, jobs, inventory and generated blocks. This cannot be undone.`)) return;
+  const label = p ? p.name || p.id : currentProjectId;
+  if (
+    !confirm(
+      `Delete project "${label}"?\n\nThis removes its saved config, jobs, inventory and generated blocks. This cannot be undone.`,
+    )
+  )
+    return;
 
   try {
-    await api(`projects/${encodeURIComponent(currentProjectId)}/delete`, { method: "POST" });
+    await api(`projects/${encodeURIComponent(currentProjectId)}/delete`, {
+      method: "POST",
+    });
     showToast(`🗑️ Project '${label}' deleted`);
     projectsList = projectsList.filter((x) => x.id !== currentProjectId);
-    currentProjectId = (projectsList && projectsList.length > 0) ? projectsList[0].id : "wknd-site";
+    currentProjectId =
+      projectsList && projectsList.length > 0
+        ? projectsList[0].id
+        : "wknd-site";
     chatHistoryLoaded = false;
     chatHistory = [];
     await loadProjectsList();
@@ -321,11 +365,14 @@ async function onQuickScopeChange(mode) {
     radSingle.checked = mode === "SINGLE_PAGE";
   }
 
-  const modeLabel = mode === "SINGLE_PAGE" ? "This Page Only" : "Complete Nested Subtree";
+  const modeLabel =
+    mode === "SINGLE_PAGE" ? "This Page Only" : "Complete Nested Subtree";
   showToast(`Discovery scope set to: ${modeLabel}`);
 
   try {
-    const p = projectsList.find((x) => x.id === currentProjectId) || (await api(`projects/${currentProjectId}`));
+    const p =
+      projectsList.find((x) => x.id === currentProjectId) ||
+      (await api(`projects/${currentProjectId}`));
     if (p) {
       p.scopeMode = mode;
       await api("projects", {
@@ -333,7 +380,10 @@ async function onQuickScopeChange(mode) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(p),
       });
-      log("connection", `Updated crawl scope to: ${modeLabel}. Click 'Run Dry Run' to apply.`);
+      log(
+        "connection",
+        `Updated crawl scope to: ${modeLabel}. Click 'Run Dry Run' to apply.`,
+      );
     }
   } catch (e) {
     console.warn("Could not save scope change:", e);
@@ -421,10 +471,20 @@ async function previewToBranch() {
   setPipelineStep("validate", "done");
   setPipelineStep("vscode", "active");
   applyPreviewBranch(featureBranchName());
-  log("preview", `Pushing generated files to branch '${featureBranchName()}' (no PR)...`);
-  const job = await api(`projects/${currentProjectId}/preview`, {
+  log(
+    "preview",
+    `Pushing generated files to branch '${featureBranchName()}' (no PR)...`,
+  );
+  const response = await api(`projects/${currentProjectId}/preview`, {
     method: "POST",
   });
+  // New envelope: { job, healing, prReady }; legacy: bare job
+  const job = response.job || response;
+  const healing = response.healing || {};
+  const prReady = response.prReady !== undefined
+    ? !!response.prReady
+    : !!healing.ok;
+  setHealingBadges(healing, prReady);
   const meta = job.metadata || {};
   const branch = meta.branch || featureBranchName();
   applyPreviewBranch(branch);
@@ -433,17 +493,107 @@ async function previewToBranch() {
   loadVsCodeFrame(vscodeUrl);
   setPipelineStep("vscode", "done");
   setPipelineStep("publish", "active");
+  if (healing.prunedBlocks && healing.prunedBlocks.length) {
+    log("preview", `Deduplicated blocks removed: ${healing.prunedBlocks.join(", ")}`);
+  }
   log(
     "preview",
-    `Branch '${branch}' is ready. Review in vscode.dev, run npm scripts if needed, then confirm to open a PR.`,
+    `Branch '${branch}' is ready.${prReady
+      ? " Pre-PR healing passed — Create PR is enabled."
+      : " Healing incomplete — Create PR remains locked until lint/build/push pass."}`,
   );
-  showToast("Branch pushed. Review in VS Code, then confirm to open the PR.");
+  showToast(
+    prReady
+      ? "Branch pushed & healing passed. You can open the PR."
+      : "Branch pushed, but healing failed — PR gate locked.",
+  );
   try {
     await checkBranchStatus();
   } catch (e) {
     /* optional */
   }
   return job;
+}
+
+function setHealingBadges(healing, prReady) {
+  const repoBadge = document.getElementById("badge-repo-status");
+  const healBadge = document.getElementById("badge-healing-status");
+  const gateBadge = document.getElementById("badge-pr-gate");
+  if (repoBadge) repoBadge.innerText = `● Local repo: ${healing.checkout === "OK" ? "ready" : "unknown"}`;
+  if (healBadge) {
+    healBadge.innerText = `● Healing: ${healing.ok ? "passed ✓" : "failed / not run"}`;
+    healBadge.style.color = healing.ok ? "#22c55e" : "#f59e0b";
+  }
+  if (gateBadge) {
+    gateBadge.innerText = prReady ? "🔓 PR gate: open" : "🔒 PR gate: locked";
+    gateBadge.style.color = prReady ? "#22c55e" : "#94a3b8";
+  }
+  const btnPublish = document.getElementById("btn-publish");
+  if (btnPublish && !prReady) btnPublish.disabled = true;
+}
+
+async function aemUpControl(action) {
+  log("devserver", `Dev server action: ${action}...`);
+  try {
+    const result = await api(`projects/${currentProjectId}/aem-up`, {
+      method: "POST",
+      body: JSON.stringify({ action }),
+    });
+    const badge = document.getElementById("badge-aemup-status");
+    const running = result.running === true || result.status === "RUNNING" || result.status === "STARTED";
+    if (badge) {
+      badge.innerText = `● Dev server: ${running ? "running" : "stopped"}`;
+      badge.style.color = running ? "#22c55e" : "#94a3b8";
+    }
+    log("devserver", `aem up ${action}: ${result.status || "ok"} → ${result.url || ""}`);
+    showToast(running ? "Dev server running at http://localhost:3000" : `Dev server ${result.status || "updated"}.`);
+    return result;
+  } catch (err) {
+    log("error", `Dev server ${action} failed: ${err.message}`);
+    showToast(`Dev server ${action} failed: ${err.message}`);
+  }
+}
+
+async function runAiCompare() {
+  const btn = document.getElementById("btn-ai-compare");
+  const resultEl = document.getElementById("ai-compare-result");
+  const edsPath = document.getElementById("ai-compare-eds-path");
+  const blockName = document.getElementById("ai-compare-block");
+  const aemPagePath = activePagePath || (currentProject && currentProject.contentRoot) || "/content/wknd";
+  if (btn) btn.disabled = true;
+  if (resultEl) resultEl.innerText = "Comparing AEM source page with local EDS render...";
+  try {
+    const report = await api(`projects/${currentProjectId}/compare`, {
+      method: "POST",
+      body: JSON.stringify({
+        aemPagePath,
+        edsPagePath: edsPath ? edsPath.value.trim() : "",
+        blockName: blockName ? blockName.value.trim() || null : null,
+      }),
+    });
+    if (resultEl) {
+      const files = (report.updatedFiles || []).join(", ") || "none";
+      resultEl.innerHTML =
+        `<b>Status:</b> ${report.status} · AEM fetched: ${report.aemFetched ? "✓" : "✗"} · EDS fetched: ${report.edsFetched ? "✓" : "✗"}<br>` +
+        `<b>Files updated:</b> ${files}` +
+        (report.analysis ? `<br><details><summary>AI analysis</summary><pre style="white-space:pre-wrap; max-height:200px; overflow:auto;">${escapeHtmlBody(report.analysis)}</pre></details>` : "");
+    }
+    log("ai-compare", `AI comparison finished: ${report.status}. Updated: ${report.updatedFiles?.join(", ") || "none"}`);
+    showToast(`AI comparison: ${report.status}.`);
+    await refreshDashboard();
+  } catch (err) {
+    if (resultEl) resultEl.innerText = `Comparison failed: ${err.message}`;
+    log("error", `AI comparison failed: ${err.message}`);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function escapeHtmlBody(text) {
+  return String(text || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 async function runDryRun() {
@@ -456,9 +606,15 @@ async function runDryRun() {
     `Starting Mandatory Dry Run for project '${currentProjectId}'...`,
   );
   try {
-    const job = await api(`projects/${currentProjectId}/dryrun`, {
+    const response = await api(`projects/${currentProjectId}/dryrun`, {
       method: "POST",
     });
+    const job = response.job || response;
+    const localRepo = response.localRepo || {};
+    log(
+      "localrepo",
+      `Local EDS repo: ${localRepo.status || "unknown"} at ${localRepo.path || "—"} (npm install: ${localRepo.npmInstall || "n/a"})`,
+    );
     log("orchestrator", `Dry Run execution completed with state: ${job.state}`);
     setPipelineStep("dryrun", "done");
     setPipelineStep("build", "active");
@@ -498,7 +654,9 @@ async function runMigration() {
     } catch (previewErr) {
       log("error", `Preview push failed: ${previewErr.message}`);
       showTab("github");
-      showToast("Generate succeeded but branch push failed. Use Push Blocks & Open VS Code to retry.");
+      showToast(
+        "Generate succeeded but branch push failed. Use Push Blocks & Open VS Code to retry.",
+      );
     }
   } catch (err) {
     log("error", `Generation failed: ${err.message}`);
@@ -538,7 +696,11 @@ async function runPushToGit() {
     if (resultEl && prUrl) {
       resultEl.innerHTML = `<a href="${prUrl}" target="_blank" style="font-weight:700; color:var(--accent);">Pull Request opened: ${prUrl}</a>`;
     }
-    showToast(prUrl ? "Pull Request opened against the review branch." : "Publish job completed.");
+    showToast(
+      prUrl
+        ? "Pull Request opened against the review branch."
+        : "Publish job completed.",
+    );
   } catch (err) {
     log("error", `Git PR failed: ${err.message}`);
     showToast("Error opening PR: " + err.message);
@@ -566,7 +728,8 @@ function getVsCodeUrlForBranch(branch) {
   if (!repoUrl) repoUrl = "https://github.com/my-org/wknd-eds";
 
   let cleaned = repoUrl.trim();
-  if (cleaned.endsWith(".git")) cleaned = cleaned.substring(0, cleaned.length - 4);
+  if (cleaned.endsWith(".git"))
+    cleaned = cleaned.substring(0, cleaned.length - 4);
   if (cleaned.endsWith("/")) cleaned = cleaned.substring(0, cleaned.length - 1);
   if (cleaned.startsWith("https://github.com/")) {
     const ownerRepo = cleaned.substring("https://github.com/".length);
@@ -615,7 +778,8 @@ function loadVsCodeFrame(customUrl) {
     newTabBtn.style.display = "inline-flex";
   }
   if (hint) {
-    hint.textContent = "In-dashboard editor (vscode.dev cannot be embedded in AEM)";
+    hint.textContent =
+      "In-dashboard editor (vscode.dev cannot be embedded in AEM)";
   }
   if (placeholder) placeholder.style.display = "none";
   if (workspace) workspace.style.display = "flex";
@@ -630,7 +794,7 @@ function reloadVsCodeFrame() {
 async function loadWorkspaceFiles(branch) {
   const tree = document.getElementById("ws-file-tree");
   if (!tree) return;
-  tree.innerHTML = "<li class=\"ws-tree-empty\">Loading files…</li>";
+  tree.innerHTML = '<li class="ws-tree-empty">Loading files…</li>';
   try {
     const data = await api(`projects/${currentProjectId}/workspace`, {
       method: "POST",
@@ -638,12 +802,16 @@ async function loadWorkspaceFiles(branch) {
     });
     const files = data.files || [];
     if (!files.length) {
-      tree.innerHTML = "<li class=\"ws-tree-empty\">No changed files yet. Push the preview branch first.</li>";
+      tree.innerHTML =
+        '<li class="ws-tree-empty">No changed files yet. Push the preview branch first.</li>';
       return;
     }
     tree.innerHTML = files
       .map((f) => {
-        const safe = String(f.path).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+        const safe = String(f.path)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/"/g, "&quot;");
         return `<li class="ws-file-row"><button type="button" class="ws-file-btn" data-path="${safe}">${safe}</button><button type="button" class="ws-file-del" data-path="${safe}" title="Delete from branch">Delete</button></li>`;
       })
       .join("");
@@ -662,7 +830,8 @@ async function loadWorkspaceFiles(branch) {
         }
       });
     }
-    const keepOpen = workspaceOpenPath && files.some((f) => f.path === workspaceOpenPath);
+    const keepOpen =
+      workspaceOpenPath && files.some((f) => f.path === workspaceOpenPath);
     if (keepOpen) {
       await openWorkspaceFile(workspaceOpenPath);
     } else if (files[0] && files[0].path) {
@@ -711,7 +880,11 @@ async function saveWorkspaceFile() {
   try {
     const saved = await api(`projects/${currentProjectId}/workspace/save`, {
       method: "POST",
-      body: JSON.stringify({ branch, path: workspaceOpenPath, content: editor.value }),
+      body: JSON.stringify({
+        branch,
+        path: workspaceOpenPath,
+        content: editor.value,
+      }),
     });
     if (saved && typeof saved.content === "string") {
       editor.value = saved.content;
@@ -733,7 +906,11 @@ async function deleteWorkspaceFile(path) {
     showToast("Select a file first.");
     return;
   }
-  if (!window.confirm("Delete " + target + " from " + branch + "? This creates a new commit.")) {
+  if (
+    !window.confirm(
+      "Delete " + target + " from " + branch + "? This creates a new commit.",
+    )
+  ) {
     return;
   }
   try {
@@ -785,7 +962,8 @@ async function checkBranchStatus() {
       body: JSON.stringify({ branch }),
     });
     if (data.error) {
-      if (resultEl) resultEl.innerHTML = `<span style="color:var(--danger,#c00)">${data.error}</span>`;
+      if (resultEl)
+        resultEl.innerHTML = `<span style="color:var(--danger,#c00)">${data.error}</span>`;
       return;
     }
     let html = "";
@@ -795,15 +973,21 @@ async function checkBranchStatus() {
     }
     if (data.latestRun) {
       const r = data.latestRun;
-      html += `<p><b>Latest CI run:</b> ${r.name || "workflow"} — status: <b>${r.status}</b>, conclusion: <b style="color:${r.conclusion === 'success' ? 'var(--accent)' : 'var(--warn)'}">${r.conclusion || "pending"}</b> `
-           + (r.htmlUrl ? `(<a href="${r.htmlUrl}" target="_blank">view run logs</a>)` : "") + `</p>`;
+      html +=
+        `<p><b>Latest CI run:</b> ${r.name || "workflow"} — status: <b>${r.status}</b>, conclusion: <b style="color:${r.conclusion === "success" ? "var(--accent)" : "var(--warn)"}">${r.conclusion || "pending"}</b> ` +
+        (r.htmlUrl
+          ? `(<a href="${r.htmlUrl}" target="_blank">view run logs</a>)`
+          : "") +
+        `</p>`;
     } else {
-      html += "<p><i>No GitHub Actions workflow run found for this branch (CI may not be configured on the repo, or no run has triggered yet).</i></p>";
+      html +=
+        "<p><i>No GitHub Actions workflow run found for this branch (CI may not be configured on the repo, or no run has triggered yet).</i></p>";
     }
     const files = data.changedFiles || [];
     html += `<p><b>Changed files vs '${data.baseBranch}':</b> ${files.length}</p>`;
     if (files.length) {
-      html += "<table><thead><tr><th>File</th><th>Status</th><th>+/-</th></tr></thead><tbody>";
+      html +=
+        "<table><thead><tr><th>File</th><th>Status</th><th>+/-</th></tr></thead><tbody>";
       files.forEach((f) => {
         html += `<tr><td><code>${f.filename}</code></td><td><span style="font-weight:700;">${f.status}</span></td><td><span style="color:var(--accent);">+${f.additions}</span> / <span style="color:var(--danger);">${f.deletions}</span></td></tr>`;
       });
@@ -811,8 +995,49 @@ async function checkBranchStatus() {
     }
     if (resultEl) resultEl.innerHTML = html;
   } catch (err) {
-    if (resultEl) resultEl.innerHTML = `<span style="color:var(--danger,#c00)">Check failed: ${err.message}</span>`;
+    if (resultEl)
+      resultEl.innerHTML = `<span style="color:var(--danger,#c00)">Check failed: ${err.message}</span>`;
   }
+}
+
+function updateNpmRunProgress(logEl, data) {
+  if (!logEl) return;
+  if (data.logs) {
+    logEl.textContent = data.logs;
+  } else {
+    logEl.textContent = `status=${data.status} conclusion=${data.conclusion || "pending"}\n`
+      + (data.htmlUrl ? data.htmlUrl + "\n" : "");
+  }
+}
+
+async function pollNpmRun(runId, onProgress) {
+  for (let i = 0; i < 40; i++) {
+    await new Promise((r) => setTimeout(r, 2500));
+    const data = await api(
+      `projects/${currentProjectId}/npm/${encodeURIComponent(runId)}`,
+    );
+    if (data.error) {
+      throw new Error(data.error);
+    }
+    onProgress(data);
+    if (
+      data.status === "completed" ||
+      data.status === "failure" ||
+      data.status === "cancelled"
+    ) {
+      return data;
+    }
+  }
+  return null;
+}
+
+function handleNpmHealResult(started, logEl) {
+  if (logEl) {
+    logEl.textContent += "Heal loop " + (started.status || "started")
+      + (started.ciHeal ? " (" + started.ciHeal + ")" : "") + ".\n";
+  }
+  showToast("Heal CI: " + (started.ciHeal || started.status || "started"));
+  log("npm", "Heal CI " + (started.status || "started"));
 }
 
 async function runNpmScript(command) {
@@ -823,7 +1048,8 @@ async function runNpmScript(command) {
   if (lintBtn) lintBtn.disabled = true;
   if (jsonBtn) jsonBtn.disabled = true;
   if (healBtn) healBtn.disabled = true;
-  if (logEl) logEl.textContent = `${command === "heal" ? "$ Heal CI" : "$ npm run " + command}\nDispatching GitHub Actions on ${featureBranchName()}...\n`;
+  if (logEl)
+    logEl.textContent = `${command === "heal" ? "$ Heal CI" : "$ npm run " + command}\nDispatching GitHub Actions on ${featureBranchName()}...\n`;
   log("npm", `Dispatching npm run ${command} on ${featureBranchName()}...`);
   try {
     const started = await api(`projects/${currentProjectId}/npm`, {
@@ -840,17 +1066,13 @@ async function runNpmScript(command) {
       logEl.textContent = started.logs;
     }
     if (command === "heal") {
-      if (logEl) {
-        logEl.textContent += "Heal loop " + (started.status || "started")
-          + (started.ciHeal ? " (" + started.ciHeal + ")" : "") + ".\n";
-      }
-      showToast("Heal CI: " + (started.ciHeal || started.status || "started"));
-      log("npm", "Heal CI " + (started.status || "started"));
+      handleNpmHealResult(started, logEl);
       return;
     }
     if (!runId) {
       if (logEl) {
-        logEl.textContent += "Dispatched. Run id not available yet — check GitHub Actions.\n";
+        logEl.textContent +=
+          "Dispatched. Run id not available yet — check GitHub Actions.\n";
         if (started.htmlUrl) logEl.textContent += started.htmlUrl + "\n";
       }
       return;
@@ -860,23 +1082,21 @@ async function runNpmScript(command) {
       showToast(`npm run ${command}: ${started.conclusion || started.status}`);
       return;
     }
-    for (let i = 0; i < 40; i++) {
-      await new Promise((r) => setTimeout(r, 2500));
-      const data = await api(`projects/${currentProjectId}/npm/${encodeURIComponent(runId)}`);
-      if (data.error) {
-        if (logEl) logEl.textContent += "ERROR: " + data.error + "\n";
-        break;
-      }
-      if (data.logs) logEl.textContent = data.logs;
-      else if (logEl) {
-        logEl.textContent = `status=${data.status} conclusion=${data.conclusion || "pending"}\n`
-          + (data.htmlUrl ? data.htmlUrl + "\n" : "");
-      }
-      if (data.status === "completed" || data.status === "failure" || data.status === "cancelled") {
-        showToast(`npm run ${command}: ${data.conclusion || data.status}`);
-        log("npm", `npm run ${command} finished: ${data.conclusion || data.status}`);
-        break;
-      }
+    const finished = await pollNpmRun(runId, (data) =>
+      updateNpmRunProgress(logEl, data),
+    );
+    if (finished) {
+      showToast(
+        `npm run ${command}: ${finished.conclusion || finished.status}`,
+      );
+      log(
+        "npm",
+        `npm run ${command} finished: ${finished.conclusion || finished.status}`,
+      );
+    } else {
+      showToast(
+        `npm run ${command}: still running after 100s — check GitHub Actions.`,
+      );
     }
   } catch (err) {
     if (logEl) logEl.textContent += "ERROR: " + err.message + "\n";
@@ -902,121 +1122,143 @@ async function createPullRequest() {
   await runPushToGit();
 }
 
+async function loadInventorySection() {
+  const inv = await api(`projects/${currentProjectId}/inventory`);
+  if (inv && inv.pages) {
+    document.getElementById("stat-pages").innerText = inv.pages.length;
+    document.getElementById("stat-eligible").innerText =
+      (inv.eligiblePages || inv.pages.length) + " eligible";
+    document.getElementById("stat-components").innerText = inv.components
+      ? inv.components.length
+      : 0;
+    renderPagesTable(inv.pages);
+    renderComponentsTable(inv.components);
+  }
+}
+
+async function loadGeneratedFilesSection() {
+  const files = await api(`projects/${currentProjectId}/files`);
+  if (files) {
+    generatedFiles = files;
+    processBlockFiles(files);
+    try {
+      const events = await api(`projects/${currentProjectId}/events`);
+      applyReconcileBadges(events);
+    } catch (e) {
+      log("error", `Could not load reconcile events: ${e.message}`);
+    }
+    renderBlockList();
+    if (activePagePath) {
+      selectPageRow(activePagePath);
+    }
+  }
+}
+
 async function refreshDashboard() {
-  try {
-    const inv = await api(`projects/${currentProjectId}/inventory`);
-    if (inv && inv.pages) {
-      document.getElementById("stat-pages").innerText = inv.pages.length;
-      document.getElementById("stat-eligible").innerText =
-        (inv.eligiblePages || inv.pages.length) + " eligible";
-      document.getElementById("stat-components").innerText = inv.components
-        ? inv.components.length
-        : 0;
-      renderPagesTable(inv.pages);
-      renderComponentsTable(inv.components);
+  const sections = [
+    loadInventorySection,
+    loadGeneratedFilesSection,
+    loadPlanSection,
+    loadRedirectsSection,
+    loadDependenciesSection,
+    loadRolloutSection,
+    loadRepairsSection,
+    loadBenchmarksSection,
+    loadEventsSection,
+  ];
+  for (const loader of sections) {
+    try {
+      await loader();
+    } catch (err) {
+      log("error", `Dashboard refresh failed: ${err.message}`);
     }
-  } catch (e) {}
+  }
+}
 
-  try {
-    const files = await api(`projects/${currentProjectId}/files`);
-    if (files) {
-      generatedFiles = files;
-      processBlockFiles(files);
-      try {
-        const events = await api(`projects/${currentProjectId}/events`);
-        applyReconcileBadges(events);
-      } catch (e2) {}
-      renderBlockList();
-      if (activePagePath) {
-        selectPageRow(activePagePath);
-      }
+async function loadPlanSection() {
+
+  const plan = await api(`projects/${currentProjectId}/plan`);
+  if (plan) {
+    document.getElementById("stat-cost").innerText =
+      "$" + (plan.costExpected || 0).toFixed(2);
+    document.getElementById("stat-requests").innerText =
+      (plan.aiRequestsExpected || 0) + " AI calls estimated";
+    document.getElementById("stat-time").innerText =
+      (plan.timeExpectedSec || 0) + "s";
+    document.getElementById("stat-range").innerText =
+      `Lo: ${plan.timeOptimisticSec || 0}s | Hi: ${plan.timePessimisticSec || 0}s`;
+    if (plan.derivationTrail) {
+      renderEstimateTrail(plan.derivationTrail);
     }
-  } catch (e) {}
+  }
+}
 
-  try {
-    const plan = await api(`projects/${currentProjectId}/plan`);
-    if (plan) {
-      document.getElementById("stat-cost").innerText =
-        "$" + (plan.costExpected || 0).toFixed(2);
-      document.getElementById("stat-requests").innerText =
-        (plan.aiRequestsExpected || 0) + " AI calls estimated";
-      document.getElementById("stat-time").innerText =
-        (plan.timeExpectedSec || 0) + "s";
-      document.getElementById("stat-range").innerText =
-        `Lo: ${plan.timeOptimisticSec || 0}s | Hi: ${plan.timePessimisticSec || 0}s`;
-      if (plan.derivationTrail) {
-        renderEstimateTrail(plan.derivationTrail);
-      }
+async function loadRedirectsSection() {
+  const redirects = await api(`projects/${currentProjectId}/redirects`);
+  renderRedirectsTable(redirects);
+}
+
+async function loadDependenciesSection() {
+  const deps = await api(`projects/${currentProjectId}/dependencies`);
+  renderDependenciesTable(deps);
+}
+
+async function loadRolloutSection() {
+  const rollout = await api(`projects/${currentProjectId}/rollout-stages`);
+  renderRolloutTable(rollout);
+}
+
+async function loadRepairsSection() {
+  const repairs = await api(`projects/${currentProjectId}/repairs`);
+  renderRepairsTable(repairs);
+}
+
+async function loadBenchmarksSection() {
+  const benchmarks = await api(`projects/${currentProjectId}/benchmarks`);
+  renderBenchmarksTable(benchmarks);
+}
+
+async function loadEventsSection() {
+  const events = await api(`projects/${currentProjectId}/events`);
+  if (events && Array.isArray(events)) {
+    const eventsLog = document.getElementById("terminal");
+    if (eventsLog) {
+      eventsLog.innerHTML = events
+        .map((e) => {
+          const time = new Date(
+            e.timestamp || Date.now(),
+          ).toLocaleTimeString();
+          const ag = e.agent || e.level || "system";
+          const isAiReq =
+            ag === "ai-request" ||
+            (e.message && e.message.includes("📤 REQUEST:"));
+          const isAiResp =
+            ag === "ai-response" ||
+            (e.message && e.message.includes("📥 RESPONSE"));
+          const isAi = isAiReq || isAiResp || ag.startsWith("ai-");
+
+          let lineClass = "log-line";
+          if (isAiReq) lineClass += " log-ai-request";
+          else if (isAiResp) lineClass += " log-ai-response";
+          else if (isAi) lineClass += " log-ai";
+
+          const formattedMessage = (e.message || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/\n/g, "<br/>");
+
+          return `<div class="${lineClass}"><span class="log-time">[${time}]</span><span class="log-agent">[${ag}]</span><span class="log-msg">${formattedMessage}</span></div>`;
+        })
+        .join("");
+      eventsLog.scrollTop = eventsLog.scrollHeight;
     }
-  } catch (e) {}
-
-  try {
-    const redirects = await api(`projects/${currentProjectId}/redirects`);
-    renderRedirectsTable(redirects);
-  } catch (e) {}
-
-  try {
-    const deps = await api(`projects/${currentProjectId}/dependencies`);
-    renderDependenciesTable(deps);
-  } catch (e) {}
-
-  try {
-    const rollout = await api(`projects/${currentProjectId}/rollout-stages`);
-    renderRolloutTable(rollout);
-  } catch (e) {}
-
-  try {
-    const repairs = await api(`projects/${currentProjectId}/repairs`);
-    renderRepairsTable(repairs);
-  } catch (e) {}
-
-  try {
-    const benchmarks = await api(`projects/${currentProjectId}/benchmarks`);
-    renderBenchmarksTable(benchmarks);
-  } catch (e) {}
-
-  try {
-    const events = await api(`projects/${currentProjectId}/events`);
-    if (events && Array.isArray(events)) {
-      const eventsLog = document.getElementById("terminal");
-      if (eventsLog) {
-        eventsLog.innerHTML = events
-          .map((e) => {
-            const time = new Date(
-              e.timestamp || Date.now(),
-            ).toLocaleTimeString();
-            const ag = e.agent || e.level || "system";
-            const isAiReq =
-              ag === "ai-request" ||
-              (e.message && e.message.includes("📤 REQUEST:"));
-            const isAiResp =
-              ag === "ai-response" ||
-              (e.message && e.message.includes("📥 RESPONSE"));
-            const isAi = isAiReq || isAiResp || ag.startsWith("ai-");
-
-            let lineClass = "log-line";
-            if (isAiReq) lineClass += " log-ai-request";
-            else if (isAiResp) lineClass += " log-ai-response";
-            else if (isAi) lineClass += " log-ai";
-
-            const formattedMessage = (e.message || "")
-              .replace(/&/g, "&amp;")
-              .replace(/</g, "&lt;")
-              .replace(/>/g, "&gt;")
-              .replace(/\n/g, "<br/>");
-
-            return `<div class="${lineClass}"><span class="log-time">[${time}]</span><span class="log-agent">[${ag}]</span><span class="log-msg">${formattedMessage}</span></div>`;
-          })
-          .join("");
-        eventsLog.scrollTop = eventsLog.scrollHeight;
-      }
-    }
-  } catch (e) {}
+  }
 }
 
 function processBlockFiles(files) {
   blockFilesMap = {};
-  if (!files || files.length === 0) return;
+  if (!files || files.length === 0) return blockFilesMap;
 
   files.forEach((f) => {
     const path = f.path || "";
@@ -1050,25 +1292,32 @@ function processBlockFiles(files) {
       }
     }
   });
+  return blockFilesMap;
 }
 
 function applyReconcileBadges(events) {
   if (!events || !Array.isArray(events)) return;
   const msg = events
-    .map((e) => e.message || "")
+    .map((e) => (e && e.message) || "")
     .reverse()
     .find((m) => m.indexOf("Block reconcile:") >= 0);
   if (!msg) return;
   Object.keys(blockFilesMap).forEach((name) => {
-    const re = new RegExp("\\b" + name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "=(CREATE|LEAVE|ENHANCE)\\b", "i");
+    const re = new RegExp(
+      "\\b" +
+        name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") +
+        "=(CREATE|LEAVE|ENHANCE)\\b",
+      "i",
+    );
     const m = msg.match(re);
     if (m) {
       const action = m[1].toUpperCase();
-      blockFilesMap[name].reconcile =
-        action === "LEAVE" ? "Left" : action === "ENHANCE" ? "Enhanced" : "Created";
-    }
-  });
-}
+            blockFilesMap[name].reconcile =
+              action === "LEAVE" ? "Left" : action === "ENHANCE" ? "Enhanced" : "Created";
+          }
+        });
+        return blockFilesMap;
+      }
 
 function renderBlockList() {
   const container = document.getElementById("block-items-container");
@@ -1096,15 +1345,25 @@ function renderBlockList() {
       const b = blockFilesMap[name];
       const fileCount = Object.keys(b.files || {}).length;
       const isActive = name === activeBlockName;
-      return `<div class="block-item ${isActive ? "active" : ""}" onclick="selectBlock('${name}')">
+      return `<div class="block-item ${isActive ? "active" : ""}" data-name="${escapeHtml(name)}">
       <div class="block-item-title">
         <span>🧱</span>
-        <span>${name}</span>
+        <span>${escapeHtml(name)}</span>
       </div>
-      <span class="block-item-badge">${b.reconcile || "Created"} · ${fileCount} files</span>
+      <span class="block-item-badge">${escapeHtml(b.reconcile || "Created")} · ${fileCount} files</span>
     </div>`;
     })
     .join("");
+
+  if (!container.dataset.bound) {
+    container.dataset.bound = "1";
+    container.addEventListener("click", (ev) => {
+      const item = ev.target.closest(".block-item");
+      if (item && item.dataset.name) {
+        selectBlock(item.dataset.name);
+      }
+    });
+  }
 
   renderActiveBlockDetail();
 }
@@ -1187,7 +1446,7 @@ function renderActiveBlockDetail() {
     if (demoRendered) {
       if (htmlContent) {
         // Render the actual compiled HTML block inside a sandboxed iframe to prevent styles leaking
-        const cleanHtml = htmlContent.replace(/"/g, '&quot;');
+        const cleanHtml = htmlContent.replace(/"/g, "&quot;");
         demoRendered.innerHTML = `
           <div style="border-bottom:1px solid #e2e8f0; padding-bottom:12px; margin-bottom:18px;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -1245,7 +1504,7 @@ function renderPagesTable(pages) {
       ? pages
           .map(
             (p) =>
-              `<tr data-path="${p.path}" onclick="selectPageRow('${p.path}')"><td style="word-break:break-all; padding: 10px;"><code>${p.path}</code></td><td>${p.title || "-"}</td></tr>`,
+              `<tr data-path="${p.path}" onclick="AemEdsDashboard.selectPageRow('${p.path}')"><td style="word-break:break-all; padding: 10px;"><code>${p.path}</code></td><td>${p.title || "-"}</td></tr>`,
           )
           .join("")
       : '<tr><td colspan="2">No pages discovered yet.</td></tr>';
@@ -1257,14 +1516,25 @@ function renderPagesTable(pages) {
 
 function selectPageRow(path) {
   activePagePath = path;
-  document.querySelectorAll("#table-pages tbody tr").forEach(tr => tr.classList.remove("active-row"));
+  document
+    .querySelectorAll("#table-pages tbody tr")
+    .forEach((tr) => tr.classList.remove("active-row"));
 
-  const tr = document.querySelector(`#table-pages tbody tr[data-path="${path}"]`);
+  const tr = document.querySelector(
+    `#table-pages tbody tr[data-path="${path}"]`,
+  );
   if (tr) tr.classList.add("active-row");
 
-  const fileObj = generatedFiles.find(f => f.sourcePath === path && f.path && f.path.indexOf("docs/migrated-pages/") === 0 && f.path.endsWith(".md"));
+  const fileObj = generatedFiles.find(
+    (f) =>
+      f.sourcePath === path &&
+      f.path &&
+      f.path.indexOf("docs/migrated-pages/") === 0 &&
+      f.path.endsWith(".md"),
+  );
   const pathLabel = document.getElementById("page-preview-path");
-  if (pathLabel) pathLabel.textContent = fileObj ? fileObj.path : "No migrated file found";
+  if (pathLabel)
+    pathLabel.textContent = fileObj ? fileObj.path : "No migrated file found";
 
   renderPageBlockReferences(path);
   renderActivePageDetail();
@@ -1304,7 +1574,7 @@ function renderPageBlockReferences(pagePath) {
   list.innerHTML = matches
     .map(
       (b) =>
-        `<button class="chat-chip" style="font-size:0.75rem; padding:4px 10px;" title="AEM root path: ${b.sourcePath}" onclick="jumpToBlock('${b.name}')">🧱 ${b.name}</button>`,
+        `<button class="chat-chip" style="font-size:0.75rem; padding:4px 10px;" title="AEM root path: ${b.sourcePath}" onclick="AemEdsDashboard.jumpToBlock('${b.name}')">🧱 ${b.name}</button>`,
     )
     .join("");
   wrapper.style.display = "block";
@@ -1318,7 +1588,11 @@ function jumpToBlock(blockName) {
 
 function switchPageFileTab(tab) {
   activePageTab = tab;
-  document.querySelectorAll("#pagetab-preview, #pagetab-source, #pagetab-html, #pagetab-ue").forEach(b => b.classList.remove("active"));
+  document
+    .querySelectorAll(
+      "#pagetab-preview, #pagetab-source, #pagetab-html, #pagetab-ue",
+    )
+    .forEach((b) => b.classList.remove("active"));
   const activeBtn = document.getElementById("pagetab-" + tab);
   if (activeBtn) activeBtn.classList.add("active");
 
@@ -1335,8 +1609,17 @@ function renderActivePageDetail() {
   const ueContainer = document.getElementById("page-view-ue");
   const ueRendered = document.getElementById("page-ue-rendered");
 
-  const fileObj = generatedFiles.find(f => f.sourcePath === activePagePath && f.path && f.path.indexOf("docs/migrated-pages/") === 0 && f.path.endsWith(".md"))
-    || generatedFiles.find(f => f.fileType === "SECTION_MD" && f.sourcePath === activePagePath);
+  const fileObj =
+    generatedFiles.find(
+      (f) =>
+        f.sourcePath === activePagePath &&
+        f.path &&
+        f.path.indexOf("docs/migrated-pages/") === 0 &&
+        f.path.endsWith(".md"),
+    ) ||
+    generatedFiles.find(
+      (f) => f.fileType === "SECTION_MD" && f.sourcePath === activePagePath,
+    );
   const markdown = fileObj ? fileObj.content : "";
 
   if (ueContainer) ueContainer.style.display = "none";
@@ -1349,15 +1632,19 @@ function renderActivePageDetail() {
       if (markdown) {
         const titleMatch = markdown.match(/^#\s+(.+)$/m);
         const title = (titleMatch && titleMatch[1]) || "";
-        const daFile = generatedFiles.find((f) => f.sourcePath === activePagePath && f.fileType === "DA_HTML");
-        const html = (daFile && daFile.content) || daFromMarkdownClient(markdown, title, activePagePath);
+        const daFile = generatedFiles.find(
+          (f) => f.sourcePath === activePagePath && f.fileType === "DA_HTML",
+        );
+        const html =
+          (daFile && daFile.content) ||
+          daFromMarkdownClient(markdown, title, activePagePath);
         const paste = daPasteInner(html);
         window.__daPaste = paste;
         const daPath = daDocPathClient(activePagePath);
         previewRendered.innerHTML =
           `<p style="font-size:0.82rem;color:#334155;margin:0 0 8px;">DA document path (from AEM root): <code>${escapeAttr(daPath)}</code></p>` +
           `<p style="font-size:0.78rem;color:#64748b;margin:0 0 10px;">Paste these tables into Document Authoring. The first row of each table is the block name. Styled markdown tables will not render as blocks.</p>` +
-          `<button type="button" class="btn btn-primary" onclick="copyDaPaste()">Copy for Document Authoring</button>` +
+          `<button type="button" class="btn btn-primary" onclick="AemEdsDashboard.copyDaPaste()">Copy for Document Authoring</button>` +
           `<div class="da-editor" style="background:#fff;color:#202124;padding:16px;margin-top:12px;border:1px solid #dadce0;">${daPasteInner(html)}</div>` +
           `<textarea id="da-paste-src" style="width:100%;min-height:180px;margin-top:10px;font-family:ui-monospace,Menlo,monospace;font-size:0.75rem;background:#0f172a;color:#e2e8f0;padding:12px;border-radius:6px;">${escapeAttr(paste)}</textarea>`;
       } else {
@@ -1394,16 +1681,25 @@ function renderActivePageDetail() {
     if (htmlContainer) htmlContainer.style.display = "none";
     if (sourceContainer) sourceContainer.style.display = "flex";
     if (sourceContent) {
-      sourceContent.innerText = markdown || "// No migrated markdown content available for this page.";
+      sourceContent.innerText =
+        markdown || "// No migrated markdown content available for this page.";
     }
   }
 }
 
 function inferUeFieldType(name) {
   const n = String(name || "").toLowerCase();
-  if (n.includes("image") || n.includes("file") || n.includes("asset")) return "reference";
-  if (n.includes("link") || n.includes("url") || n.includes("path")) return "aem-content";
-  if (n.includes("text") || n.includes("title") || n.includes("desc") || n.includes("copy")) return "richtext";
+  if (n.includes("image") || n.includes("file") || n.includes("asset"))
+    return "reference";
+  if (n.includes("link") || n.includes("url") || n.includes("path"))
+    return "aem-content";
+  if (
+    n.includes("text") ||
+    n.includes("title") ||
+    n.includes("desc") ||
+    n.includes("copy")
+  )
+    return "richtext";
   return "text";
 }
 
@@ -1421,13 +1717,18 @@ function parseMarkdownBlockTables(markdown) {
       return;
     }
     if (!current || !line.startsWith("|")) return;
-    const cols = line.split("|").map((c) => c.trim()).filter((c, i, a) => i > 0 && i < a.length - 1);
+    const cols = line
+      .split("|")
+      .map((c) => c.trim())
+      .filter((c, i, a) => i > 0 && i < a.length - 1);
     if (cols.every((c) => c.startsWith("-"))) return;
     if (!headers.length) {
       headers = cols;
       return;
     }
-    cols.forEach((val, i) => current.fields.push({ name: headers[i] || `col${i + 1}`, value: val }));
+    cols.forEach((val, i) =>
+      current.fields.push({ name: headers[i] || `col${i + 1}`, value: val }),
+    );
   });
   return blocks;
 }
@@ -1469,7 +1770,8 @@ function daTableHtml(name, rows) {
       const c = r[i] || "";
       const lower = String(c).toLowerCase();
       const cell =
-        lower.startsWith("/content/dam/") || /\.(png|jpe?g|gif|webp|svg)$/.test(lower)
+        lower.startsWith("/content/dam/") ||
+        /\.(png|jpe?g|gif|webp|svg)$/.test(lower)
           ? `<img src="${escapeAttr(c)}" alt="">`
           : escapeAttr(c);
       s += `<td>${cell}</td>`;
@@ -1494,7 +1796,11 @@ function daFromMarkdownClient(markdown, title, aemPath) {
 }
 
 function buildDaDocument(markdown) {
-  return daFromMarkdownClient(markdown, (markdown.match(/^#\s+(.+)$/m) || [])[1] || "", activePagePath);
+  return daFromMarkdownClient(
+    markdown,
+    (markdown.match(/^#\s+(.+)$/m) || [])[1] || "",
+    activePagePath,
+  );
 }
 
 function renderPageUeGuide(markdown) {
@@ -1536,7 +1842,7 @@ function renderBlockDaMarkup(b) {
   const table = daTableHtml(b.name, rows);
   window.__daPaste = table;
   return `<p style="font-size:0.82rem;color:#334155;">Paste this table into Document Authoring. First row is the block name (colspan).</p>
-    <button type="button" class="btn btn-primary" onclick="copyDaPaste()">Copy for Document Authoring</button>
+    <button type="button" class="btn btn-primary" onclick="AemEdsDashboard.copyDaPaste()">Copy for Document Authoring</button>
     <div class="da-editor" style="background:#fff;color:#202124;padding:16px;margin-top:12px;border:1px solid #dadce0;">${table}</div>
     <textarea style="width:100%;min-height:140px;margin-top:10px;font-family:ui-monospace,Menlo,monospace;font-size:0.75rem;background:#0f172a;color:#e2e8f0;padding:12px;">${escapeAttr(table)}</textarea>`;
 }
@@ -1546,9 +1852,22 @@ function ueFieldsFromBlock(b) {
   if (!raw) return [];
   try {
     const j = JSON.parse(raw);
-    const models = Array.isArray(j.models) ? j.models : Array.isArray(j) ? j : j.models ? [j.models] : [];
+    const models = Array.isArray(j.models)
+      ? j.models
+      : Array.isArray(j)
+        ? j
+        : j.models
+          ? [j.models]
+          : [];
     const fields = [];
-    models.forEach((m) => (m.fields || []).forEach((f) => fields.push({ name: f.name || f.id || "", component: f.component || inferUeFieldType(f.name) })));
+    models.forEach((m) =>
+      (m.fields || []).forEach((f) =>
+        fields.push({
+          name: f.name || f.id || "",
+          component: f.component || inferUeFieldType(f.name),
+        }),
+      ),
+    );
     return fields;
   } catch (e) {
     return [];
@@ -1623,18 +1942,28 @@ function extractBlockDemoParts(demoHtml) {
   let body = demoHtml;
   const bodyMatch = demoHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
   if (bodyMatch) body = bodyMatch[1];
-  else body = demoHtml.replace(/<html[^>]*>|<\/html>|<head[\s\S]*?<\/head>|<!doctype[^>]*>/gi, "");
+  else
+    body = demoHtml.replace(
+      /<html[^>]*>|<\/html>|<head[\s\S]*?<\/head>|<!doctype[^>]*>/gi,
+      "",
+    );
   body = body.replace(/<script[\s\S]*?<\/script>/gi, "");
   return { styles, body };
 }
 
 function escapeAttr(text) {
-  return (text || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return (text || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function buildPageHtmlDocument(pagePath, markdown) {
   const blocks = getBlocksForPagePath(pagePath);
-  const pageTitle = (pagePath ? pagePath.split("/").filter(Boolean).pop() : "page")
+  const pageTitle = (
+    pagePath ? pagePath.split("/").filter(Boolean).pop() : "page"
+  )
     .replace(/-+/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
 
@@ -1647,7 +1976,8 @@ function buildPageHtmlDocument(pagePath, markdown) {
     blockSections +=
       `<section class="page-block-section" data-block="${escapeAttr(b.name)}">\n` +
       `<div class="page-block-tag">🧱 ${escapeAttr(b.name)} — authored from ${escapeAttr(b.sourcePath)}</div>\n` +
-      (body || `<div class="page-block-empty">No authored demo HTML generated yet for this block.</div>`) +
+      (body ||
+        `<div class="page-block-empty">No authored demo HTML generated yet for this block.</div>`) +
       `</section>\n`;
   });
 
@@ -1693,19 +2023,23 @@ ${blockStyles}
 }
 
 function formatMarkdownToDA(markdown) {
-  if (!markdown) return '<div style="text-align:center;color:#64748b;">No content available.</div>';
+  if (!markdown)
+    return '<div style="text-align:center;color:#64748b;">No content available.</div>';
 
-  const lines = markdown.split('\n');
-  let html = '';
+  const lines = markdown.split("\n");
+  let html = "";
   let inTable = false;
   let tableRows = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
 
-    if (line.startsWith('|')) {
+    if (line.startsWith("|")) {
       inTable = true;
-      const cols = line.split('|').map(c => c.trim()).filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
+      const cols = line
+        .split("|")
+        .map((c) => c.trim())
+        .filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
       tableRows.push(cols);
       continue;
     } else {
@@ -1716,14 +2050,15 @@ function formatMarkdownToDA(markdown) {
       }
     }
 
-    if (line.startsWith('# ')) {
+    if (line.startsWith("# ")) {
       html += `<h1 style="font-size:1.8rem; font-weight:800; border-bottom:2px solid #e2e8f0; padding-bottom:8px; margin-top:20px; margin-bottom:12px; color:#0f172a;">${line.substring(2)}</h1>`;
-    } else if (line.startsWith('## ')) {
+    } else if (line.startsWith("## ")) {
       html += `<h2 style="font-size:1.4rem; font-weight:700; margin-top:16px; margin-bottom:10px; color:#1e293b;">${line.substring(3)}</h2>`;
-    } else if (line.startsWith('### ')) {
+    } else if (line.startsWith("### ")) {
       html += `<h3 style="font-size:1.15rem; font-weight:700; margin-top:14px; margin-bottom:8px; color:#334155;">${line.substring(4)}</h3>`;
-    } else if (line === '---' || line === '***') {
-      html += '<hr style="border:0; border-top:2px dashed #cbd5e1; margin:20px 0;">';
+    } else if (line === "---" || line === "***") {
+      html +=
+        '<hr style="border:0; border-top:2px dashed #cbd5e1; margin:20px 0;">';
     } else if (line) {
       html += `<p style="font-size:0.92rem; line-height:1.6; color:#475569; margin-bottom:10px;">${line}</p>`;
     }
@@ -1737,21 +2072,25 @@ function formatMarkdownToDA(markdown) {
 }
 
 function renderDATable(rows) {
-  if (rows.length === 0) return '';
-  if (rows.length > 1 && rows[1].every(col => col.startsWith('-') || col.endsWith('-'))) {
+  if (rows.length === 0) return "";
+  if (
+    rows.length > 1 &&
+    rows[1].every((col) => col.startsWith("-") || col.endsWith("-"))
+  ) {
     rows.splice(1, 1);
   }
 
-  let html = '<table style="width:100%; border:2px solid #2563eb; border-collapse:collapse; margin:14px 0; background:#f8fafc; font-family:var(--font-mono); font-size:0.8rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">';
+  let html =
+    '<table style="width:100%; border:2px solid #2563eb; border-collapse:collapse; margin:14px 0; background:#f8fafc; font-family:var(--font-mono); font-size:0.8rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">';
   rows.forEach((row, rIdx) => {
     const isHeader = rIdx === 0;
-    html += `<tr style="${isHeader ? 'background:#dbeafe; color:#1e40af; font-weight:bold; border-bottom:2px solid #2563eb;' : 'border-bottom:1px solid #cbd5e1;'}">`;
-    row.forEach(col => {
+    html += `<tr style="${isHeader ? "background:#dbeafe; color:#1e40af; font-weight:bold; border-bottom:2px solid #2563eb;" : "border-bottom:1px solid #cbd5e1;"}">`;
+    row.forEach((col) => {
       html += `<td style="padding:8px 10px; border-right:1px solid #cbd5e1;">${col}</td>`;
     });
-    html += '</tr>';
+    html += "</tr>";
   });
-  html += '</table>';
+  html += "</table>";
   return html;
 }
 
@@ -1778,7 +2117,8 @@ function renderEstimateTrail(steps) {
   const list = document.getElementById("estimate-trail");
   if (!list) return;
   if (!steps || !steps.length) {
-    list.innerHTML = '<li class="data-list-empty">Run a Dry Run to compute the estimate trail.</li>';
+    list.innerHTML =
+      '<li class="data-list-empty">Run a Dry Run to compute the estimate trail.</li>';
     return;
   }
   list.innerHTML = steps
@@ -1863,22 +2203,91 @@ let chatHistoryLoaded = false;
 let chatHistory = []; // [{role:'user'|'agent', text}] for conversational memory
 
 const CHAT_COMMANDS = [
-  { re: /run (a )?dry[ -]?run/i,     action: () => { showTab("overview"); runDryRun();      return "🔍 Starting dry run for project `" + currentProjectId + "` — watch the pipeline stepper."; } },
-  { re: /(generate blocks|run migration|generate (the )?blocks)/i, action: () => { showTab("components"); runMigration();  return "⚡ Generating blocks for project `" + currentProjectId + "`."; } },
-  { re: /(commit|push).*(git|github)|create pr|publish/i, action: () => { showTab("overview"); runPushToGit();    return "🚀 Creating a Pull Request."; } },
-  { re: /show (me )?(the )?(live )?(events|overview( activity)? stream)/i, action: () => { showTab("overview"); refreshDashboard(); return "📡 Opened Overview — activity stream is on this tab."; } },
-  { re: /show (me )?(the )?(generated )?blocks/i, action: () => { showTab("components"); refreshDashboard(); return "📦 Opened the Generated Blocks tab and refreshed the data."; } },
-  { re: /show (me )?(the )?(pages|scope|discovered)/i, action: () => { showTab("pages"); refreshDashboard(); return "📄 Opened the Pages & Scope tab."; } },
-  { re: /show (me )?(the )?estimate|cost/i,     action: () => { showTab("estimate"); refreshDashboard(); return "💰 Opened the Estimate & Cost tab."; } },
-  { re: /show (me )?(the )?github|checks/i,     action: () => { showTab("github"); return "🔍 Opened the GitHub Checks tab."; } },
-  { re: /^refresh( dashboard)?$/i,   action: () => { refreshDashboard(); return "🔄 Dashboard refreshed."; } },
+  {
+    re: /run (a )?dry[ -]?run/i,
+    action: () => {
+      showTab("overview");
+      runDryRun();
+      return (
+        "🔍 Starting dry run for project `" +
+        currentProjectId +
+        "` — watch the pipeline stepper."
+      );
+    },
+  },
+  {
+    re: /(generate blocks|run migration|generate (the )?blocks)/i,
+    action: () => {
+      showTab("components");
+      runMigration();
+      return "⚡ Generating blocks for project `" + currentProjectId + "`.";
+    },
+  },
+  {
+    re: /(commit|push).*(git|github)|create pr|publish/i,
+    action: () => {
+      showTab("overview");
+      runPushToGit();
+      return "🚀 Creating a Pull Request.";
+    },
+  },
+  {
+    re: /show (me )?(the )?(live )?(events|overview( activity)? stream)/i,
+    action: () => {
+      showTab("overview");
+      refreshDashboard();
+      return "📡 Opened Overview — activity stream is on this tab.";
+    },
+  },
+  {
+    re: /show (me )?(the )?(generated )?blocks/i,
+    action: () => {
+      showTab("components");
+      refreshDashboard();
+      return "📦 Opened the Generated Blocks tab and refreshed the data.";
+    },
+  },
+  {
+    re: /show (me )?(the )?(pages|scope|discovered)/i,
+    action: () => {
+      showTab("pages");
+      refreshDashboard();
+      return "📄 Opened the Pages & Scope tab.";
+    },
+  },
+  {
+    re: /show (me )?(the )?estimate|cost/i,
+    action: () => {
+      showTab("estimate");
+      refreshDashboard();
+      return "💰 Opened the Estimate & Cost tab.";
+    },
+  },
+  {
+    re: /show (me )?(the )?github|checks/i,
+    action: () => {
+      showTab("github");
+      return "🔍 Opened the GitHub Checks tab.";
+    },
+  },
+  {
+    re: /^refresh( dashboard)?$/i,
+    action: () => {
+      refreshDashboard();
+      return "🔄 Dashboard refreshed.";
+    },
+  },
 ];
 
 function tryChatCommand(msg) {
   for (const cmd of CHAT_COMMANDS) {
     if (cmd.re.test(msg)) {
       let reply;
-      try { reply = cmd.action(); } catch (e) { reply = "⚠️ Could not run that action: " + e.message; }
+      try {
+        reply = cmd.action();
+      } catch (e) {
+        reply = "⚠️ Could not run that action: " + e.message;
+      }
       return reply;
     }
   }
@@ -1905,28 +2314,40 @@ function formatMarkdown(text) {
   });
 
   // Inline code: `code`
-  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
 
   // Bold: **text**
-  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
 
   // Bullet lists: - item or * item
-  html = html.replace(/^\s*[-*]\s+(.+)$/gm, '<li>$1</li>');
+  html = html.replace(/^\s*[-*]\s+(.+)$/gm, "<li>$1</li>");
 
   // Wrap list items in ul
-  html = html.replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>');
+  html = html.replace(/(<li>[\s\S]*?<\/li>)/g, "<ul>$1</ul>");
 
   // Clean up duplicate consecutive ul elements
-  html = html.replace(/<\/ul>\s*<ul>/g, '');
+  html = html.replace(/<\/ul>\s*<ul>/g, "");
 
   // Paragraphs / line breaks (only when not inside ul/pre/code tags)
-  html = html.split('\n').map(line => {
-    const trimmed = line.trim();
-    if (trimmed.startsWith('<pre') || trimmed.startsWith('<ul') || trimmed.startsWith('<li') || trimmed.startsWith('</ul') || trimmed.startsWith('</li') || trimmed.startsWith('<code>') || trimmed.startsWith('</pre>') || trimmed.startsWith('</ul>')) {
-      return line;
-    }
-    return line ? `<p>${line}</p>` : '';
-  }).join('\n');
+  html = html
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trim();
+      if (
+        trimmed.startsWith("<pre") ||
+        trimmed.startsWith("<ul") ||
+        trimmed.startsWith("<li") ||
+        trimmed.startsWith("</ul") ||
+        trimmed.startsWith("</li") ||
+        trimmed.startsWith("<code>") ||
+        trimmed.startsWith("</pre>") ||
+        trimmed.startsWith("</ul>")
+      ) {
+        return line;
+      }
+      return line ? `<p>${line}</p>` : "";
+    })
+    .join("\n");
 
   return html;
 }
@@ -1935,7 +2356,8 @@ function appendChatMessage(role, text) {
   const wrap = document.getElementById("chat-messages");
   if (!wrap) return;
   const div = document.createElement("div");
-  div.className = "chat-msg " + (role === "user" ? "chat-msg-user" : "chat-msg-agent");
+  div.className =
+    "chat-msg " + (role === "user" ? "chat-msg-user" : "chat-msg-agent");
   const bubble = document.createElement("div");
   bubble.className = "chat-bubble";
   if (role === "user") {
@@ -1951,14 +2373,24 @@ function appendChatMessage(role, text) {
 async function loadChatHistory() {
   if (chatHistoryLoaded || !currentProjectId) return;
   try {
-    const events = await api("/projects/" + encodeURIComponent(currentProjectId) + "/events");
+    const events = await api(
+      "/projects/" + encodeURIComponent(currentProjectId) + "/events",
+    );
     if (Array.isArray(events)) {
-      const chatEvents = events.filter((e) => e.agent === "chat-user" || e.agent === "chat-agent");
+      const chatEvents = events.filter(
+        (e) => e.agent === "chat-user" || e.agent === "chat-agent",
+      );
       if (chatEvents.length > 0) {
         document.getElementById("chat-messages").innerHTML = "";
         chatEvents.forEach((e) => {
-          appendChatMessage(e.agent === "chat-user" ? "user" : "agent", e.message || "");
-          chatHistory.push({ role: e.agent === "chat-user" ? "user" : "agent", text: e.message || "" });
+          appendChatMessage(
+            e.agent === "chat-user" ? "user" : "agent",
+            e.message || "",
+          );
+          chatHistory.push({
+            role: e.agent === "chat-user" ? "user" : "agent",
+            text: e.message || "",
+          });
         });
       }
     }
@@ -1992,17 +2424,24 @@ async function sendChat() {
   typing.innerHTML = '<div class="chat-bubble">Agent is typing…</div>';
   document.getElementById("chat-messages").appendChild(typing);
   try {
-    const res = await api("/projects/" + encodeURIComponent(currentProjectId) + "/chat", {
-      method: "POST",
-      body: JSON.stringify({ message: msg, history: chatHistory.slice(-10) }),
-    });
+    const res = await api(
+      "/projects/" + encodeURIComponent(currentProjectId) + "/chat",
+      {
+        method: "POST",
+        body: JSON.stringify({ message: msg, history: chatHistory.slice(-10) }),
+      },
+    );
     typing.remove();
     appendChatMessage("agent", res.reply || "(no response)");
     chatHistory.push({ role: "agent", text: res.reply || "" });
   } catch (e) {
     typing.remove();
     const detail = e && e.message ? e.message : String(e);
-    appendChatMessage("agent", "⚠️ Error talking to the agent: " + (detail || "unknown error — check browser console & AEM logs"));
+    appendChatMessage(
+      "agent",
+      "⚠️ Error talking to the agent: " +
+        (detail || "unknown error — check browser console & AEM logs"),
+    );
     console.error("Chat error:", e);
   } finally {
     btn.disabled = false;
@@ -2025,3 +2464,53 @@ window.addEventListener("load", async () => {
     console.log("Dashboard init:", e);
   }
 });
+
+  /** Single namespace exposed to the markup and JS-generated inline handlers. */
+  window.AemEdsDashboard = {
+    // navigation & pipeline
+    showTab,
+    runDryRun,
+    runMigration,
+    runPushToGit,
+    createPullRequest,
+    previewToBranch,
+    refreshDashboard,
+    deleteCurrentProject,
+    // project config form
+    onProjectSelectChange,
+    onQuickScopeChange,
+    onProviderChange,
+    loadWkndPreset,
+    clearForm,
+    saveProjectConfig,
+    // blocks inspector
+    switchBlockFileTab,
+    switchPageFileTab,
+    copyActiveCode,
+    copyDaPaste,
+    selectBlock,
+    selectPageRow,
+    jumpToBlock,
+    // github / workspace
+    pushBlocksAndOpenVsCode,
+    checkBranchStatus,
+    reloadVsCodeFrame,
+    loadVsCodeFrame,
+    saveWorkspaceFile,
+    deleteWorkspaceFile,
+    onVsCodeReviewToggle,
+    runNpmScript,
+    aemUpControl,
+    runAiCompare,
+    // editor gutter
+    syncWsLineNumbers,
+    syncWsLineScroll,
+    // chat
+    sendChat,
+    quickChat,
+    // helpers (exported for unit tests)
+    processBlockFiles,
+    applyReconcileBadges,
+    escapeHtml,
+  };
+})();

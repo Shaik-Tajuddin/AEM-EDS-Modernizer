@@ -565,6 +565,44 @@ public class RealGitHubClient implements GitHubClient {
     }
 
     @Override
+    public void deleteFile(String branch, String path) {
+        String cleanPath = normalizePath(path);
+        if (cleanPath == null) return;
+        ensureOwnerRepo();
+        try {
+            String encodedPath = java.net.URLEncoder.encode(cleanPath.replaceFirst("^/+", ""),
+                    StandardCharsets.UTF_8).replace("+", "%20").replace("%2F", "/");
+            String targetBranch = (branch == null || branch.isBlank()) ? defaultBranch : branch.trim();
+            String getUrl = "/repos/" + owner + "/" + repo + "/contents/" + encodedPath + "?ref=" + urlEncode(targetBranch);
+            
+            JsonNode fileNode;
+            try {
+                fileNode = get(getUrl);
+            } catch (IOException e) {
+                if (e.getMessage() != null && e.getMessage().contains("404")) {
+                    LOG.info("File '{}' not found on branch '{}' in GitHub; skipping remote delete", cleanPath, targetBranch);
+                    return;
+                }
+                throw e;
+            }
+            String sha = fileNode.path("sha").asText("");
+            if (sha.isBlank()) {
+                LOG.info("Could not resolve SHA for file '{}' on branch '{}'; skipping delete", cleanPath, targetBranch);
+                return;
+            }
+            ObjectNode del = mapper.createObjectNode();
+            del.put("message", "chore: delete " + cleanPath + " via Modernizer workspace");
+            del.put("sha", sha);
+            del.put("branch", targetBranch);
+            deleteJson("/repos/" + owner + "/" + repo + "/contents/" + encodedPath, del);
+            LOG.info("Deleted '{}' on branch '{}'", cleanPath, targetBranch);
+        } catch (Exception e) {
+            LOG.warn("Failed to delete file '{}' on branch '{}': {}", cleanPath, branch, e.getMessage());
+            throw new RuntimeException("Could not delete file " + cleanPath + ": " + e.getMessage(), e);
+        }
+    }
+
+    @Override
     public String getFileContent(String ref, String path) {
         ensureOwnerRepo();
         if (path == null || path.isBlank()) {
@@ -583,35 +621,6 @@ public class RealGitHubClient implements GitHubClient {
         } catch (IOException | RuntimeException e) {
             LOG.warn("Could not read '{}' on '{}': {}", path, ref, e.getMessage());
             return null;
-        }
-    }
-
-    @Override
-    public void deleteFile(String branch, String path) {
-        ensureOwnerRepo();
-        String normalized = normalizePath(path);
-        if (normalized == null || GitHubFlow.skipFromCommit(normalized)) {
-            throw new IllegalArgumentException("Cannot delete this path");
-        }
-        try {
-            String encodedPath = java.net.URLEncoder.encode(normalized, StandardCharsets.UTF_8)
-                    .replace("+", "%20").replace("%2F", "/");
-            String q = (branch == null || branch.isBlank()) ? "" : ("?ref=" + urlEncode(branch.trim()));
-            JsonNode node = get("/repos/" + owner + "/" + repo + "/contents/" + encodedPath + q);
-            String sha = node.path("sha").asText();
-            if (sha == null || sha.isBlank()) {
-                throw new IllegalStateException("No blob sha for " + normalized);
-            }
-            ObjectNode body = mapper.createObjectNode();
-            body.put("message", "chore: remove unused " + normalized);
-            body.put("sha", sha);
-            if (branch != null && !branch.isBlank()) {
-                body.put("branch", branch.trim());
-            }
-            deleteJson("/repos/" + owner + "/" + repo + "/contents/" + encodedPath, body);
-            LOG.info("Deleted '{}' from branch '{}'", normalized, branch);
-        } catch (IOException | RuntimeException e) {
-            throw new IllegalStateException("Failed to delete '" + normalized + "': " + e.getMessage(), e);
         }
     }
 

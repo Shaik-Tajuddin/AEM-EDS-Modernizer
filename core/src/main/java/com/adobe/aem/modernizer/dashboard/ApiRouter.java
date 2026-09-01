@@ -36,6 +36,8 @@ public class ApiRouter {
     @Reference private transient com.adobe.aem.modernizer.ai.AiGateway aiGateway;
     @Reference(cardinality = ReferenceCardinality.OPTIONAL)
     private transient GitHubClient gitHubClient;
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL)
+    private transient com.adobe.aem.modernizer.connectors.LocalEdsRepoManager localEdsRepo;
 
     public ApiRouter() {}
 
@@ -157,8 +159,13 @@ public class ApiRouter {
 
                     if ("dryrun".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
                         ProjectRecord p = getOrCreateStubProject(projectId);
+                        // Local EDS repo workflow: clone/update + npm install BEFORE dry run
+                        Map<String, Object> repoStatus = cloneLocalEdsRepo(p);
                         JobRecord job = (orchestrator != null) ? orchestrator.runDryRun(p, "admin") : new JobRecord("job-mock", projectId, "DRY_RUN");
-                        return JsonUtil.toJson(job);
+                        Map<String, Object> result = new LinkedHashMap<>();
+                        result.put("job", job);
+                        result.put("localRepo", repoStatus);
+                        return JsonUtil.toJson(result);
                     }
 
                     if ("migrate".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
@@ -169,12 +176,39 @@ public class ApiRouter {
 
                     if ("preview".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
                         ProjectRecord p = getOrCreateStubProject(projectId);
+                        // Pre-PR healing: checkout feature branch, prune duplicates, lint+build, push
+                        Map<String, Object> healing = runLocalHealing(p);
                         JobRecord job = (orchestrator != null) ? orchestrator.pushToPreviewBranch(p, "admin") : new JobRecord("job-mock", projectId, "PREVIEW");
-                        return JsonUtil.toJson(job);
+                        Map<String, Object> result = new LinkedHashMap<>();
+                        result.put("job", job);
+                        result.put("healing", healing);
+                        result.put("prReady", Boolean.TRUE.equals(healing.get("ok")));
+                        return JsonUtil.toJson(result);
+                    }
+
+                    // Local dev server: POST /projects/{id}/aem-up  body: {"action":"start|stop|status"}
+                    if ("aem-up".equalsIgnoreCase(sub)) {
+                        return handleAemUp(projectId, body, resp);
+                    }
+
+                    // AI page comparison: POST /projects/{id}/compare
+                    // body: {"aemPagePath":"/content/wknd/.../about-us","edsPagePath":"/about-us","blockName":"hero"}
+                    if ("compare".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
+                        return handleAiCompare(projectId, body, resp);
                     }
 
                     if ("publish".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
                         ProjectRecord p = getOrCreateStubProject(projectId);
+                        // PR gate: only allow when pre-PR healing completed successfully on the branch
+                        if (store != null) {
+                            Optional<JobRecord> latest = store.getLatestJob(projectId);
+                            boolean healed = latest.isPresent() && latest.get().getMetadata() != null
+                                    && Boolean.parseBoolean(String.valueOf(latest.get().getMetadata().get("healingOk")));
+                            if (!healed) {
+                                if (resp != null) resp.setStatus(409);
+                                return "{\"error\":\"Create PR is locked: pre-PR healing (branch checkout, deduplication, lint:fix, build:json, push) has not completed successfully. Run the preview step first.\"}";
+                            }
+                        }
                         JobRecord job = (orchestrator != null) ? orchestrator.openPullRequest(p, "admin") : new JobRecord("job-mock", projectId, "PUBLISH");
                         return JsonUtil.toJson(job);
                     }
@@ -523,6 +557,116 @@ public class ApiRouter {
     private static String escapeJson(String raw) {
         if (raw == null) return "";
         return raw.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", " ").replace("\r", " ");
+    }
+
+    /** Clone/update the local eds/<projectId> repo (best-effort, never throws). */
+    private Map<String, Object> cloneLocalEdsRepo(ProjectRecord project) {
+        if (localEdsRepo == null) {
+            Map<String, Object> s = new LinkedHashMap<>();
+            s.put("status", "UNAVAILABLE");
+            return s;
+        }
+        Map<String, Object> status = localEdsRepo.cloneOrUpdate(project);
+        LOG.info("[LocalEdsRepo] dry-run clone/update for {}: {}", project.getId(), status.get("status"));
+        return status;
+    }
+
+    /**
+     * Pre-PR automated healing: checkout feat/<projectId>, prune duplicate blocks,
+     * npm run lint:fix + build:json, commit and push. Records healingOk on the latest job
+     * so the Create PR gate can open.
+     */
+    private Map<String, Object> runLocalHealing(ProjectRecord project) {
+        Map<String, Object> healing = new LinkedHashMap<>();
+        healing.put("ok", false);
+        if (localEdsRepo == null) {
+            healing.put("status", "UNAVAILABLE");
+            healing.put("reason", "LocalEdsRepoManager not bound — falling back to GitHub-only flow");
+            // Without a local repo manager we do not block the legacy flow
+            healing.put("ok", true);
+            markHealingOk(project.getId(), true);
+            return healing;
+        }
+        try {
+            java.io.File repo = localEdsRepo.edsRepoDir(project.getId());
+            String branch = GitHubFlow.featureBranch(project.getId());
+            if (!new java.io.File(repo, ".git").exists()) {
+                localEdsRepo.cloneOrUpdate(project);
+            }
+            healing.put("checkout", localEdsRepo.checkoutBranch(repo, branch) ? "OK" : "SKIPPED");
+            healing.put("prunedBlocks", localEdsRepo.pruneDuplicateBlocks(repo));
+            healing.putAll(localEdsRepo.runLintAndBuild(repo, branch));
+        } catch (Exception e) {
+            LOG.warn("[LocalEdsRepo] healing failed: {}", e.getMessage());
+            healing.put("error", e.getMessage());
+        }
+        boolean ok = Boolean.TRUE.equals(healing.get("ok"));
+        healing.put("ok", ok);
+        markHealingOk(project.getId(), ok);
+        return healing;
+    }
+
+    private void markHealingOk(String projectId, boolean ok) {
+        if (store == null) return;
+        try {
+            Optional<JobRecord> latest = store.getLatestJob(projectId);
+            if (latest.isPresent()) {
+                JobRecord job = latest.get();
+                Map<String, Object> meta = new LinkedHashMap<>(job.getMetadata());
+                meta.put("healingOk", ok);
+                job.setMetadata(meta);
+                store.saveJob(job);
+            }
+        } catch (Exception e) {
+            LOG.debug("[LocalEdsRepo] could not persist healingOk: {}", e.getMessage());
+        }
+    }
+
+    /** Local dev server control: {"action":"start"|"stop"|"status"}. */
+    private String handleAemUp(String projectId, String body, HttpServletResponse resp) {
+        if (localEdsRepo == null) {
+            if (resp != null) resp.setStatus(503);
+            return "{\"error\":\"LocalEdsRepoManager not available\"}";
+        }
+        Map<?, ?> payload = (body != null && !body.trim().isEmpty()) ? JsonUtil.fromJson(body, Map.class) : null;
+        String action = payload != null ? Objects.toString(payload.get("action"), "status") : "status";
+        java.io.File repo = localEdsRepo.edsRepoDir(projectId);
+        Map<String, Object> result;
+        switch (action.toLowerCase()) {
+            case "start":
+                result = localEdsRepo.startAemUpDevServer(repo, projectId);
+                break;
+            case "stop":
+                result = localEdsRepo.stopAemUpDevServer(projectId);
+                break;
+            default:
+                result = localEdsRepo.devServerStatus(projectId);
+        }
+        result.put("action", action);
+        return JsonUtil.toJson(result);
+    }
+
+    /** AI compare & match: AEM source page vs local EDS render (aem up). */
+    private String handleAiCompare(String projectId, String body, HttpServletResponse resp) {
+        ProjectRecord project = store != null ? store.getProject(projectId).orElse(null) : null;
+        if (project == null) {
+            if (resp != null) resp.setStatus(404);
+            return "{\"error\":\"Project not found\"}";
+        }
+        Map<?, ?> payload = (body != null && !body.trim().isEmpty()) ? JsonUtil.fromJson(body, Map.class) : null;
+        String aemPagePath = payload != null ? Objects.toString(payload.get("aemPagePath"), null) : null;
+        if (aemPagePath == null || aemPagePath.isBlank()) {
+            aemPagePath = project.getContentRoot();
+        }
+        String edsPagePath = payload != null ? Objects.toString(payload.get("edsPagePath"), "") : "";
+        String blockName = payload != null ? Objects.toString(payload.get("blockName"), null) : null;
+
+        String jobId = store != null ? store.getLatestJob(projectId).map(JobRecord::getId)
+                .orElse("compare-" + projectId) : "compare-" + projectId;
+        com.adobe.aem.modernizer.agents.AiPageComparisonAgent agent =
+                new com.adobe.aem.modernizer.agents.AiPageComparisonAgent(store, aiGateway, localEdsRepo);
+        Map<String, Object> report = agent.compareAndRefine(project, jobId, aemPagePath.trim(), edsPagePath.trim(), blockName);
+        return JsonUtil.toJson(report);
     }
 
     /**
@@ -996,8 +1140,33 @@ public class ApiRouter {
             if (resp != null) resp.setStatus(400);
             return "{\"error\":\"fstab.yaml is not edited by Modernizer\"}";
         }
-        GitHubClient client = clientFor(project);
-        client.deleteFile(branch, path);
+
+        // 1. Delete locally from eds/<projectId>/
+        if (localEdsRepo != null) {
+            try {
+                localEdsRepo.deleteProjectFile(projectId, path);
+            } catch (Exception e) {
+                LOG.debug("Could not delete local file {}: {}", path, e.getMessage());
+            }
+        }
+
+        // 2. Delete from store job records if present
+        if (store != null) {
+            store.getLatestJob(projectId).ifPresent(j -> {
+                store.deleteGeneratedFile(j.getId(), path);
+            });
+        }
+
+        // 3. Delete from GitHub branch if GitHub client available
+        try {
+            GitHubClient client = clientFor(project);
+            if (client != null) {
+                client.deleteFile(branch, path);
+            }
+        } catch (Exception e) {
+            LOG.warn("GitHub delete for '{}' on '{}' failed or skipped: {}", path, branch, e.getMessage());
+        }
+
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("ok", true);
         result.put("deleted", true);

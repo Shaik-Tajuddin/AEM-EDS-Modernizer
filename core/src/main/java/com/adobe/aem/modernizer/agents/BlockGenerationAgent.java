@@ -23,10 +23,17 @@ public class BlockGenerationAgent implements Agent {
 
     private final Store store;
     private final AiGateway ai;
+    private final com.adobe.aem.modernizer.connectors.LocalEdsRepoManager edsRepo;
 
     public BlockGenerationAgent(Store store, AiGateway ai) {
+        this(store, ai, null);
+    }
+
+    public BlockGenerationAgent(Store store, AiGateway ai,
+            com.adobe.aem.modernizer.connectors.LocalEdsRepoManager edsRepo) {
         this.store = store;
         this.ai = ai;
+        this.edsRepo = edsRepo;
     }
 
     @Override
@@ -101,6 +108,10 @@ public class BlockGenerationAgent implements Agent {
 
             jcrProps.remove("id");
             jcrProps.remove("classes");
+
+            // Authorable blockId / cssClass defaults for content-driven page styling
+            String blockIdDefault = blockName + "-section-1";
+            String cssClassDefault = "eds-block-" + blockName;
 
             java.util.List<String> propNames = new java.util.ArrayList<>(jcrProps.keySet());
             if (propNames.isEmpty()) {
@@ -225,8 +236,8 @@ public class BlockGenerationAgent implements Agent {
                     .append("              \"name\": \"").append(titleCase).append("\",\n")
                     .append("              \"model\": \"").append(blockName).append("\",\n")
                     .append("              \"filter\": \"").append(blockName).append("\",\n")
-                    .append("              \"id\": \"\",\n")
-                    .append("              \"classes\": \"eds-block-").append(blockName).append("\",\n");
+                    .append("              \"id\": \"").append(blockIdDefault).append("\",\n")
+                    .append("              \"classes\": \"").append(cssClassDefault).append("\",\n");
             for (int i = 0; i < propNames.size(); i++) {
                 String pName = propNames.get(i);
                 Object pVal = jcrProps.get(pName);
@@ -248,8 +259,14 @@ public class BlockGenerationAgent implements Agent {
                     .append("      \"id\": \"").append(blockName).append("\",\n")
                     .append("      \"fields\": [\n")
                     .append("        { \"component\": \"tab\", \"label\": \"General\", \"name\": \"tabGeneral\" },\n")
-                    .append("        { \"component\": \"text\", \"name\": \"id\", \"label\": \"Block ID\", \"valueType\": \"string\", \"value\": \"\" },\n")
-                    .append("        { \"component\": \"text\", \"name\": \"classes\", \"label\": \"Block classes\", \"valueType\": \"string\", \"value\": \"eds-block-").append(blockName).append("\", \"hidden\": true, \"readOnly\": true },\n");
+                    .append("        { \"component\": \"text\", \"name\": \"id\", \"label\": \"Block ID (unique page anchor, e.g. wknd-about-us-hero)\", \"valueType\": \"string\", \"value\": \"").append(blockIdDefault).append("\" },\n")
+                    .append("        { \"component\": \"multiselect\", \"name\": \"classes\", \"label\": \"CSS Classes (style variants)\", \"valueType\": \"string[]\", \"options\": [\n")
+                    .append("          { \"name\": \"Dark tone\", \"value\": \"dark-tone\" },\n")
+                    .append("          { \"name\": \"Compact spacing\", \"value\": \"compact\" },\n")
+                    .append("          { \"name\": \"Emphasis tone\", \"value\": \"tone-emphasis\" },\n")
+                    .append("          { \"name\": \"Align center\", \"value\": \"align-center\" },\n")
+                    .append("          { \"name\": \"Align right\", \"value\": \"align-right\" }\n")
+                    .append("        ], \"value\": [\"").append(cssClassDefault).append("\"] },\n");
             for (int i = 0; i < propNames.size(); i++) {
                 String pName = propNames.get(i);
                 String componentType = "text";
@@ -443,8 +460,8 @@ public class BlockGenerationAgent implements Agent {
                     .append("## 4. Fields / options\n")
                     .append("| Field | Component | Row? | Description |\n")
                     .append("|---|---|---|---|\n")
-                    .append("| `id` | text | Yes (row 0) | Optional HTML anchor ID |\n")
-                    .append("| `classes` | text (hidden) | No | Root class `eds-block-").append(blockName).append("` |\n");
+                    .append("| `id` | text | Yes (row 0) | Authorable unique block ID (page anchor & AI target) |\n")
+                    .append("| `classes` | multiselect | No | Authorable CSS variant classes (dark-tone, compact, ...) |\n");
             for (int i = 0; i < propNames.size(); i++) {
                 String pName = propNames.get(i);
                 String componentType = "text";
@@ -528,11 +545,23 @@ public class BlockGenerationAgent implements Agent {
             }
 
             if (!ctx.isDryRun()) {
-                writeLocalFile("blocks/" + blockName + "/" + blockName + ".js", jsContent);
-                writeLocalFile("blocks/" + blockName + "/" + blockName + ".css", cssContent);
-                writeLocalFile("blocks/" + blockName + "/_" + blockName + ".json", jsonContent);
-                writeLocalFile("blocks/" + blockName + "/" + blockName + "-example.html", htmlContent);
-                writeLocalFile("blocks/" + blockName + "/README.md", readmeContent);
+                // Direct output into the cloned EDS repo: eds/<projectId>/blocks/<blockName>/
+                String projectId = ctx.getProject().getId();
+                String base = "blocks/" + blockName;
+                if (edsRepo != null) {
+                    edsRepo.writeProjectFile(projectId, base + "/" + blockName + ".js", jsContent);
+                    edsRepo.writeProjectFile(projectId, base + "/" + blockName + ".css", cssContent);
+                    edsRepo.writeProjectFile(projectId, base + "/_" + blockName + ".json", jsonContent);
+                    edsRepo.writeProjectFile(projectId, base + "/" + blockName + "-example.html", htmlContent);
+                    edsRepo.writeProjectFile(projectId, base + "/README.md", readmeContent);
+                } else {
+                    // Fallback: legacy top-level blocks/ dir (kept only when no repo manager bound)
+                    writeLocalFile(base + "/" + blockName + ".js", jsContent);
+                    writeLocalFile(base + "/" + blockName + ".css", cssContent);
+                    writeLocalFile(base + "/_" + blockName + ".json", jsonContent);
+                    writeLocalFile(base + "/" + blockName + "-example.html", htmlContent);
+                    writeLocalFile(base + "/README.md", readmeContent);
+                }
             }
         }
 
