@@ -146,6 +146,20 @@ public class ChatAgentRuntime {
 
     private String handleLocalHeuristic(String projectId, String message, List<Map<String, Object>> steps) {
         String lower = message.toLowerCase(Locale.ROOT);
+        if (lower.contains("build") || lower.contains("ci") || lower.contains("failure") || lower.contains("fail") || lower.contains("log") || lower.contains("error")) {
+            String ciStatus = tools.execute(projectId, "check_ci_status", Map.of());
+            String ciLogs = tools.execute(projectId, "get_ci_logs", Map.of());
+            steps.add(Map.of("tool", "check_ci_status", "ok", true));
+            steps.add(Map.of("tool", "get_ci_logs", "ok", true));
+            return "🔍 **GitHub CI Build & Failure Analysis:**\n\n"
+                    + "**Latest Workflow Status:**\n```json\n" + ciStatus + "\n```\n\n"
+                    + "**Failure Log Extraction & Summary:**\n```\n" + ciLogs + "\n```";
+        }
+        if (lower.contains("changed") || lower.contains("diff") || lower.contains("changes") || lower.contains("files")) {
+            String out = tools.execute(projectId, "list_changed_files", Map.of());
+            steps.add(Map.of("tool", "list_changed_files", "ok", true));
+            return "📁 **Branch File Changes vs Base Branch:**\n```json\n" + out + "\n```";
+        }
         if (lower.contains("dry run") || lower.contains("dry-run")) {
             String out = tools.execute(projectId, "run_dry_run", Map.of());
             steps.add(Map.of("tool", "run_dry_run", "ok", true));
@@ -168,8 +182,8 @@ public class ChatAgentRuntime {
         }
         String status = tools.execute(projectId, "project_status", Map.of());
         steps.add(Map.of("tool", "project_status", "ok", true));
-        return "Ollama unavailable — keyword tools only. Project status:\n" + status
-                + "\nTry: list blocks, run dry run, show status.";
+        return "Project status:\n" + status
+                + "\n\n💡 *Try commands like: 'check build failure', 'list changed files', 'list blocks', 'run dry run'.*";
     }
 
     private static String buildPlannerPrompt(String projectId, ProjectRecord project, String transcript, boolean first) {
@@ -185,6 +199,9 @@ public class ChatAgentRuntime {
         sb.append("TOOL:project_status\n");
         sb.append("TOOL:list_events\n");
         sb.append("TOOL:list_blocks\n");
+        sb.append("TOOL:check_ci_status|branch=optional\n");
+        sb.append("TOOL:get_ci_logs|runId=optional\n");
+        sb.append("TOOL:list_changed_files|branch=optional\n");
         sb.append("TOOL:read_tool_file|path=relative/path\n");
         sb.append("TOOL:read_eds_file|path=blocks/hero/hero.js\n");
         sb.append("TOOL:search_tool_repo|query=BlockGeneration\n");

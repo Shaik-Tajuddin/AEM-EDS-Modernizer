@@ -203,6 +203,14 @@ public class MockAiProvider implements AiProvider {
             content = "{\"successful\":true,\"patch\":\"/* verified CREATE_AEM_BLOCK.md standard */\",\"explanation\":\"Validated block structure against CREATE_AEM_BLOCK.md contract.\"}";
         } else if ("figma-intelligence".equalsIgnoreCase(agent) || "figma-analysis".equalsIgnoreCase(agent)) {
             content = "{\"tokens\":{\"--color-primary\":\"#f97316\",\"--font-heading\":\"'Plus Jakarta Sans', sans-serif\"},\"componentPairs\":[{\"figma\":\"Card/Adventure\",\"edsBlock\":\"cards\"}]}";
+        } else if ("ai-page-comparison".equalsIgnoreCase(agent)) {
+            content = "```css\n." + blockName + " {\n  margin: 24px auto;\n}\n```\n\n```js\n// page comparison refinement\n```";
+        } else if ("pipeline-heal".equalsIgnoreCase(agent)) {
+            String marker = "FILE:\n";
+            String original = request.getPrompt() != null && request.getPrompt().contains(marker)
+                    ? request.getPrompt().substring(request.getPrompt().indexOf(marker) + marker.length()).trim()
+                    : "";
+            content = original.isEmpty() ? "/* clean healed code */" : original;
         } else {
             content = "{\"status\":\"OK\",\"message\":\"Processed by AI Provider conforming to CREATE_AEM_BLOCK.md\",\"confidence\":0.96}";
         }

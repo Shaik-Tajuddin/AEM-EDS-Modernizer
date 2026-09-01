@@ -399,15 +399,18 @@ public final class PipelineHealLoop {
             req.setTargetCapability(ModelCapability.CAP_CODE);
             ChatResponse resp = ai.dispatch(req);
             String body = resp != null ? resp.getContent() : null;
-            if (body != null && body.length() > 20 && !body.contains("```")) {
-                return body;
-            }
             if (body != null && body.contains("```")) {
                 int start = body.indexOf('\n', body.indexOf("```"));
                 int end = body.lastIndexOf("```");
                 if (start > 0 && end > start) {
-                    return body.substring(start + 1, end).trim();
+                    body = body.substring(start + 1, end).trim();
                 }
+            }
+            if (body != null && body.length() > 20) {
+                if ((path.endsWith(".css") || path.endsWith(".js")) && body.trim().startsWith("{") && body.contains("\"status\"")) {
+                    return heuristic.equals(content) ? null : heuristic;
+                }
+                return body;
             }
         } catch (RuntimeException e) {
             LOG.warn("AI repair failed for {}: {}", path, e.getMessage());

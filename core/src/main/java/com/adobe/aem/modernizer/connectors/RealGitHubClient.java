@@ -359,6 +359,7 @@ public class RealGitHubClient implements GitHubClient {
                     entry.put("status", f.path("status").asText());
                     entry.put("additions", f.path("additions").asInt(0));
                     entry.put("deletions", f.path("deletions").asInt(0));
+                    entry.put("patch", f.path("patch").asText(""));
                     result.add(entry);
                 }
             }

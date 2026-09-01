@@ -156,15 +156,24 @@ public class AiPageComparisonAgent {
 
     /** Fetches page HTML with basic admin auth for AEM author. */
     private String fetchPage(String baseUrl, String pagePath) {
-        if (baseUrl == null || pagePath == null || pagePath.isBlank()) return "";
-        String url = baseUrl + (pagePath.startsWith("/") ? pagePath : "/" + pagePath);
-        if (!url.endsWith(".html")) url += ".html";
+        if (pagePath == null || pagePath.isBlank()) return "";
+        String url;
+        if (pagePath.startsWith("http://") || pagePath.startsWith("https://")) {
+            url = pagePath;
+        } else {
+            if (baseUrl == null || baseUrl.isBlank()) return "";
+            url = baseUrl + (pagePath.startsWith("/") ? pagePath : "/" + pagePath);
+            if (url.contains("4502") && !url.endsWith(".html") && !url.contains(".")) {
+                url += ".html";
+            }
+        }
         try {
             HttpClient client = HttpClient.newBuilder()
+                    .followRedirects(HttpClient.Redirect.NORMAL)
                     .connectTimeout(Duration.ofSeconds(10)).build();
             HttpRequest.Builder rb = HttpRequest.newBuilder(URI.create(url))
                     .timeout(Duration.ofSeconds(20)).GET();
-            if (url.contains("4502") || url.contains("author")) {
+            if (url.contains("4502") || url.contains("author") || url.contains("localhost")) {
                 rb.header("Authorization", "Basic YWRtaW46YWRtaW4=");
             }
             HttpResponse<String> resp = client.send(rb.build(), HttpResponse.BodyHandlers.ofString());

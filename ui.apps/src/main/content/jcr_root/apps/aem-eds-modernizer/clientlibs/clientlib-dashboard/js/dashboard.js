@@ -426,6 +426,15 @@ async function populateFormFromProject(id) {
     document.getElementById("cfg-maxBudget").value = p.maxBudgetUsd || 100.0;
     document.getElementById("cfg-maxRepair").value = p.maxRepairAttempts || 5;
     onProviderChange();
+
+    const authorUrl = (p.aemAuthorUrl || "http://localhost:4502").replace(/\/$/, "");
+    const rootPath = (p.contentRoot || "/content/wknd").trim();
+    const cleanRootPath = rootPath.startsWith("/") ? rootPath : "/" + rootPath;
+    const fullAuthoredUrl = authorUrl + cleanRootPath + (cleanRootPath.endsWith(".html") ? "" : ".html");
+    const rootpathDisplay = document.getElementById("devserver-rootpath-display");
+    if (rootpathDisplay) {
+      rootpathDisplay.textContent = fullAuthoredUrl;
+    }
   }
 }
 
@@ -439,15 +448,15 @@ function resetVsCodeReviewGate() {
   vscodeReviewConfirmed = false;
   const chk = document.getElementById("chk-vscode-reviewed");
   if (chk) chk.checked = false;
-  const btnPublish = document.getElementById("btn-publish");
-  if (btnPublish) btnPublish.disabled = true;
+  const btnCreatePr = document.getElementById("btn-create-pr") || document.getElementById("btn-publish");
+  if (btnCreatePr) btnCreatePr.disabled = true;
 }
 
 function onVsCodeReviewToggle() {
   const chk = document.getElementById("chk-vscode-reviewed");
   vscodeReviewConfirmed = !!(chk && chk.checked);
-  const btnPublish = document.getElementById("btn-publish");
-  if (btnPublish) btnPublish.disabled = !vscodeReviewConfirmed;
+  const btnCreatePr = document.getElementById("btn-create-pr") || document.getElementById("btn-publish");
+  if (btnCreatePr) btnCreatePr.disabled = !vscodeReviewConfirmed;
   if (vscodeReviewConfirmed) {
     setPipelineStep("vscode", "done");
     setPipelineStep("publish", "active");
@@ -586,6 +595,38 @@ async function runAiCompare() {
     log("error", `AI comparison failed: ${err.message}`);
   } finally {
     if (btn) btn.disabled = false;
+  }
+}
+
+async function runAiCompareFromDevServer() {
+  const urlInput = document.getElementById("cfg-devserver-page-url");
+  const resultEl = document.getElementById("devserver-compare-result");
+  const targetUrl = urlInput ? urlInput.value.trim() : "";
+  const rootDisplay = document.getElementById("devserver-rootpath-display");
+  const aemPagePath = (rootDisplay && rootDisplay.textContent) ? rootDisplay.textContent.trim() : "/content/wknd";
+  if (resultEl) resultEl.innerText = "Comparing authored page with AEM rootpath reference...";
+  try {
+    const report = await api(`projects/${currentProjectId}/compare`, {
+      method: "POST",
+      body: JSON.stringify({
+        aemPagePath,
+        edsPagePath: targetUrl || "http://localhost:3000",
+        blockName: null,
+      }),
+    });
+    if (resultEl) {
+      const files = (report.updatedFiles || []).join(", ") || "none";
+      resultEl.innerHTML =
+        `<b>Status:</b> ${report.status} · AEM: ${report.aemFetched ? "✓" : "✗"} · EDS: ${report.edsFetched ? "✓" : "✗"}<br>` +
+        `<b>Updated:</b> ${files}` +
+        (report.analysis ? `<br><details style="margin-top:4px;"><summary style="cursor:pointer; font-size:0.74rem;">AI analysis</summary><pre style="white-space:pre-wrap; max-height:160px; overflow:auto; font-size:0.72rem; margin-top:4px;">${escapeHtmlBody(report.analysis)}</pre></details>` : "");
+    }
+    log("ai-compare", `DevServer AI comparison finished: ${report.status}. Updated: ${report.updatedFiles?.join(", ") || "none"}`);
+    showToast(`AI comparison: ${report.status}`);
+    await refreshDashboard();
+  } catch (err) {
+    if (resultEl) resultEl.innerText = `Comparison failed: ${err.message}`;
+    log("error", `DevServer AI comparison failed: ${err.message}`);
   }
 }
 
@@ -783,7 +824,64 @@ function loadVsCodeFrame(customUrl) {
   }
   if (placeholder) placeholder.style.display = "none";
   if (workspace) workspace.style.display = "flex";
+  initWorkspaceResizer();
   loadWorkspaceFiles(branch);
+}
+
+function initWorkspaceResizer() {
+  const resizer = document.getElementById("ws-resizer");
+  const sidebar = document.getElementById("ws-sidebar");
+  if (!resizer || !sidebar || resizer.dataset.bound) return;
+  resizer.dataset.bound = "1";
+  let isDragging = false;
+  resizer.addEventListener("mousedown", (e) => {
+    isDragging = true;
+    resizer.classList.add("resizing");
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  });
+  window.addEventListener("mousemove", (e) => {
+    if (!isDragging) return;
+    const container = document.getElementById("vscode-frame-container");
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const newWidth = Math.max(220, Math.min(650, e.clientX - rect.left));
+    sidebar.style.width = newWidth + "px";
+  });
+  window.addEventListener("mouseup", () => {
+    if (isDragging) {
+      isDragging = false;
+      resizer.classList.remove("resizing");
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    }
+  });
+}
+
+let currentWsViewMode = "diff";
+
+function setWsViewMode(mode) {
+  currentWsViewMode = mode;
+  const diffPane = document.getElementById("ws-diff-pane");
+  const editPane = document.getElementById("ws-editor-pane");
+  const btnDiff = document.getElementById("btn-ws-mode-diff");
+  const btnEdit = document.getElementById("btn-ws-mode-edit");
+  const btnSave = document.getElementById("btn-ws-save-open");
+
+  if (mode === "diff") {
+    if (diffPane) diffPane.style.display = "flex";
+    if (editPane) editPane.style.display = "none";
+    if (btnSave) btnSave.style.display = "none";
+    if (btnDiff) { btnDiff.classList.add("active"); btnDiff.classList.remove("btn-outline"); }
+    if (btnEdit) { btnEdit.classList.remove("active"); btnEdit.classList.add("btn-outline"); }
+  } else {
+    if (diffPane) diffPane.style.display = "none";
+    if (editPane) editPane.style.display = "flex";
+    if (btnSave) btnSave.style.display = "inline-flex";
+    if (btnDiff) { btnDiff.classList.remove("active"); btnDiff.classList.add("btn-outline"); }
+    if (btnEdit) { btnEdit.classList.add("active"); btnEdit.classList.remove("btn-outline"); }
+    syncWsLineNumbers();
+  }
 }
 
 function reloadVsCodeFrame() {
@@ -793,6 +891,7 @@ function reloadVsCodeFrame() {
 
 async function loadWorkspaceFiles(branch) {
   const tree = document.getElementById("ws-file-tree");
+  const countEl = document.getElementById("ws-tree-count");
   if (!tree) return;
   tree.innerHTML = '<li class="ws-tree-empty">Loading files…</li>';
   try {
@@ -801,6 +900,8 @@ async function loadWorkspaceFiles(branch) {
       body: JSON.stringify({ branch }),
     });
     const files = data.files || [];
+    workspaceFilesCache = files;
+    if (countEl) countEl.textContent = `(${files.length})`;
     if (!files.length) {
       tree.innerHTML =
         '<li class="ws-tree-empty">No changed files yet. Push the preview branch first.</li>';
@@ -812,7 +913,16 @@ async function loadWorkspaceFiles(branch) {
           .replace(/&/g, "&amp;")
           .replace(/</g, "&lt;")
           .replace(/"/g, "&quot;");
-        return `<li class="ws-file-row"><button type="button" class="ws-file-btn" data-path="${safe}">${safe}</button><button type="button" class="ws-file-del" data-path="${safe}" title="Delete from branch">Delete</button></li>`;
+        const status = f.status || 'added';
+        const add = f.additions != null ? f.additions : 0;
+        const del = f.deletions != null ? f.deletions : 0;
+        const statusColor = status === 'added' ? '#22c55e' : status === 'removed' ? '#ef4444' : '#38bdf8';
+        const diffBadge = `<span class="ws-diff-stat">`
+          + `<span style="color:${statusColor}; font-weight:700; text-transform:uppercase; font-size:0.68rem;">${status}</span>`
+          + `<span style="color:#22c55e; font-weight:700;">+${add}</span>`
+          + `<span style="color:#ef4444; font-weight:700;">-${del}</span>`
+          + `</span>`;
+        return `<li class="ws-file-row"><button type="button" class="ws-file-btn" data-path="${safe}"><span class="ws-file-name" title="${safe}">${safe}</span>${diffBadge}</button><button type="button" class="ws-file-del" data-path="${safe}" title="Delete ${safe} from branch">🗑️ Del</button></li>`;
       })
       .join("");
     if (!tree.dataset.bound) {
@@ -842,15 +952,37 @@ async function loadWorkspaceFiles(branch) {
   }
 }
 
+let workspaceFilesCache = [];
+
 async function openWorkspaceFile(path) {
   const input = document.getElementById("github-branch-input");
   const branch = (input && input.value.trim()) || `feat/${currentProjectId}`;
   const editor = document.getElementById("ws-editor");
   const label = document.getElementById("ws-open-path");
+  const diffLabel = document.getElementById("ws-open-diff");
   workspaceOpenPath = path;
   if (label) label.textContent = path;
+
+  // Render open file Git diff badge
+  if (diffLabel) {
+    const fileStat = workspaceFilesCache.find((f) => f.path === path);
+    if (fileStat) {
+      const status = fileStat.status || 'added';
+      const add = fileStat.additions != null ? fileStat.additions : 0;
+      const del = fileStat.deletions != null ? fileStat.deletions : 0;
+      const col = status === 'added' ? '#22c55e' : status === 'removed' ? '#ef4444' : '#38bdf8';
+      diffLabel.innerHTML = `<span class="ws-diff-stat" style="background:rgba(255,255,255,0.05); padding:3px 8px;">`
+        + `<span style="color:${col}; font-weight:700; text-transform:uppercase;">${status}</span>`
+        + `<span style="color:#22c55e; font-weight:700;">+${add} lines</span>`
+        + `<span style="color:#ef4444; font-weight:700;">-${del} lines</span>`
+        + `</span>`;
+    } else {
+      diffLabel.innerHTML = '';
+    }
+  }
+
   document.querySelectorAll(".ws-file-btn").forEach((btn) => {
-    btn.classList.toggle("active", btn.getAttribute("data-path") === path);
+    btn.parentElement.classList.toggle("active", btn.getAttribute("data-path") === path);
   });
   if (editor) editor.value = "Loading…";
   try {
@@ -862,11 +994,105 @@ async function openWorkspaceFile(path) {
       editor.value = data.content || "";
       editor.readOnly = !!data.readOnly;
     }
+    renderGitDiff(data.baseContent, data.content, path);
     syncWsLineNumbers();
   } catch (err) {
     if (editor) editor.value = err.message;
+    renderGitDiff(null, err.message, path);
     syncWsLineNumbers();
   }
+}
+
+function renderGitDiff(baseContent, newContent, filename) {
+  const diffOutput = document.getElementById("ws-diff-output");
+  if (!diffOutput) return;
+
+  if (baseContent == null || baseContent === "") {
+    // Newly Added File (All lines green '+')
+    const lines = (newContent || "").split(/\r\n|\r|\n/);
+    let html = `<div class="diff-line diff-line-hunk"><span>--- /dev/null</span><br><span>+++ b/${filename || "file"}</span></div>`;
+    for (let i = 0; i < lines.length; i++) {
+      const lineNum = i + 1;
+      const safeText = String(lines[i] || " ").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+      html += `<div class="diff-line diff-line-added">`
+        + `<div class="diff-num"></div>`
+        + `<div class="diff-num">${lineNum}</div>`
+        + `<div class="diff-marker">+</div>`
+        + `<div class="diff-text">${safeText}</div>`
+        + `</div>`;
+    }
+    diffOutput.innerHTML = html;
+    return;
+  }
+
+  // Modified File: Compute Line-by-line Difference
+  const oldLines = baseContent.split(/\r\n|\r|\n/);
+  const newLines = (newContent || "").split(/\r\n|\r|\n/);
+  const diff = computeLineDiff(oldLines, newLines);
+
+  let html = `<div class="diff-line diff-line-hunk"><span>--- a/${filename || "base"}</span><br><span>+++ b/${filename || "head"}</span></div>`;
+  diff.forEach((item) => {
+    const safeText = String(item.text || " ").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+    if (item.type === "added") {
+      html += `<div class="diff-line diff-line-added">`
+        + `<div class="diff-num"></div>`
+        + `<div class="diff-num">${item.newLine}</div>`
+        + `<div class="diff-marker">+</div>`
+        + `<div class="diff-text">${safeText}</div>`
+        + `</div>`;
+    } else if (item.type === "deleted") {
+      html += `<div class="diff-line diff-line-deleted">`
+        + `<div class="diff-num">${item.oldLine}</div>`
+        + `<div class="diff-num"></div>`
+        + `<div class="diff-marker">-</div>`
+        + `<div class="diff-text">${safeText}</div>`
+        + `</div>`;
+    } else {
+      html += `<div class="diff-line diff-line-unchanged">`
+        + `<div class="diff-num">${item.oldLine}</div>`
+        + `<div class="diff-num">${item.newLine}</div>`
+        + `<div class="diff-marker"> </div>`
+        + `<div class="diff-text">${safeText}</div>`
+        + `</div>`;
+    }
+  });
+
+  diffOutput.innerHTML = html;
+}
+
+function computeLineDiff(a, b) {
+  const n = a.length;
+  const m = b.length;
+  // Standard dynamic programming LCS
+  const dp = Array.from({ length: n + 1 }, () => new Int32Array(m + 1));
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < m; j++) {
+      if (a[i] === b[j]) {
+        dp[i + 1][j + 1] = dp[i][j] + 1;
+      } else {
+        dp[i + 1][j + 1] = Math.max(dp[i + 1][j], dp[i][j + 1]);
+      }
+    }
+  }
+
+  const result = [];
+  let i = n, j = m;
+  const trace = [];
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
+      trace.push({ type: "unchanged", text: a[i - 1], oldLine: i, newLine: j });
+      i--;
+      j--;
+    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      trace.push({ type: "added", text: b[j - 1], oldLine: null, newLine: j });
+      j--;
+    } else if (i > 0 && (j === 0 || dp[i][j - 1] < dp[i - 1][j])) {
+      trace.push({ type: "deleted", text: a[i - 1], oldLine: i, newLine: null });
+      i--;
+    }
+  }
+  trace.reverse();
+  return trace;
 }
 
 async function saveWorkspaceFile() {
@@ -2465,8 +2691,20 @@ window.addEventListener("load", async () => {
   }
 });
 
-  /** Single namespace exposed to the markup and JS-generated inline handlers. */
-  window.AemEdsDashboard = {
+function toggleCardCollapse(bodyId, arrowId) {
+  const body = document.getElementById(bodyId);
+  const arrow = document.getElementById(arrowId);
+  if (!body) return;
+  const isHidden = body.style.display === "none";
+  body.style.display = isHidden ? "block" : "none";
+  if (arrow) {
+    arrow.textContent = isHidden ? "▼" : "▶";
+  }
+}
+
+/** Single namespace exposed to the markup and JS-generated inline handlers. */
+window.AemEdsDashboard = {
+    toggleCardCollapse,
     // navigation & pipeline
     showTab,
     runDryRun,
@@ -2496,12 +2734,14 @@ window.addEventListener("load", async () => {
     checkBranchStatus,
     reloadVsCodeFrame,
     loadVsCodeFrame,
+    setWsViewMode,
     saveWorkspaceFile,
     deleteWorkspaceFile,
     onVsCodeReviewToggle,
     runNpmScript,
     aemUpControl,
     runAiCompare,
+    runAiCompareFromDevServer,
     // editor gutter
     syncWsLineNumbers,
     syncWsLineScroll,

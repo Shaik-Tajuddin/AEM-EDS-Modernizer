@@ -64,6 +64,23 @@ public final class GitHubFlow {
         return "https://vscode.dev/github/" + ownerRepo + "/tree/" + encodeBranchSegments(ref);
     }
 
+    public static String edsPreviewUrl(String repoUrl, String branch) {
+        String cleaned = normalizeRepoUrl(repoUrl);
+        if (cleaned == null) {
+            return null;
+        }
+        String ownerRepo = cleaned.substring("https://github.com/".length());
+        String[] parts = ownerRepo.split("/");
+        if (parts.length < 2) {
+            return null;
+        }
+        String owner = parts[0].toLowerCase().trim();
+        String repo = parts[1].toLowerCase().trim();
+        String ref = (branch == null || branch.isBlank()) ? "main" : branch.trim();
+        String sanitizedBranch = ref.replace('/', '-').replace('_', '-').toLowerCase();
+        return "https://" + sanitizedBranch + "--" + repo + "--" + owner + ".aem.page/";
+    }
+
     public static String normalizeRepoUrl(String repoUrl) {
         if (repoUrl == null || repoUrl.isBlank()) {
             return null;

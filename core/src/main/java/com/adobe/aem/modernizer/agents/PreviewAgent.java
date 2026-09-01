@@ -68,6 +68,15 @@ public class PreviewAgent implements Agent {
             GitHubClient gh = GitHubFlow.clientFor(gitHub, ctx.getProject());
             gh.createBranch(branch);
             List<GeneratedFileRecord> files = (store != null) ? store.getGeneratedFiles(ctx.getJob().getId()) : null;
+            if ((files == null || files.isEmpty()) && store != null && ctx.getProject() != null) {
+                for (com.adobe.aem.modernizer.persistence.model.JobRecord j : store.listJobs(ctx.getProject().getId())) {
+                    List<GeneratedFileRecord> jf = store.getGeneratedFiles(j.getId());
+                    if (jf != null && !jf.isEmpty()) {
+                        files = jf;
+                        break;
+                    }
+                }
+            }
             List<GeneratedFileRecord> toCommit = new java.util.ArrayList<>();
             if (files != null) {
                 for (GeneratedFileRecord file : files) {
@@ -77,20 +86,10 @@ public class PreviewAgent implements Agent {
                     }
                 }
             }
-            toCommit.add(new GeneratedFileRecord(
-                    UUID.randomUUID().toString(),
-                    ctx.getProject().getId(),
-                    ctx.getJob().getId(),
-                    GitHubFlow.NPM_WORKFLOW_PATH,
-                    "CONFIG",
-                    ModernizerNpmWorkflow.YAML
-            ));
             if (!toCommit.isEmpty()) {
                 gh.commitFiles(branch, toCommit, "feat: modernizer automated migration preview");
             }
-            GitHubFlow.deleteLegacyNpmWorkflow(gh, branch);
             PipelineHealLoop.restoreFstabFromBase(gh, ctx.getProject(), branch);
-            PipelineHealLoop.start(gh, ctx, store, ai);
         }
 
         String vscodeUrl = GitHubFlow.vscodeUrl(

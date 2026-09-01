@@ -51,6 +51,9 @@ public class ChatToolRegistry {
         tools.add(tool("read_tool_file", "Read a file from the Modernizer tool repo (relative path)"));
         tools.add(tool("read_eds_file", "Read a file from the EDS GitHub repo"));
         tools.add(tool("search_tool_repo", "Search filenames under the tool repo"));
+        tools.add(tool("check_ci_status", "Check the latest GitHub Actions CI workflow run status, conclusion, commit SHA, and URL"));
+        tools.add(tool("get_ci_logs", "Fetch the CI workflow run error logs and build failure details"));
+        tools.add(tool("list_changed_files", "List files changed on the feature branch compared to target Git branch"));
         tools.add(tool("run_dry_run", "Start a dry-run migration job"));
         tools.add(tool("run_migrate", "Start a full migrate job"));
         return tools;
@@ -82,6 +85,12 @@ public class ChatToolRegistry {
                     return readEdsFile(projectId, str(args, "path"));
                 case "search_tool_repo":
                     return searchToolRepo(str(args, "query"));
+                case "check_ci_status":
+                    return checkCiStatus(projectId, str(args, "branch"));
+                case "get_ci_logs":
+                    return getCiLogs(projectId, str(args, "runId"));
+                case "list_changed_files":
+                    return listChangedFiles(projectId, str(args, "branch"));
                 case "run_dry_run":
                     return runJob(projectId, true);
                 case "run_migrate":
@@ -242,6 +251,81 @@ public class ChatToolRegistry {
                 "dryRun", dryRun,
                 "jobId", job != null ? job.getId() : "",
                 "state", job != null ? String.valueOf(job.getState()) : ""
+        ));
+    }
+
+    private String checkCiStatus(String projectId, String branchArg) {
+        ProjectRecord pr = store.getProject(projectId).orElse(null);
+        if (pr == null || gitHubClient == null) {
+            return error("Project or GitHub client unavailable");
+        }
+        GitHubClient gh = GitHubFlow.clientFor(gitHubClient, pr);
+        String branch = (branchArg != null && !branchArg.isBlank()) ? branchArg : GitHubFlow.featureBranch(projectId);
+        Map<String, Object> run = gh.getLatestWorkflowRun(branch);
+        if (run == null) {
+            return JsonUtil.toJson(Map.of("branch", branch, "status", "NO_RUNS_FOUND", "message", "No GitHub Actions workflow runs found for branch: " + branch));
+        }
+        Map<String, Object> out = new LinkedHashMap<>(run);
+        out.put("branch", branch);
+        out.put("isFailure", "failure".equalsIgnoreCase(String.valueOf(run.get("conclusion"))));
+        out.put("isSuccess", "success".equalsIgnoreCase(String.valueOf(run.get("conclusion"))));
+        return JsonUtil.toJson(out);
+    }
+
+    private String getCiLogs(String projectId, String runIdArg) {
+        ProjectRecord pr = store.getProject(projectId).orElse(null);
+        if (pr == null || gitHubClient == null) {
+            return error("Project or GitHub client unavailable");
+        }
+        GitHubClient gh = GitHubFlow.clientFor(gitHubClient, pr);
+        String runId = runIdArg;
+        if (runId == null || runId.isBlank()) {
+            String branch = GitHubFlow.featureBranch(projectId);
+            Map<String, Object> run = gh.getLatestWorkflowRun(branch);
+            if (run != null && run.get("runId") != null) {
+                runId = String.valueOf(run.get("runId"));
+            }
+        }
+        if (runId == null || runId.isBlank()) {
+            return error("No CI workflow runId found to retrieve logs");
+        }
+        String rawLogs = gh.getWorkflowRunLogs(runId);
+        if (rawLogs == null || rawLogs.isBlank()) {
+            return JsonUtil.toJson(Map.of("runId", runId, "logs", "No logs available or workflow is still running"));
+        }
+        // Extract key error lines
+        StringBuilder keyErrors = new StringBuilder();
+        String[] lines = rawLogs.split("\\r?\\n");
+        for (String line : lines) {
+            String l = line.toLowerCase(Locale.ROOT);
+            if (l.contains("error") || l.contains("failed") || l.contains("err!") || l.contains("fatal") || l.contains("exit code")) {
+                if (keyErrors.length() < 8000) {
+                    keyErrors.append(line).append("\n");
+                }
+            }
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("runId", runId);
+        out.put("summaryErrors", keyErrors.length() > 0 ? keyErrors.toString() : "No explicit 'error' lines found in log stream");
+        out.put("fullLogLength", rawLogs.length());
+        out.put("tailLogs", rawLogs.length() > 4000 ? rawLogs.substring(rawLogs.length() - 4000) : rawLogs);
+        return JsonUtil.toJson(out);
+    }
+
+    private String listChangedFiles(String projectId, String branchArg) {
+        ProjectRecord pr = store.getProject(projectId).orElse(null);
+        if (pr == null || gitHubClient == null) {
+            return error("Project or GitHub client unavailable");
+        }
+        GitHubClient gh = GitHubFlow.clientFor(gitHubClient, pr);
+        String branch = (branchArg != null && !branchArg.isBlank()) ? branchArg : GitHubFlow.featureBranch(projectId);
+        String base = (pr.getEdsBranch() != null && !pr.getEdsBranch().isBlank()) ? pr.getEdsBranch() : gh.getDefaultBranch();
+        List<Map<String, Object>> files = gh.listChangedFiles(base, branch);
+        return JsonUtil.toJson(Map.of(
+                "baseBranch", base,
+                "featureBranch", branch,
+                "count", files != null ? files.size() : 0,
+                "files", files != null ? files : List.of()
         ));
     }
 

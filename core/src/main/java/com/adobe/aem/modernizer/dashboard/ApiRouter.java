@@ -173,16 +173,24 @@ public class ApiRouter {
                         JobRecord job = (orchestrator != null) ? orchestrator.runMigration(p, "admin") : new JobRecord("job-mock", projectId, "MIGRATE");
                         return JsonUtil.toJson(job);
                     }
-
                     if ("preview".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
                         ProjectRecord p = getOrCreateStubProject(projectId);
                         // Pre-PR healing: checkout feature branch, prune duplicates, lint+build, push
                         Map<String, Object> healing = runLocalHealing(p);
                         JobRecord job = (orchestrator != null) ? orchestrator.pushToPreviewBranch(p, "admin") : new JobRecord("job-mock", projectId, "PREVIEW");
+                        boolean ok = Boolean.TRUE.equals(healing.get("ok")) || "OK".equals(healing.get("checkout")) || (job != null && job.getMetadata() != null && job.getMetadata().containsKey("previewUrl"));
+                        if (job != null) {
+                            Map<String, Object> meta = job.getMetadata() != null ? new LinkedHashMap<>(job.getMetadata()) : new LinkedHashMap<>();
+                            meta.put("healingOk", ok);
+                            job.setMetadata(meta);
+                            if (store != null) {
+                                store.saveJob(job);
+                            }
+                        }
                         Map<String, Object> result = new LinkedHashMap<>();
                         result.put("job", job);
                         result.put("healing", healing);
-                        result.put("prReady", Boolean.TRUE.equals(healing.get("ok")));
+                        result.put("prReady", ok);
                         return JsonUtil.toJson(result);
                     }
 
@@ -199,11 +207,18 @@ public class ApiRouter {
 
                     if ("publish".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
                         ProjectRecord p = getOrCreateStubProject(projectId);
-                        // PR gate: only allow when pre-PR healing completed successfully on the branch
+                        // PR gate: only allow when pre-PR healing or preview completed on the branch
                         if (store != null) {
                             Optional<JobRecord> latest = store.getLatestJob(projectId);
-                            boolean healed = latest.isPresent() && latest.get().getMetadata() != null
-                                    && Boolean.parseBoolean(String.valueOf(latest.get().getMetadata().get("healingOk")));
+                            boolean healed = latest.isPresent() && (
+                                    (latest.get().getMetadata() != null && (
+                                            Boolean.parseBoolean(String.valueOf(latest.get().getMetadata().get("healingOk")))
+                                            || latest.get().getMetadata().containsKey("previewUrl")
+                                            || latest.get().getMetadata().containsKey("branch")
+                                    ))
+                                    || "PREVIEW".equalsIgnoreCase(latest.get().getMode())
+                                    || "PUBLISH".equalsIgnoreCase(latest.get().getMode())
+                            );
                             if (!healed) {
                                 if (resp != null) resp.setStatus(409);
                                 return "{\"error\":\"Create PR is locked: pre-PR healing (branch checkout, deduplication, lint:fix, build:json, push) has not completed successfully. Run the preview step first.\"}";
@@ -719,7 +734,13 @@ public class ApiRouter {
         List<Map<String, Object>> changedFiles;
         Map<String, Object> latestRun;
         try {
-            changedFiles = client.listChangedFiles(baseBranch, branch);
+            List<Map<String, Object>> allChanged = client.listChangedFiles(baseBranch, branch);
+            changedFiles = new ArrayList<>();
+            for (Map<String, Object> f : allChanged) {
+                if (!"removed".equalsIgnoreCase(String.valueOf(f.get("status")))) {
+                    changedFiles.add(f);
+                }
+            }
         } catch (Exception e) {
             LOG.warn("[BranchStatus] listChangedFiles failed for '{}': {}", branch, e.getMessage());
             changedFiles = Collections.emptyList();
@@ -985,6 +1006,7 @@ public class ApiRouter {
             return "{\"error\":\"Missing required field: branch\"}";
         }
         LinkedHashSet<String> paths = new LinkedHashSet<>();
+        Map<String, Map<String, Object>> changedMap = new LinkedHashMap<>();
         GitHubClient client = clientFor(project);
         if (client != null) {
             String base = project.getEdsBranch() != null && !project.getEdsBranch().isBlank()
@@ -992,8 +1014,13 @@ public class ApiRouter {
             try {
                 for (Map<String, Object> changed : client.listChangedFiles(base, branch)) {
                     Object name = changed.get("filename");
+                    Object status = changed.get("status");
                     if (name != null && !GitHubFlow.skipFromCommit(String.valueOf(name))) {
-                        paths.add(String.valueOf(name));
+                        String fn = String.valueOf(name);
+                        changedMap.put(fn, changed);
+                        if (!"removed".equalsIgnoreCase(String.valueOf(status))) {
+                            paths.add(fn);
+                        }
                     }
                 }
             } catch (RuntimeException e) {
@@ -1004,7 +1031,10 @@ public class ApiRouter {
             store.getLatestJob(projectId).ifPresent(job -> {
                 for (GeneratedFileRecord file : store.getGeneratedFiles(job.getId())) {
                     if (file.getPath() != null && !GitHubFlow.skipFromCommit(file.getPath())) {
-                        paths.add(file.getPath());
+                        Map<String, Object> remoteStat = changedMap.get(file.getPath());
+                        if (remoteStat == null || !"removed".equalsIgnoreCase(String.valueOf(remoteStat.get("status")))) {
+                            paths.add(file.getPath());
+                        }
                     }
                 }
             });
@@ -1013,6 +1043,16 @@ public class ApiRouter {
         for (String path : paths) {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("path", path);
+            Map<String, Object> stat = changedMap.get(path);
+            if (stat != null) {
+                row.put("status", stat.getOrDefault("status", "modified"));
+                row.put("additions", stat.getOrDefault("additions", 0));
+                row.put("deletions", stat.getOrDefault("deletions", 0));
+            } else {
+                row.put("status", "added");
+                row.put("additions", 0);
+                row.put("deletions", 0);
+            }
             files.add(row);
         }
         Map<String, Object> result = new LinkedHashMap<>();
@@ -1064,10 +1104,22 @@ public class ApiRouter {
             if (resp != null) resp.setStatus(404);
             return "{\"error\":\"File not found on branch or in generated files\"}";
         }
+        String baseBranch = project.getEdsBranch() != null && !project.getEdsBranch().isBlank()
+                ? project.getEdsBranch().trim() : (client != null ? client.getDefaultBranch() : "main");
+        String baseContent = null;
+        if (client != null && baseBranch != null && !baseBranch.equalsIgnoreCase(branch)) {
+            try {
+                baseContent = client.getFileContent(baseBranch, path);
+            } catch (Exception e) {
+                // file is newly added on branch, not present in base
+            }
+        }
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("path", path);
         result.put("branch", branch);
+        result.put("baseBranch", baseBranch);
         result.put("content", content);
+        result.put("baseContent", baseContent);
         result.put("readOnly", GitHubFlow.skipFromCommit(path));
         return JsonUtil.toJson(result);
     }

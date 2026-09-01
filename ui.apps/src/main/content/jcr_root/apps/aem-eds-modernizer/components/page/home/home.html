@@ -1,3 +1,10 @@
+<!--
+  =============================================================================================
+  CRITICAL SYNC NOTE FOR DEVELOPERS & AI AGENTS:
+  Whenever you modify this file (home.html), clientlib JS (dashboard.js), or CSS (dashboard.css),
+  YOU MUST ALSO UPDATE StaticDashboard.java in the core bundle to maintain 100% full parity!
+  =============================================================================================
+-->
 <!doctype html>
 <html lang="en" data-sly-use.model="com.adobe.aem.modernizer.dashboard.models.ModernizerDashboardModel">
 <head>
@@ -30,7 +37,6 @@
         <button class="btn btn-outline" onclick="AemEdsDashboard.showTab('setup')">⚙️ Project Configuration</button>
         <button id="btn-dryrun" class="btn btn-primary" onclick="AemEdsDashboard.runDryRun()">🔍 Run Dry Run</button>
         <button id="btn-migrate" class="btn btn-primary" onclick="AemEdsDashboard.runMigration()" disabled>⚡ Generate & Build Blocks</button>
-        <button id="btn-publish" class="btn btn-accent" onclick="AemEdsDashboard.runPushToGit()" disabled>🚀 Create PR</button>
       </div>
       <div class="actions-right">
         <button id="btn-delete-project" class="btn btn-danger" title="Delete this project" onclick="AemEdsDashboard.deleteCurrentProject()">🗑️ Delete Project</button>
@@ -480,79 +486,100 @@
 
     <!-- Tab: VS Code & GitHub Checks -->
     <div id="tab-github" class="tab-content" style="display:none;">
-      <!-- Local Repo & Healing status -->
-      <div class="card" style="margin-bottom: 20px;">
-        <div class="card-title">🏠 Local EDS Repository & Pre-PR Healing</div>
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
-          The cloned repo lives at <code>eds/<span id="local-repo-project">project</span></code>. Pre-PR healing (branch checkout → block deduplication → <code>npm run lint:fix</code> → <code>npm run build:json</code> → commit & push) runs automatically during the Preview step. <b>Create PR stays locked</b> until healing passes.
-        </p>
-        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-          <span id="badge-repo-status" class="status-badge" style="font-size:0.78rem;">● Local repo: unknown</span>
-          <span id="badge-healing-status" class="status-badge" style="font-size:0.78rem;">● Healing: not run</span>
-          <span id="badge-pr-gate" class="status-badge" style="font-size:0.78rem;">🔒 PR gate: locked</span>
-        </div>
-      </div>
-
-      <!-- Local Dev Server (aem up) -->
-      <div class="card" style="margin-bottom: 20px;">
-        <div class="card-title">🖥️ Local Dev Server (aem up)</div>
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
-          Runs <code>npm install</code> + <code>aem up</code> inside the local repo and serves the EDS site on <a href="http://localhost:3000" target="_blank"><b>http://localhost:3000</b></a> for AI comparison and manual review.
-        </p>
-        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-          <button class="btn btn-primary" id="btn-aemup-start" onclick="AemEdsDashboard.aemUpControl('start')">▶ Start aem up</button>
-          <button class="btn btn-outline" id="btn-aemup-stop" onclick="AemEdsDashboard.aemUpControl('stop')">■ Stop</button>
-          <button class="btn btn-outline" id="btn-aemup-status" onclick="AemEdsDashboard.aemUpControl('status')">🔄 Status</button>
-          <span id="badge-aemup-status" class="status-badge" style="font-size:0.78rem;">● Dev server: stopped</span>
-        </div>
-      </div>
-
-      <!-- Toolbar & Actions Card -->
-      <div class="card" style="margin-bottom: 20px;">
-        <div class="card-title">💻 Remote Branch & VS Code Editor Workspace</div>
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:16px;">
-          Generated files are pushed to the preview branch first (no PR). Review them in vscode.dev, run <code>npm run lint:fix</code> / <code>npm run build:json</code> via GitHub Actions, then confirm to open a Pull Request against this branch.
-        </p>
-        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-          <div style="flex:1; min-width:260px; display:flex; gap:8px; align-items:center;">
-            <label style="font-size:0.85rem; font-weight:600; color:var(--text-muted); white-space:nowrap;">Target Branch:</label>
-            <input id="github-branch-input" type="text" class="form-control" placeholder="e.g. feat/wknd-site" style="padding:8px 12px;">
+      <!-- Grid 1: Local Repo & Dev Server -->
+      <div class="card-grid-2" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:16px; margin-bottom:16px;">
+        <div class="card" style="margin:0; padding:14px;">
+          <div class="card-title" style="font-size:0.9rem; margin-bottom:8px;">🏠 Local EDS Repository & Pre-PR Healing</div>
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px; line-height:1.4;">
+            Cloned at <code>eds/<span id="local-repo-project">project</span></code>. Pre-PR healing (checkout → prune duplicates → lint:fix → build:json → push) runs on preview.
+          </p>
+          <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+            <span id="badge-repo-status" class="status-badge" style="font-size:0.75rem; padding:3px 8px;">● Local repo: unknown</span>
+            <span id="badge-healing-status" class="status-badge" style="font-size:0.75rem; padding:3px 8px;">● Healing: not run</span>
+            <span id="badge-pr-gate" class="status-badge" style="font-size:0.75rem; padding:3px 8px;">🔒 PR gate: locked</span>
           </div>
-          <button id="btn-push-blocks-tab" class="btn btn-primary" onclick="AemEdsDashboard.pushBlocksAndOpenVsCode()">🚀 Push Blocks & Open VS Code</button>
-          <button class="btn btn-outline" onclick="AemEdsDashboard.checkBranchStatus()">🔎 Check CI & Changed Files</button>
-          <a id="btn-open-vscode-newtab" href="#" target="_blank" class="btn btn-outline" style="display:none;">🔗 Open in New Tab</a>
-          <button class="btn btn-outline" onclick="AemEdsDashboard.reloadVsCodeFrame()">🔄 Reload Editor</button>
+        </div>
+
+        <div class="card" style="margin:0; padding:14px;">
+          <div class="card-title" style="font-size:0.9rem; margin-bottom:8px;">🖥️ Local Dev Server &amp; Authored Page Comparison</div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+            <button class="btn btn-sm btn-primary" id="btn-aemup-start" onclick="AemEdsDashboard.aemUpControl('start')" style="padding:4px 10px; font-size:0.75rem;">▶ Start aem up</button>
+            <button class="btn btn-sm btn-outline" id="btn-aemup-stop" onclick="AemEdsDashboard.aemUpControl('stop')" style="padding:4px 8px; font-size:0.75rem;">■ Stop</button>
+            <button class="btn btn-sm btn-outline" id="btn-aemup-status" onclick="AemEdsDashboard.aemUpControl('status')" style="padding:4px 8px; font-size:0.75rem;">🔄 Status</button>
+            <span id="badge-aemup-status" class="status-badge" style="font-size:0.75rem; padding:3px 8px;">● Dev server: stopped</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label style="font-size:0.75rem; font-weight:600; color:var(--text-muted); margin:0;">Authored Page / Preview URL (to compare):</label>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <input id="cfg-devserver-page-url" type="text" class="form-control" placeholder="e.g. http://localhost:3000/about-us or /about-us" style="padding:5px 8px; font-size:0.78rem; flex:1;">
+              <button class="btn btn-sm btn-primary" onclick="AemEdsDashboard.runAiCompareFromDevServer()" style="padding:5px 10px; font-size:0.75rem; white-space:nowrap;">🤖 Compare with AEM</button>
+            </div>
+            <div style="font-size:0.74rem; color:var(--text-dim); line-height:1.3;">
+              Reference Rootpath: <code id="devserver-rootpath-display">/content/wknd</code>
+            </div>
+            <div id="devserver-compare-result" style="font-size:0.76rem; color:var(--text-muted);"></div>
+          </div>
         </div>
       </div>
 
-      <div class="card" style="margin-bottom: 20px;">
-        <div class="card-title">npm scripts (GitHub Actions)</div>
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
-          vscode.dev has no terminal. These buttons dispatch Actions on <code>feat/{projectId}</code> and stream logs here. <code>lint:fix</code> commits auto-fixed files back to the same branch; <code>build:json</code> commits regenerated component JSON. <b>Heal CI</b> sanitizes block JSON, registers section filters, then runs both.
+      <!-- Grid 2: Remote Branch & npm scripts -->
+      <div class="card-grid-2" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:16px; margin-bottom:16px;">
+        <div class="card" style="margin:0; padding:14px;">
+          <div class="card-title" style="font-size:0.9rem; margin-bottom:8px;">💻 Remote Branch & VS Code Editor Workspace</div>
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px; line-height:1.4;">
+            Pushed to preview branch first. Review in VS Code, then confirm to open PR.
+          </p>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+            <div style="flex:1; min-width:180px; display:flex; gap:6px; align-items:center;">
+              <label style="font-size:0.78rem; font-weight:600; color:var(--text-muted); white-space:nowrap;">Branch:</label>
+              <input id="github-branch-input" type="text" class="form-control" placeholder="feat/wknd-site" style="padding:5px 8px; font-size:0.8rem;">
+            </div>
+            <button id="btn-push-blocks-tab" class="btn btn-primary" onclick="AemEdsDashboard.pushBlocksAndOpenVsCode()" style="padding:5px 12px; font-size:0.78rem;">🚀 Push Blocks & Open VS Code</button>
+          </div>
+          <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+            <button class="btn btn-outline" onclick="AemEdsDashboard.checkBranchStatus()" style="padding:4px 8px; font-size:0.75rem;">🔎 Check CI & Changes</button>
+            <a id="btn-open-vscode-newtab" href="#" target="_blank" class="btn btn-outline" style="display:none; padding:4px 8px; font-size:0.75rem;">🔗 Open in New Tab</a>
+            <button class="btn btn-outline" onclick="AemEdsDashboard.reloadVsCodeFrame()" style="padding:4px 8px; font-size:0.75rem;">🔄 Reload Editor</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin:0; padding:14px;">
+          <div class="card-title" style="font-size:0.9rem; margin-bottom:8px;">⚙️ npm scripts (GitHub Actions)</div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
+            <button class="btn btn-outline" id="btn-npm-lint" onclick="AemEdsDashboard.runNpmScript('lint:fix')" style="padding:4px 8px; font-size:0.75rem;">▶ lint:fix</button>
+            <button class="btn btn-outline" id="btn-npm-json" onclick="AemEdsDashboard.runNpmScript('build:json')" style="padding:4px 8px; font-size:0.75rem;">▶ build:json</button>
+            <button class="btn btn-outline" id="btn-npm-heal" onclick="AemEdsDashboard.runNpmScript('heal')" style="padding:4px 8px; font-size:0.75rem;">🩹 Heal CI</button>
+          </div>
+          <pre id="npm-log-terminal" class="log-terminal" style="height:110px; padding:8px; font-size:0.75rem; white-space:pre-wrap; margin:0;">No npm run yet. Push the branch first, then click a script above.</pre>
+        </div>
+      </div>
+
+      <!-- Confirm Review & Open Pull Request Unified Card -->
+      <div class="card" style="margin-bottom: 16px; padding: 14px;">
+        <div class="card-title" style="font-size:0.9rem; margin-bottom:6px;">📤 Confirm Review & Open Pull Request</div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+          Review file changes, ensure GitHub Actions CI passes, and verify your component models in VS Code above before opening the official PR.
         </p>
-        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
-          <button class="btn btn-outline" id="btn-npm-lint" onclick="AemEdsDashboard.runNpmScript('lint:fix')">▶ npm run lint:fix</button>
-          <button class="btn btn-outline" id="btn-npm-json" onclick="AemEdsDashboard.runNpmScript('build:json')">▶ npm run build:json</button>
-          <button class="btn btn-outline" id="btn-npm-heal" onclick="AemEdsDashboard.runNpmScript('heal')">Heal CI</button>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; background:rgba(15,23,42,0.4); padding:10px 12px; border-radius:6px; border:1px solid var(--surface-border);">
+          <label style="display:flex; gap:8px; align-items:center; cursor:pointer; font-size:0.84rem; flex:1; min-width:260px;">
+            <input type="checkbox" id="chk-vscode-reviewed" onchange="AemEdsDashboard.onVsCodeReviewToggle()">
+            <span>I have reviewed this branch in VS Code. Enable <b>Create PR</b> to open a Pull Request from this branch (files will not be re-committed).</span>
+          </label>
+          <button id="btn-create-pr" class="btn btn-accent" onclick="AemEdsDashboard.createPullRequest()" style="padding:6px 16px; font-size:0.84rem; white-space:nowrap;" disabled>📤 Open Pull Request</button>
         </div>
-        <pre id="npm-log-terminal" class="log-terminal" style="height:220px; white-space:pre-wrap;">No npm run yet. Push the branch first, then click a script above.</pre>
-      </div>
-
-      <div class="card" style="margin-bottom: 20px;">
-        <div class="card-title">Confirm review</div>
-        <label style="display:flex; gap:10px; align-items:flex-start; cursor:pointer; font-size:0.9rem;">
-          <input type="checkbox" id="chk-vscode-reviewed" onchange="AemEdsDashboard.onVsCodeReviewToggle()" style="margin-top:4px;">
-          <span>I have reviewed this branch in VS Code. Enable <b>Create PR</b> to open a Pull Request from this branch (files will not be re-committed).</span>
-        </label>
+        <div id="github-pr-result" style="margin-top:8px;"></div>
       </div>
 
       <!-- VS Code Embedded Workspace Frame -->
-      <div class="card" style="margin-bottom: 20px; padding: 12px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding: 0 4px;">
+      <div class="card" style="margin-bottom: 16px; padding: 12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding: 0 4px; cursor:pointer; user-select:none;" onclick="AemEdsDashboard.toggleCardCollapse('vscode-frame-container', 'vscode-frame-arrow')">
           <div class="card-title" style="margin:0; font-size:0.95rem;">⚡ VS Code Web Workspace (<span id="vscode-branch-display">feat/wknd-site</span>)</div>
-          <div style="font-size:0.8rem; color:var(--text-muted);" id="vscode-frame-hint">Branch file editor — vscode.dev opens in a new tab</div>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="font-size:0.8rem; color:var(--text-muted);" id="vscode-frame-hint">Branch file editor — vscode.dev opens in a new tab</div>
+            <span id="vscode-frame-arrow" style="font-size:0.85rem; color:var(--text-muted); transition:transform 0.2s ease;">▼</span>
+          </div>
         </div>
-        <div id="vscode-frame-container" style="position:relative; width:100%; height:720px; background:#1e1e1e; border-radius:6px; overflow:hidden; border:1px solid var(--surface-border);">
+        <div id="vscode-frame-container" style="position:relative; width:100%; height:720px; background:#1e1e1e; border-radius:6px; overflow:hidden; border:1px solid var(--surface-border); margin-top:10px;">
           <div id="vscode-placeholder" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:#94a3b8; text-align:center; padding:20px;">
             <div style="font-size:2.5rem; margin-bottom:12px;">💻</div>
             <div style="font-size:1.1rem; font-weight:600; margin-bottom:6px; color:#f1f5f9;">VS Code Web Workspace Ready</div>
@@ -562,16 +589,35 @@
             <button class="btn btn-primary" onclick="AemEdsDashboard.loadVsCodeFrame()">⚡ Load branch workspace</button>
           </div>
           <div id="vscode-workspace" class="ws-layout" style="display:none;">
-            <aside class="ws-sidebar">
-              <div class="ws-tree-title">Branch files</div>
+            <aside class="ws-sidebar" id="ws-sidebar">
+              <div class="ws-tree-title">
+                <span>Branch files</span>
+                <span id="ws-tree-count" style="font-size:0.72rem; color:var(--text-dim); text-transform:none; font-weight:600;"></span>
+              </div>
               <ul id="ws-file-tree"></ul>
             </aside>
+            <div id="ws-resizer" class="ws-resizer" title="Drag to resize panel"></div>
             <div class="ws-main">
               <div class="ws-toolbar">
-                <span id="ws-open-path">Select a file</span>
-                <button type="button" class="btn btn-outline" onclick="AemEdsDashboard.saveWorkspaceFile()">Save to branch</button>
+                <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                  <span id="ws-open-path" style="font-weight:700; color:#f8fafc; font-family:var(--font-mono); font-size:0.84rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Select a file</span>
+                  <span id="ws-open-diff"></span>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center; flex-shrink:0;">
+                  <div class="ws-view-toggle" style="display:inline-flex; background:rgba(15,23,42,0.8); border:1px solid var(--surface-border); border-radius:6px; padding:2px;">
+                    <button type="button" id="btn-ws-mode-diff" class="btn btn-sm active" onclick="AemEdsDashboard.setWsViewMode('diff')" style="padding:4px 10px; font-size:0.75rem; border-radius:4px;">🔀 Diff View</button>
+                    <button type="button" id="btn-ws-mode-edit" class="btn btn-sm btn-outline" onclick="AemEdsDashboard.setWsViewMode('edit')" style="padding:4px 10px; font-size:0.75rem; border-radius:4px; border:none;">📝 Edit Mode</button>
+                  </div>
+                  <button type="button" id="btn-ws-save-open" class="btn btn-primary" onclick="AemEdsDashboard.saveWorkspaceFile()" style="padding:5px 12px; font-size:0.78rem; display:none;">💾 Save</button>
+                  <button type="button" id="btn-ws-delete-open" class="btn btn-danger" onclick="AemEdsDashboard.deleteWorkspaceFile()" style="padding:5px 12px; font-size:0.78rem;">🗑️ Delete File</button>
+                </div>
               </div>
-              <div class="ws-editor-pane">
+              <!-- Diff View Mode (Git line changes) -->
+              <div id="ws-diff-pane" class="ws-diff-pane">
+                <div id="ws-diff-output" class="ws-diff-output"></div>
+              </div>
+              <!-- Edit View Mode -->
+              <div id="ws-editor-pane" class="ws-editor-pane" style="display:none;">
                 <pre id="ws-line-numbers" class="ws-line-numbers" aria-hidden="true">1</pre>
                 <textarea id="ws-editor" class="ws-editor" spellcheck="false" wrap="off" oninput="AemEdsDashboard.syncWsLineNumbers()" onscroll="AemEdsDashboard.syncWsLineScroll()"></textarea>
               </div>
@@ -580,18 +626,15 @@
         </div>
       </div>
 
-      <!-- Branch Changes & CI Status Card -->
+      <!-- Branch Changes & CI Status Card with Expand/Minimise Accordion Arrow -->
       <div class="card" style="margin-bottom: 20px;">
-        <div class="card-title">🔍 Branch File Changes & CI Build Status</div>
-        <div id="github-status-result" style="font-size:0.88rem; color:var(--text-muted);">No branch checked yet. Click "Check CI & Changed Files" above.</div>
-      </div>
-
-      <!-- Pull Request Card -->
-      <div class="card">
-        <div class="card-title">📤 Pull Request</div>
-        <p style="color:var(--text-muted); font-size:0.85rem;">Review file changes, ensure GitHub Actions CI passes, and verify your component models in VS Code above before opening the official PR.</p>
-        <button id="btn-create-pr" class="btn btn-accent" onclick="AemEdsDashboard.createPullRequest()">📤 Open Pull Request</button>
-        <div id="github-pr-result" style="margin-top:10px;"></div>
+        <div class="card-title" onclick="AemEdsDashboard.toggleCardCollapse('github-status-body', 'github-status-arrow')" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; user-select:none; margin:0;">
+          <span>🔍 Branch File Changes & CI Build Status</span>
+          <span id="github-status-arrow" style="font-size:0.85rem; color:var(--text-muted); transition:transform 0.2s ease;">▼</span>
+        </div>
+        <div id="github-status-body" style="display:block; margin-top:12px;">
+          <div id="github-status-result" style="font-size:0.88rem; color:var(--text-muted);">No branch checked yet. Click "Check CI & Changed Files" above.</div>
+        </div>
       </div>
     </div>
 

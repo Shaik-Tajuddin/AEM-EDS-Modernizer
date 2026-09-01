@@ -178,7 +178,8 @@ public class LocalEdsRepoManager {
         }
         try {
             run(repoDir, Duration.ofMinutes(10), "npm", "install");
-            ProcessBuilder pb = new ProcessBuilder("npx", "@adobe/aem-cli", "up", "--port", "3000");
+            String[] cmd = prepareCommand("npx", "@adobe/aem-cli", "up", "--port", "3000", "--no-open");
+            ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.directory(repoDir);
             pb.redirectErrorStream(true);
             pb.redirectOutput(ProcessBuilder.Redirect.to(new File(repoDir, "aem-up.log")));
@@ -186,7 +187,7 @@ public class LocalEdsRepoManager {
             devServers.put(projectId, proc);
             status.put("status", "STARTED");
             status.put("url", "http://localhost:3000");
-            LOG.info("[LocalEdsRepo] aem up started for {} in {}", projectId, repoDir);
+            LOG.info("[LocalEdsRepo] aem up started for {} in {} with cmd {}", projectId, repoDir, Arrays.toString(cmd));
         } catch (Exception e) {
             LOG.warn("[LocalEdsRepo] aem up failed: {}", e.getMessage());
             status.put("status", "ERROR");
@@ -245,16 +246,33 @@ public class LocalEdsRepoManager {
         }
     }
 
+    private String[] prepareCommand(String... command) {
+        if (command == null || command.length == 0) return command;
+        boolean isWindows = System.getProperty("os.name", "").toLowerCase().contains("win");
+        if (isWindows) {
+            String exe = command[0].toLowerCase();
+            if ("npm".equals(exe) || "npx".equals(exe) || "aem".equals(exe) || "git".equals(exe)) {
+                List<String> list = new ArrayList<>();
+                list.add("cmd.exe");
+                list.add("/c");
+                list.addAll(Arrays.asList(command));
+                return list.toArray(new String[0]);
+            }
+        }
+        return command;
+    }
+
     private boolean run(File dir, Duration timeout, String... command) {
         try {
-            ProcessBuilder pb = new ProcessBuilder(command);
+            String[] cmd = prepareCommand(command);
+            ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.directory(dir);
             pb.redirectErrorStream(true);
             pb.redirectOutput(ProcessBuilder.Redirect.to(new File(dir, ".modernizer-last-cmd.log")));
             Process p = pb.start();
             if (!p.waitFor(timeout.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS)) {
                 p.destroyForcibly();
-                LOG.warn("[LocalEdsRepo] Command timed out: {}", String.join(" ", command));
+                LOG.warn("[LocalEdsRepo] Command timed out: {}", String.join(" ", cmd));
                 return false;
             }
             return p.exitValue() == 0;
@@ -266,7 +284,8 @@ public class LocalEdsRepoManager {
 
     private String runCapture(File dir, Duration timeout, String... command) {
         try {
-            ProcessBuilder pb = new ProcessBuilder(command);
+            String[] cmd = prepareCommand(command);
+            ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.directory(dir);
             pb.redirectErrorStream(true);
             Process p = pb.start();
