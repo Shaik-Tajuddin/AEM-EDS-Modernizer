@@ -535,7 +535,7 @@
               <label style="font-size:0.78rem; font-weight:600; color:var(--text-muted); white-space:nowrap;">Branch:</label>
               <input id="github-branch-input" type="text" class="form-control" placeholder="feat/wknd-site" style="padding:5px 8px; font-size:0.8rem;">
             </div>
-            <button id="btn-push-blocks-tab" class="btn btn-primary" onclick="AemEdsDashboard.pushBlocksAndOpenVsCode()" style="padding:5px 12px; font-size:0.78rem;">🚀 Push Blocks & Open VS Code</button>
+            <button id="btn-push-blocks-tab" class="btn btn-primary" onclick="AemEdsDashboard.pushBlocksAndOpenVsCode()" style="padding:5px 12px; font-size:0.78rem;">🚀 Commit, Push Blocks & Open VS Code</button>
           </div>
           <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
             <button class="btn btn-outline" onclick="AemEdsDashboard.checkBranchStatus()" style="padding:4px 8px; font-size:0.75rem;">🔎 Check CI & Changes</button>
@@ -591,9 +591,16 @@
           </div>
           <div id="vscode-workspace" class="ws-layout" style="display:none;">
             <aside class="ws-sidebar" id="ws-sidebar">
-              <div class="ws-tree-title">
-                <span>Branch files</span>
-                <span id="ws-tree-count" style="font-size:0.72rem; color:var(--text-dim); text-transform:none; font-weight:600;"></span>
+              <div class="ws-tree-title" style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                <div style="display:flex; align-items:center; gap:6px; min-width:0;">
+                  <input type="checkbox" id="ws-select-all-chk" onchange="AemEdsDashboard.toggleSelectAllWorkspaceFiles()" title="Select all files" style="cursor:pointer; accent-color:var(--accent); margin:0;">
+                  <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Branch files</span>
+                  <span id="ws-tree-count" style="font-size:0.72rem; color:var(--text-dim); text-transform:none; font-weight:600;"></span>
+                </div>
+                <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+                  <button type="button" id="btn-ws-new-file" class="btn btn-outline btn-sm" onclick="AemEdsDashboard.createNewWorkspaceFilePrompt()" style="padding:2px 8px; font-size:0.72rem; border-radius:4px; white-space:nowrap;" title="Create a new file in workspace">➕ New File</button>
+                  <button type="button" id="btn-ws-delete-selected" class="btn btn-danger btn-sm" onclick="AemEdsDashboard.deleteSelectedWorkspaceFiles()" style="display:none; padding:2px 8px; font-size:0.72rem; border-radius:4px; white-space:nowrap;" title="Delete selected files">🗑️ Delete (<span id="ws-selected-count">0</span>)</button>
+                </div>
               </div>
               <ul id="ws-file-tree"></ul>
             </aside>
@@ -610,6 +617,7 @@
                     <button type="button" id="btn-ws-mode-edit" class="btn btn-sm btn-outline" onclick="AemEdsDashboard.setWsViewMode('edit')" style="padding:4px 10px; font-size:0.75rem; border-radius:4px; border:none;">📝 Edit Mode</button>
                   </div>
                   <button type="button" id="btn-ws-save-open" class="btn btn-primary" onclick="AemEdsDashboard.saveWorkspaceFile()" style="padding:5px 12px; font-size:0.78rem; display:none;">💾 Save</button>
+                  <button type="button" id="btn-ws-commit-push" class="btn btn-accent" onclick="AemEdsDashboard.pushBlocksAndOpenVsCode()" style="padding:5px 12px; font-size:0.78rem;" title="Commit and push all workspace changes or selected files to branch">🚀 Commit & Push</button>
                   <button type="button" id="btn-ws-delete-open" class="btn btn-danger" onclick="AemEdsDashboard.deleteWorkspaceFile()" style="padding:5px 12px; font-size:0.78rem;">🗑️ Delete File</button>
                 </div>
               </div>

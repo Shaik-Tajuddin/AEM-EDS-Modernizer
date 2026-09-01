@@ -481,17 +481,21 @@ function applyPreviewBranch(branch) {
   if (branchDisplay) branchDisplay.innerText = name;
 }
 
-async function previewToBranch() {
+async function previewToBranch(paths) {
   resetVsCodeReviewGate();
   setPipelineStep("validate", "done");
   setPipelineStep("vscode", "active");
   applyPreviewBranch(featureBranchName());
+  const isSelective = paths && Array.isArray(paths) && paths.length > 0;
   log(
     "preview",
-    `Pushing generated files to branch '${featureBranchName()}' (no PR)...`,
+    isSelective
+      ? `Committing and pushing ${paths.length} selected files to branch '${featureBranchName()}'...`
+      : `Committing and pushing all generated files to branch '${featureBranchName()}' (no PR)...`,
   );
   const response = await api(`projects/${currentProjectId}/preview`, {
     method: "POST",
+    body: isSelective ? JSON.stringify({ paths, branch: featureBranchName() }) : undefined,
   });
   // New envelope: { job, healing, prReady }; legacy: bare job
   const job = response.job || response;
@@ -695,16 +699,8 @@ async function runMigration() {
     await refreshDashboard();
 
     showTab("components");
-    showToast("Blocks generated. Pushing preview branch for VS Code review...");
-    try {
-      await previewToBranch();
-    } catch (previewErr) {
-      log("error", `Preview push failed: ${previewErr.message}`);
-      showTab("github");
-      showToast(
-        "Generate succeeded but branch push failed. Use Push Blocks & Open VS Code to retry.",
-      );
-    }
+    applyPreviewBranch(featureBranchName());
+    showToast("Blocks generated successfully! Review in Components Inspector or go to VS Code & GitHub to commit.");
   } catch (err) {
     log("error", `Generation failed: ${err.message}`);
   } finally {
@@ -908,6 +904,13 @@ async function loadWorkspaceFiles(branch) {
   const countEl = document.getElementById("ws-tree-count");
   if (!tree) return;
   tree.innerHTML = '<li class="ws-tree-empty">Loading files…</li>';
+  const chkAll = document.getElementById("ws-select-all-chk");
+  if (chkAll) { chkAll.checked = false; chkAll.indeterminate = false; }
+  const btnDelSel = document.getElementById("btn-ws-delete-selected");
+  if (btnDelSel) btnDelSel.style.display = "none";
+  const countSel = document.getElementById("ws-selected-count");
+  if (countSel) countSel.textContent = "0";
+
   try {
     const data = await api(`projects/${currentProjectId}/workspace`, {
       method: "POST",
@@ -936,11 +939,16 @@ async function loadWorkspaceFiles(branch) {
           + `<span style="color:#22c55e; font-weight:700;">+${add}</span>`
           + `<span style="color:#ef4444; font-weight:700;">-${del}</span>`
           + `</span>`;
-        return `<li class="ws-file-row"><button type="button" class="ws-file-btn" data-path="${safe}"><span class="ws-file-name" title="${safe}">${safe}</span>${diffBadge}</button><button type="button" class="ws-file-del" data-path="${safe}" title="Delete ${safe} from branch">🗑️ Del</button></li>`;
+        return `<li class="ws-file-row"><input type="checkbox" class="ws-file-chk" data-path="${safe}" style="cursor:pointer; margin:0 2px 0 2px; accent-color:var(--accent); flex-shrink:0;"><button type="button" class="ws-file-btn" data-path="${safe}"><span class="ws-file-name" title="${safe}">${safe}</span>${diffBadge}</button><button type="button" class="ws-file-del" data-path="${safe}" title="Delete ${safe} from branch">🗑️ Del</button></li>`;
       })
       .join("");
     if (!tree.dataset.bound) {
       tree.dataset.bound = "1";
+      tree.addEventListener("change", (ev) => {
+        if (ev.target && ev.target.classList.contains("ws-file-chk")) {
+          onWorkspaceFileCheckboxChange();
+        }
+      });
       tree.addEventListener("click", (ev) => {
         const del = ev.target.closest(".ws-file-del");
         const open = ev.target.closest(".ws-file-btn");
@@ -1111,6 +1119,54 @@ function computeLineDiff(a, b) {
   return trace;
 }
 
+function createNewWorkspaceFilePrompt() {
+  const relPath = window.prompt(
+    "Enter new file path (e.g. blocks/cards/cards.js, styles/custom.css, or component-models.json):",
+    "blocks/new-block/new-block.js",
+  );
+  if (!relPath || !relPath.trim()) return;
+  const cleanPath = relPath.trim().replace(/^\/+/, "");
+  if (cleanPath === "fstab.yaml") {
+    showToast("fstab.yaml is not managed here.");
+    return;
+  }
+  const exists = workspaceFilesCache.find((f) => f.path === cleanPath);
+  if (exists) {
+    openWorkspaceFile(cleanPath);
+    showToast("Opened existing file " + cleanPath);
+    return;
+  }
+  let starter = "";
+  if (cleanPath.endsWith(".js")) {
+    starter = "export default function decorate(block) {\n  // Block decoration logic\n}\n";
+  } else if (cleanPath.endsWith(".css")) {
+    const blockName = cleanPath.replace(/^.*\/|\.[^.]+$/g, "");
+    starter = `/* Scoped styling for ${blockName} */\n.${blockName} {\n  display: block;\n}\n`;
+  } else if (cleanPath.endsWith(".json")) {
+    starter = "{\n  \n}\n";
+  } else if (cleanPath.endsWith(".md")) {
+    starter = "# New Page / Section\n\nContent goes here.\n";
+  } else if (cleanPath.endsWith(".html")) {
+    starter = "<div>\n  <p>Example markup</p>\n</div>\n";
+  } else if (cleanPath.endsWith(".yaml") || cleanPath.endsWith(".yml")) {
+    starter = "version: 1\n";
+  }
+
+  workspaceOpenPath = cleanPath;
+  workspaceCurrentBaseContent = "";
+  const editor = document.getElementById("ws-editor");
+  const label = document.getElementById("ws-open-path");
+  const diffLabel = document.getElementById("ws-open-diff");
+  if (editor) editor.value = starter;
+  if (label) label.textContent = cleanPath + " (New)";
+  if (diffLabel) {
+    diffLabel.innerHTML = '<span class="ws-diff-stat" style="color:#22c55e; font-weight:700;">NEW</span>';
+  }
+  setWsViewMode("edit");
+  syncWsLineNumbers();
+  showToast("Ready to edit " + cleanPath + ". Click 💾 Save to write to workspace.");
+}
+
 async function saveWorkspaceFile() {
   const input = document.getElementById("github-branch-input");
   const branch = (input && input.value.trim()) || `feat/${currentProjectId}`;
@@ -1135,8 +1191,8 @@ async function saveWorkspaceFile() {
     }
     renderGitDiff(workspaceCurrentBaseContent, editor.value, workspaceOpenPath);
     syncWsLineNumbers();
-    showToast("Committed " + workspaceOpenPath + " on " + branch);
-    log("workspace", `Saved ${workspaceOpenPath} on branch ${branch}`);
+    showToast("Saved " + workspaceOpenPath + " to workspace (Ready to commit)");
+    log("workspace", `Saved ${workspaceOpenPath} locally in workspace`);
     loadWorkspaceFiles(branch);
   } catch (err) {
     showToast("Save failed: " + err.message);
@@ -1146,11 +1202,96 @@ async function saveWorkspaceFile() {
   }
 }
 
+function onWorkspaceFileCheckboxChange() {
+  const checkboxes = Array.from(document.querySelectorAll(".ws-file-chk"));
+  const checked = checkboxes.filter((c) => c.checked);
+  const countEl = document.getElementById("ws-selected-count");
+  const btnDelSel = document.getElementById("btn-ws-delete-selected");
+  const chkAll = document.getElementById("ws-select-all-chk");
+  if (countEl) countEl.textContent = String(checked.length);
+  if (btnDelSel) {
+    btnDelSel.style.display = checked.length > 0 ? "inline-flex" : "none";
+  }
+  if (chkAll) {
+    if (checked.length === 0) {
+      chkAll.checked = false;
+      chkAll.indeterminate = false;
+    } else if (checked.length === checkboxes.length) {
+      chkAll.checked = true;
+      chkAll.indeterminate = false;
+    } else {
+      chkAll.checked = false;
+      chkAll.indeterminate = true;
+    }
+  }
+}
+
+function toggleSelectAllWorkspaceFiles() {
+  const chkAll = document.getElementById("ws-select-all-chk");
+  const shouldCheck = !!(chkAll && chkAll.checked);
+  document.querySelectorAll(".ws-file-chk").forEach((c) => {
+    c.checked = shouldCheck;
+  });
+  onWorkspaceFileCheckboxChange();
+}
+
+async function deleteSelectedWorkspaceFiles() {
+  const input = document.getElementById("github-branch-input");
+  const branch = (input && input.value.trim()) || `feat/${currentProjectId}`;
+  const checkboxes = Array.from(document.querySelectorAll(".ws-file-chk:checked"));
+  const paths = checkboxes.map((c) => c.dataset.path).filter(Boolean);
+  if (!paths.length) {
+    showToast("No files selected.");
+    return;
+  }
+  if (
+    !window.confirm(
+      `Delete ${paths.length} selected files from ${branch}?\n\n` +
+        paths.slice(0, 5).join("\n") +
+        (paths.length > 5 ? `\n...and ${paths.length - 5} more` : "") +
+        "\n\nThis will remove them from the workspace and branch.",
+    )
+  ) {
+    return;
+  }
+  const btnDelSel = document.getElementById("btn-ws-delete-selected");
+  if (btnDelSel) { btnDelSel.disabled = true; btnDelSel.textContent = "Deleting…"; }
+  try {
+    await api(`projects/${currentProjectId}/workspace/delete`, {
+      method: "POST",
+      body: JSON.stringify({ branch, paths }),
+    });
+    if (paths.includes(workspaceOpenPath)) {
+      workspaceOpenPath = "";
+      const editor = document.getElementById("ws-editor");
+      const label = document.getElementById("ws-open-path");
+      if (editor) editor.value = "";
+      if (label) label.textContent = "Select a file";
+      syncWsLineNumbers();
+    }
+    showToast(`Deleted ${paths.length} files from ${branch}`);
+    log("workspace", `Deleted ${paths.length} files from branch ${branch}: ${paths.join(", ")}`);
+    await loadWorkspaceFiles(branch);
+  } catch (err) {
+    showToast("Delete failed: " + err.message);
+    log("error", `Multi-file delete failed: ${err.message}`);
+  } finally {
+    if (btnDelSel) {
+      btnDelSel.disabled = false;
+      btnDelSel.textContent = `🗑️ Delete (${document.querySelectorAll(".ws-file-chk:checked").length})`;
+    }
+  }
+}
+
 async function deleteWorkspaceFile(path) {
   const input = document.getElementById("github-branch-input");
   const branch = (input && input.value.trim()) || `feat/${currentProjectId}`;
   const target = path || workspaceOpenPath;
   if (!target) {
+    const checked = Array.from(document.querySelectorAll(".ws-file-chk:checked"));
+    if (checked.length > 0) {
+      return deleteSelectedWorkspaceFiles();
+    }
     showToast("Select a file first.");
     return;
   }
@@ -1183,15 +1324,25 @@ async function deleteWorkspaceFile(path) {
 
 async function pushBlocksAndOpenVsCode() {
   const btn = document.getElementById("btn-push-blocks-tab");
+  const btnWs = document.getElementById("btn-ws-commit-push");
   if (btn) btn.disabled = true;
-  showToast("Pushing generated blocks to branch...");
+  if (btnWs) btnWs.disabled = true;
+  const checked = Array.from(document.querySelectorAll(".ws-file-chk:checked"));
+  const selectedPaths = checked.map((c) => c.dataset.path).filter(Boolean);
+  const msg = selectedPaths.length > 0
+    ? `Committing and pushing ${selectedPaths.length} selected files to branch...`
+    : "Committing and pushing workspace files to branch...";
+  showToast(msg);
   try {
-    await previewToBranch();
-    showToast("Blocks pushed to branch and VS Code workspace loaded.");
+    await previewToBranch(selectedPaths.length > 0 ? selectedPaths : undefined);
+    showToast(selectedPaths.length > 0
+      ? `✅ Committed & pushed ${selectedPaths.length} files to branch!`
+      : "✅ Committed & pushed workspace blocks to branch!");
   } catch (err) {
-    showToast("Push failed: " + err.message);
+    showToast("Commit & push failed: " + err.message);
   } finally {
     if (btn) btn.disabled = false;
+    if (btnWs) btnWs.disabled = false;
   }
 }
 
@@ -2757,8 +2908,12 @@ window.AemEdsDashboard = {
     reloadVsCodeFrame,
     loadVsCodeFrame,
     setWsViewMode,
+    createNewWorkspaceFilePrompt,
     saveWorkspaceFile,
     deleteWorkspaceFile,
+    deleteSelectedWorkspaceFiles,
+    toggleSelectAllWorkspaceFiles,
+    onWorkspaceFileCheckboxChange,
     onVsCodeReviewToggle,
     runNpmScript,
     aemUpControl,

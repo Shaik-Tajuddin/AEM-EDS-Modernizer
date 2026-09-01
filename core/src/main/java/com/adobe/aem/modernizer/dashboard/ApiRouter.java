@@ -176,9 +176,30 @@ public class ApiRouter {
                     }
                     if ("preview".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
                         ProjectRecord p = getOrCreateStubProject(projectId);
+                        Map<?, ?> payload = (body != null && !body.trim().isEmpty())
+                                ? JsonUtil.fromJson(body, Map.class) : null;
+                        List<String> selectivePaths = null;
+                        if (payload != null && payload.get("paths") instanceof List) {
+                            selectivePaths = new ArrayList<>();
+                            for (Object item : (List<?>) payload.get("paths")) {
+                                if (item != null && !item.toString().trim().isEmpty()) {
+                                    selectivePaths.add(item.toString().trim());
+                                }
+                            }
+                        }
+                        String customBranch = payload != null ? Objects.toString(payload.get("branch"), "").trim() : "";
+                        if (!customBranch.isEmpty() && p != null) {
+                            p.setEdsBranch(customBranch);
+                        }
+
                         // Pre-PR healing: checkout feature branch, prune duplicates, lint+build, push
                         Map<String, Object> healing = runLocalHealing(p);
-                        JobRecord job = (orchestrator != null) ? orchestrator.pushToPreviewBranch(p, "admin") : new JobRecord("job-mock", projectId, "PREVIEW");
+                        JobRecord job;
+                        if (selectivePaths != null && !selectivePaths.isEmpty()) {
+                            job = pushSelectiveFilesToBranch(p, selectivePaths, "admin");
+                        } else {
+                            job = (orchestrator != null) ? orchestrator.pushToPreviewBranch(p, "admin") : new JobRecord("job-mock", projectId, "PREVIEW");
+                        }
                         boolean ok = Boolean.TRUE.equals(healing.get("ok")) || "OK".equals(healing.get("checkout")) || (job != null && job.getMetadata() != null && job.getMetadata().containsKey("previewUrl"));
                         if (job != null) {
                             Map<String, Object> meta = job.getMetadata() != null ? new LinkedHashMap<>(job.getMetadata()) : new LinkedHashMap<>();
@@ -981,6 +1002,36 @@ public class ApiRouter {
         return list;
     }
 
+    private void scanDirectoryPaths(File dir, String prefix, Set<String> paths) {
+        File[] children = dir.listFiles();
+        if (children == null) return;
+        for (File f : children) {
+            String rel = prefix.isEmpty() ? f.getName() : prefix + "/" + f.getName();
+            if (f.isDirectory()) {
+                if (!f.getName().startsWith(".")) {
+                    scanDirectoryPaths(f, rel, paths);
+                }
+            } else if (f.isFile() && !GitHubFlow.skipFromCommit(rel)) {
+                paths.add(rel);
+            }
+        }
+    }
+
+    private boolean isGeneratedOrBlockPath(String path) {
+        if (path == null || GitHubFlow.skipFromCommit(path)) {
+            return false;
+        }
+        return path.startsWith("blocks/")
+                || path.startsWith("docs/")
+                || path.endsWith(".md")
+                || path.equals("component-models.json")
+                || path.equals("component-definition.json")
+                || path.equals("component-filters.json")
+                || path.equals("helix-query.yaml")
+                || path.equals("helix-sitemap.yaml")
+                || path.equals("fstab.yaml");
+    }
+
     private GitHubClient clientFor(ProjectRecord project) {
         return GitHubFlow.clientFor(gitHubClient, project);
     }
@@ -1011,46 +1062,77 @@ public class ApiRouter {
             try {
                 for (Map<String, Object> changed : client.listChangedFiles(base, branch)) {
                     Object name = changed.get("filename");
-                    Object status = changed.get("status");
-                    if (name != null && !GitHubFlow.skipFromCommit(String.valueOf(name))) {
+                    if (name != null) {
                         String fn = String.valueOf(name);
                         changedMap.put(fn, changed);
-                        if (!"removed".equalsIgnoreCase(String.valueOf(status))) {
-                            paths.add(fn);
-                        }
                     }
                 }
             } catch (RuntimeException e) {
                 LOG.warn("[Workspace] listChangedFiles failed: {}", e.getMessage());
             }
         }
+
+        // 1. Gather all Modernizer generated files from Store (Block quad, models, Markdown)
         if (store != null) {
-            store.getLatestJob(projectId).ifPresent(job -> {
-                for (GeneratedFileRecord file : store.getGeneratedFiles(job.getId())) {
-                    if (file.getPath() != null && !GitHubFlow.skipFromCommit(file.getPath())) {
+            for (JobRecord j : store.listJobs(projectId)) {
+                for (GeneratedFileRecord file : store.getGeneratedFiles(j.getId())) {
+                    if (file.getPath() != null && isGeneratedOrBlockPath(file.getPath())) {
                         Map<String, Object> remoteStat = changedMap.get(file.getPath());
                         if (remoteStat == null || !"removed".equalsIgnoreCase(String.valueOf(remoteStat.get("status")))) {
                             paths.add(file.getPath());
                         }
                     }
                 }
-            });
-        }
-        if (paths.isEmpty() && client != null) {
-            try {
-                List<String> list = client.listFilePaths(branch, "");
-                for (String p : list) {
-                    if (!GitHubFlow.skipFromCommit(p)) paths.add(p);
-                }
-            } catch (Exception e) {
-                LOG.debug("[Workspace] listFilePaths failed: {}", e.getMessage());
             }
         }
+
+        // 2. Gather all project generated block files (blocks/*/*)
+        for (GeneratedFileRecord bf : scanLocalBlockFiles(projectId)) {
+            if (bf.getPath() != null && isGeneratedOrBlockPath(bf.getPath())) {
+                paths.add(bf.getPath());
+            }
+        }
+
+        // 3. Gather project-specific generated config files if present in eds/<projectId>/
+        if (localEdsRepo != null) {
+            try {
+                File dir = localEdsRepo.edsRepoDir(projectId);
+                if (dir != null && dir.exists() && dir.isDirectory()) {
+                    String[] configFiles = new String[] {
+                        "component-models.json",
+                        "component-definition.json",
+                        "component-filters.json",
+                        "helix-query.yaml",
+                        "helix-sitemap.yaml"
+                    };
+                    for (String cf : configFiles) {
+                        File f = new File(dir, cf);
+                        if (f.exists() && f.isFile()) {
+                            paths.add(cf);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                LOG.debug("[Workspace] config scan failed: {}", e.getMessage());
+            }
+        }
+
+        // 4. Include any remote changed files on the branch that match generated block/markdown/config paths
+        if (!changedMap.isEmpty()) {
+            for (Map.Entry<String, Map<String, Object>> entry : changedMap.entrySet()) {
+                String p = entry.getKey();
+                Object status = entry.getValue() != null ? entry.getValue().get("status") : null;
+                if (!"removed".equalsIgnoreCase(String.valueOf(status)) && isGeneratedOrBlockPath(p)) {
+                    paths.add(p);
+                }
+            }
+        }
+
         List<Map<String, Object>> files = new ArrayList<>();
         for (String path : paths) {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("path", path);
-            row.put("type", path.endsWith(".css") ? "BLOCK_CSS" : path.endsWith(".md") ? "SECTION_MD" : "BLOCK_JS");
+            row.put("type", path.endsWith(".css") ? "BLOCK_CSS" : path.endsWith(".md") ? "SECTION_MD" : path.endsWith(".json") ? "BLOCK_MODEL_JSON" : "BLOCK_JS");
             Map<String, Object> stat = changedMap.get(path);
             if (stat != null) {
                 row.put("status", stat.getOrDefault("status", "modified"));
@@ -1152,11 +1234,11 @@ public class ApiRouter {
             if (resp != null) resp.setStatus(400);
             return "{\"error\":\"Missing required fields: branch, path, content\"}";
         }
+        boolean commitNow = payload != null && Boolean.parseBoolean(Objects.toString(payload.get("commitNow"), "false"));
         if (GitHubFlow.skipFromCommit(path)) {
             if (resp != null) resp.setStatus(400);
             return "{\"error\":\"fstab.yaml is not edited by Modernizer\"}";
         }
-        GitHubClient client = clientFor(project);
         GeneratedFileRecord file = new GeneratedFileRecord(
                 UUID.randomUUID().toString(),
                 projectId,
@@ -1165,15 +1247,6 @@ public class ApiRouter {
                 path.endsWith(".css") ? "BLOCK_CSS" : path.endsWith(".md") ? "SECTION_MD" : "BLOCK_JS",
                 content
         );
-        boolean remoteCommitted = false;
-        if (client != null) {
-            try {
-                client.commitFiles(branch, List.of(file), "chore: dashboard workspace edit " + path);
-                remoteCommitted = true;
-            } catch (Exception e) {
-                LOG.warn("Remote GitHub commit failed for {}: {}", path, e.getMessage());
-            }
-        }
         if (store != null) {
             store.saveGeneratedFile(file);
         }
@@ -1186,21 +1259,93 @@ public class ApiRouter {
                 LOG.debug("Could not write file to local EDS repo {}: {}", path, e.getMessage());
             }
         }
-        String refreshed = null;
-        if (client != null) {
+        boolean remoteCommitted = false;
+        if (commitNow) {
             try {
-                refreshed = client.getFileContent(branch, path);
+                GitHubClient client = clientFor(project);
+                if (client != null) {
+                    client.commitFiles(branch, List.of(file), "chore: dashboard workspace edit " + path);
+                    remoteCommitted = true;
+                }
             } catch (Exception e) {
-                refreshed = content;
+                LOG.warn("Remote GitHub commit failed for {}: {}", path, e.getMessage());
             }
         }
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("ok", true);
         result.put("path", path);
         result.put("branch", branch);
-        result.put("content", refreshed != null ? refreshed : content);
+        result.put("content", content);
         result.put("committed", remoteCommitted);
         return JsonUtil.toJson(result);
+    }
+
+    private JobRecord pushSelectiveFilesToBranch(ProjectRecord project, List<String> paths, String actor) {
+        JobRecord job = (store != null) ? store.getLatestJob(project.getId()).orElse(null) : null;
+        if (job == null) {
+            job = new JobRecord(UUID.randomUUID().toString(), project.getId(), "PREVIEW");
+        }
+        String branch = GitHubFlow.featureBranch(project.getId());
+        if (project.getEdsBranch() != null && !project.getEdsBranch().isBlank()) {
+            branch = project.getEdsBranch();
+        }
+        GitHubClient client = null;
+        try {
+            client = clientFor(project);
+        } catch (Exception e) {
+            LOG.debug("Could not get GitHub client for selective push: {}", e.getMessage());
+        }
+
+        List<GeneratedFileRecord> toCommit = new ArrayList<>();
+        if (store != null) {
+            List<GeneratedFileRecord> allFiles = store.getGeneratedFiles(job.getId());
+            if (allFiles.isEmpty()) {
+                for (JobRecord j : store.listJobs(project.getId())) {
+                    List<GeneratedFileRecord> jf = store.getGeneratedFiles(j.getId());
+                    if (jf != null && !jf.isEmpty()) {
+                        allFiles = jf;
+                        break;
+                    }
+                }
+            }
+            for (GeneratedFileRecord f : allFiles) {
+                if (paths.contains(f.getPath()) && !GitHubFlow.skipFromCommit(f.getPath())) {
+                    toCommit.add(f);
+                }
+            }
+        }
+        // Also check if any files on disk in eds/<projectId>/ are in paths but not in store
+        if (localEdsRepo != null) {
+            for (String p : paths) {
+                boolean alreadyIn = toCommit.stream().anyMatch(f -> f.getPath().equals(p));
+                if (!alreadyIn) {
+                    try {
+                        File diskFile = new File(localEdsRepo.edsRepoDir(project.getId()), p);
+                        if (diskFile.exists() && diskFile.isFile()) {
+                            String content = java.nio.file.Files.readString(diskFile.toPath(), java.nio.charset.StandardCharsets.UTF_8);
+                            toCommit.add(new GeneratedFileRecord(UUID.randomUUID().toString(), project.getId(), job.getId(), p, "WORKSPACE_FILE", content));
+                        }
+                    } catch (Exception e) {
+                        LOG.debug("Could not read disk file {}: {}", p, e.getMessage());
+                    }
+                }
+            }
+        }
+
+        if (client != null && !toCommit.isEmpty()) {
+            client.createBranch(branch);
+            client.commitFiles(branch, toCommit, "feat: modernizer selective commit (" + toCommit.size() + " files)");
+        }
+
+        Map<String, Object> meta = job.getMetadata() != null ? new LinkedHashMap<>(job.getMetadata()) : new LinkedHashMap<>();
+        meta.put("branch", branch);
+        meta.put("committedFilesCount", toCommit.size());
+        meta.put("vscodeUrl", GitHubFlow.vscodeUrl(project.getEdsGitRepoUrl(), branch));
+        job.setMetadata(meta);
+        if (store != null) {
+            store.saveJob(job);
+        }
+        return job;
     }
 
     private String handleWorkspaceDelete(String projectId, String body, HttpServletResponse resp) {
@@ -1209,53 +1354,71 @@ public class ApiRouter {
             if (resp != null) resp.setStatus(404);
             return "{\"error\":\"Project not found\"}";
         }
-        if (gitHubClient == null) {
-            if (resp != null) resp.setStatus(503);
-            return "{\"error\":\"GitHub client not available\"}";
-        }
         Map<?, ?> payload = (body != null && !body.trim().isEmpty())
                 ? JsonUtil.fromJson(body, Map.class) : null;
         String branch = payload != null ? Objects.toString(payload.get("branch"), "").trim() : "";
-        String path = payload != null ? Objects.toString(payload.get("path"), "").trim() : "";
-        if (branch.isEmpty() || path.isEmpty()) {
-            if (resp != null) resp.setStatus(400);
-            return "{\"error\":\"Missing required fields: branch, path\"}";
-        }
-        if (GitHubFlow.skipFromCommit(path)) {
-            if (resp != null) resp.setStatus(400);
-            return "{\"error\":\"fstab.yaml is not edited by Modernizer\"}";
-        }
-
-        // 1. Delete locally from eds/<projectId>/
-        if (localEdsRepo != null) {
-            try {
-                localEdsRepo.deleteProjectFile(projectId, path);
-            } catch (Exception e) {
-                LOG.debug("Could not delete local file {}: {}", path, e.getMessage());
+        List<String> paths = new ArrayList<>();
+        if (payload != null) {
+            if (payload.get("paths") instanceof List) {
+                for (Object item : (List<?>) payload.get("paths")) {
+                    if (item != null && !item.toString().trim().isEmpty()) {
+                        paths.add(item.toString().trim());
+                    }
+                }
+            } else if (payload.get("path") != null && !payload.get("path").toString().trim().isEmpty()) {
+                paths.add(payload.get("path").toString().trim());
             }
         }
-
-        // 2. Delete from store job records if present
-        if (store != null) {
-            store.getLatestJob(projectId).ifPresent(j -> {
-                store.deleteGeneratedFile(j.getId(), path);
-            });
+        if (branch.isEmpty() || paths.isEmpty()) {
+            if (resp != null) resp.setStatus(400);
+            return "{\"error\":\"Missing required fields: branch, path (or paths)\"}";
         }
 
-        // 3. Delete from GitHub branch if GitHub client available
+        List<String> deletedList = new ArrayList<>();
+        GitHubClient client = null;
         try {
-            GitHubClient client = clientFor(project);
-            if (client != null) {
-                client.deleteFile(branch, path);
-            }
+            client = clientFor(project);
         } catch (Exception e) {
-            LOG.warn("GitHub delete for '{}' on '{}' failed or skipped: {}", path, branch, e.getMessage());
+            LOG.debug("Could not get GitHub client for deletion: {}", e.getMessage());
+        }
+
+        for (String path : paths) {
+            if (GitHubFlow.skipFromCommit(path)) {
+                continue;
+            }
+
+            // 1. Delete locally from eds/<projectId>/
+            if (localEdsRepo != null) {
+                try {
+                    localEdsRepo.deleteProjectFile(projectId, path);
+                } catch (Exception e) {
+                    LOG.debug("Could not delete local file {}: {}", path, e.getMessage());
+                }
+            }
+
+            // 2. Delete from store job records if present
+            if (store != null) {
+                store.getLatestJob(projectId).ifPresent(j -> {
+                    store.deleteGeneratedFile(j.getId(), path);
+                });
+            }
+
+            // 3. Delete from GitHub branch if GitHub client available
+            if (client != null) {
+                try {
+                    client.deleteFile(branch, path);
+                } catch (Exception e) {
+                    LOG.warn("GitHub delete for '{}' on '{}' failed or skipped: {}", path, branch, e.getMessage());
+                }
+            }
+            deletedList.add(path);
         }
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("ok", true);
         result.put("deleted", true);
-        result.put("path", path);
+        result.put("paths", deletedList);
+        result.put("count", deletedList.size());
         result.put("branch", branch);
         return JsonUtil.toJson(result);
     }

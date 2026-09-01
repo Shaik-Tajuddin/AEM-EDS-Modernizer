@@ -91,16 +91,17 @@ flowchart LR
 
 ---
 
-### **Step 4: Push to Feature Branch & Review in VS Code**
+### **Step 4: Commit, Push to Feature Branch & Review in VS Code**
 
 1. Navigate to the **VS Code & GitHub** tab.
 2. In the **Remote Branch & VS Code Editor Workspace** card:
    - Confirm the feature branch name (e.g. `feat/wknd-site-aboutus`).
-   - Click **🚀 Push Blocks & Open VS Code**.
-3. Modernizer performs pre-PR healing locally (checkout → deduplication → linting → commit) and pushes to your remote Git branch.
+   - Click **🚀 Commit, Push Blocks & Open VS Code** (or selectively check files in the file tree and click **🚀 Commit & Push**).
+3. Modernizer commits and pushes the workspace blocks/files in a single consolidated commit to your remote Git branch (saving individual files in the editor keeps drafts local without spamming commits).
 4. Expand the **⚡ VS Code Web Workspace** panel:
    - View all modified and added files with real-time Git diff markers (+green additions / -red deletions).
-   - Edit code directly in the browser or click **🔗 Open in New Tab** to launch `vscode.dev`.
+   - Use checkboxes to select multiple files for batch deletion (**`🗑️ Delete (<count>)`**) or selective commit (**`🚀 Commit & Push`**).
+   - Edit code directly in the browser with live Git diff preview or click **🔗 Open in New Tab** to launch `vscode.dev`.
 
 ---
 

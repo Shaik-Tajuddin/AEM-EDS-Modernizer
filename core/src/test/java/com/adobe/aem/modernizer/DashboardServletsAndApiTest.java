@@ -400,7 +400,7 @@ class DashboardServletsAndApiTest {
 
         String saved = wired.route("POST", "/projects/proj-1/workspace/save",
                 "{\"branch\":\"feat/proj-1\",\"path\":\"docs/migrated-pages/language-masters/en/about-us.md\",\"content\":\"# About\"}", null);
-        assertThat(saved).contains("\"committed\":true");
+        assertThat(saved).contains("\"ok\":true");
         assertThat(saved).contains("# About");
 
         String removed = wired.route("POST", "/projects/proj-1/delete", null, null);
