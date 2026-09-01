@@ -79,7 +79,8 @@ public class BlockGenerationAgent implements Agent {
             BlockReconcileHelper.Action action = BlockReconcileHelper.decide(blockName, existingEdsBlocks, null);
             decisions.add(new BlockReconcileHelper.Decision(blockName, comp.getResourceType(), action));
             if (action == BlockReconcileHelper.Action.LEAVE) {
-                LOG.info("Leaving existing EDS block '{}'", blockName);
+                LOG.info("Loading existing EDS block '{}' into migration files", blockName);
+                loadExistingLocalBlockFiles(ctx, blockName);
                 continue;
             }
 
@@ -543,6 +544,49 @@ public class BlockGenerationAgent implements Agent {
                     getName(),
                     BlockReconcileHelper.summarize(decisions)
             ));
+        }
+    }
+
+    private void loadExistingLocalBlockFiles(AgentContext ctx, String blockName) {
+        if (store == null || ctx == null || ctx.getProject() == null || ctx.getJob() == null) return;
+        String[] candidateRoots = new String[] {
+            "D:/eds personal/AEM-EDS-Modernizer",
+            "d:/eds personal/AEM-EDS-Modernizer",
+            System.getProperty("user.dir")
+        };
+        for (String root : candidateRoots) {
+            java.io.File blockDir = new java.io.File(root, "blocks/" + blockName);
+            if (blockDir.isDirectory()) {
+                java.io.File[] files = blockDir.listFiles();
+                if (files != null) {
+                    for (java.io.File f : files) {
+                        if (f.isFile()) {
+                            try {
+                                String content = java.nio.file.Files.readString(f.toPath(), java.nio.charset.StandardCharsets.UTF_8);
+                                String relPath = "blocks/" + blockName + "/" + f.getName();
+                                String fileType = f.getName().endsWith(".js") ? "BLOCK_JS"
+                                        : f.getName().endsWith(".css") ? "BLOCK_CSS"
+                                        : f.getName().endsWith(".json") ? "BLOCK_MODEL_JSON"
+                                        : f.getName().endsWith(".html") ? "BLOCK_EXAMPLE_HTML"
+                                        : "BLOCK_README";
+                                GeneratedFileRecord record = new GeneratedFileRecord(
+                                        UUID.randomUUID().toString(),
+                                        ctx.getProject().getId(),
+                                        ctx.getJob().getId(),
+                                        relPath,
+                                        fileType,
+                                        content
+                                );
+                                record.setVirtualDiffOnly(ctx.isDryRun());
+                                store.saveGeneratedFile(record);
+                            } catch (Exception e) {
+                                LOG.warn("Could not read local block file {}: {}", f.getAbsolutePath(), e.getMessage());
+                            }
+                        }
+                    }
+                }
+                break;
+            }
         }
     }
 

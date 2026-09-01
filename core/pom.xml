@@ -195,6 +195,7 @@
                         <Embed-Dependency>jackson-databind,jackson-core,jackson-annotations,okhttp,okio,okio-jvm,commons-codec;scope=compile|runtime</Embed-Dependency>
                         <Embed-Transitive>true</Embed-Transitive>
                         <_removeheaders>Bnd-LastModified,Created-By,Tool</_removeheaders>
+                        <_noee>true</_noee>
                     </instructions>
                 </configuration>
             </plugin>

@@ -51,7 +51,7 @@
         <aem.user>admin</aem.user>
         <aem.password>admin</aem.password>
         <aem.skipSslValidation>true</aem.skipSslValidation>
-        <aem.packageService>/crx/packmgr/service/.json</aem.packageService>
+        <aem.packageService>/crx/packmgr/service.jsp</aem.packageService>
         <skipBundleDeploy>true</skipBundleDeploy>
         <skipPackageDeploy>true</skipPackageDeploy>
     </properties>
@@ -292,10 +292,20 @@
                                             <arg value="-F"/>
                                             <arg value="action=install"/>
                                             <arg value="-F"/>
-                                            <arg value="start=true"/>
+                                            <arg value="bundlestart=true"/>
                                             <arg value="-F"/>
                                             <arg value="bundlefile=@${project.build.directory}/${project.build.finalName}.jar"/>
                                             <arg value="${aem.host}/system/console/bundles"/>
+                                        </exec>
+                                        <exec executable="curl" failonerror="false">
+                                            <arg value="-s"/>
+                                            <arg value="-u"/>
+                                            <arg value="${aem.user}:${aem.password}"/>
+                                            <arg value="-X"/>
+                                            <arg value="POST"/>
+                                            <arg value="-d"/>
+                                            <arg value="action=start"/>
+                                            <arg value="${aem.host}/system/console/bundles/com.adobe.aem.modernizer.core"/>
                                         </exec>
                                     </target>
                                 </configuration>

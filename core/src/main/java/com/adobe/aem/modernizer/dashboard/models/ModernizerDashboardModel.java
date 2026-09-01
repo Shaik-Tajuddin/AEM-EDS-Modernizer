@@ -113,6 +113,7 @@ public class ModernizerDashboardModel {
         ProjectRecord p = new ProjectRecord("wknd-site", "WKND Site Modernization", "http://localhost:4502", "/content/wknd", "https://github.com/my-org/wknd-eds");
         p.setAemPublishUrl("http://localhost:4503");
         p.setPageScope("/content/wknd/*");
+        p.setScopeMode("RECURSIVE");
         p.setEdsBranch("main");
         p.setMarkerProperty("edsModernize");
         p.setMarkerValue("true");

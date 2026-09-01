@@ -146,6 +146,20 @@
               <label class="form-label">Page / Subtree Scope (Optional)</label>
               <input type="text" id="cfg-pageScope" class="form-control" value="${model.activeProject.pageScope}" placeholder="/content/wknd/us/en or /content/wknd/*">
             </div>
+            <div class="form-group">
+              <label class="form-label">Page Discovery Scope</label>
+              <div style="display:flex; gap:16px; align-items:center; margin-top:6px; flex-wrap:wrap;">
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.88rem; color:var(--text-main);">
+                  <input type="radio" name="cfg-scopeMode" id="cfg-scopeMode-recursive" value="RECURSIVE" checked="${model.activeProject.scopeMode != 'SINGLE_PAGE'}">
+                  <span>🌳 <b>Complete Nested Subtree</b> (All Subpages)</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.88rem; color:var(--text-main);">
+                  <input type="radio" name="cfg-scopeMode" id="cfg-scopeMode-single" value="SINGLE_PAGE" checked="${model.activeProject.scopeMode == 'SINGLE_PAGE'}">
+                  <span>📄 <b>This Page Only</b></span>
+                </label>
+              </div>
+              <div class="form-hint">Toggle between crawling all recursive subpages vs strictly this single page root.</div>
+            </div>
           </div>
 
           <!-- Section 2: Target EDS & Figma -->

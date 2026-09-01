@@ -203,6 +203,10 @@ function clearForm() {
 }
 
 async function saveProjectConfig() {
+  const scopeMode = document.querySelector('input[name="cfg-scopeMode"]:checked')
+    ? document.querySelector('input[name="cfg-scopeMode"]:checked').value
+    : "RECURSIVE";
+
   const payload = {
     id: document.getElementById("cfg-id").value.trim() || "project-1",
     name:
@@ -211,6 +215,7 @@ async function saveProjectConfig() {
     aemPublishUrl: document.getElementById("cfg-publishUrl").value.trim(),
     contentRoot: document.getElementById("cfg-contentRoot").value.trim(),
     pageScope: document.getElementById("cfg-pageScope").value.trim(),
+    scopeMode: scopeMode,
     edsGitRepoUrl: document.getElementById("cfg-repoUrl").value.trim(),
     edsBranch: document.getElementById("cfg-branch").value.trim(),
     figmaUrl: document.getElementById("cfg-figmaUrl").value.trim(),
@@ -238,9 +243,9 @@ async function saveProjectConfig() {
     currentProjectId = saved.id;
     log(
       "connection",
-      `Project saved successfully: ContentRoot=${payload.contentRoot}, EDS Repo=${payload.edsGitRepoUrl}`,
+      `Project '${saved.name}' saved. Scope: ${saved.pageScope || "all"} (${saved.scopeMode || "RECURSIVE"})`,
     );
-    showToast(`Project '${saved.name}' Saved & Connected!`);
+    showToast(`Project configuration saved! (${scopeMode === "SINGLE_PAGE" ? "This Page Only" : "Complete Subtree"})`);
     document.getElementById("btn-dryrun").disabled = false;
     setPipelineStep("connect", "done");
     setPipelineStep("dryrun", "active");
@@ -308,6 +313,33 @@ async function onProjectSelectChange() {
   }
 }
 
+async function onQuickScopeChange(mode) {
+  const radRec = document.getElementById("cfg-scopeMode-recursive");
+  const radSingle = document.getElementById("cfg-scopeMode-single");
+  if (radRec && radSingle) {
+    radRec.checked = mode !== "SINGLE_PAGE";
+    radSingle.checked = mode === "SINGLE_PAGE";
+  }
+
+  const modeLabel = mode === "SINGLE_PAGE" ? "This Page Only" : "Complete Nested Subtree";
+  showToast(`Discovery scope set to: ${modeLabel}`);
+
+  try {
+    const p = projectsList.find((x) => x.id === currentProjectId) || (await api(`projects/${currentProjectId}`));
+    if (p) {
+      p.scopeMode = mode;
+      await api("projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(p),
+      });
+      log("connection", `Updated crawl scope to: ${modeLabel}. Click 'Run Dry Run' to apply.`);
+    }
+  } catch (e) {
+    console.warn("Could not save scope change:", e);
+  }
+}
+
 async function populateFormFromProject(id) {
   const p =
     projectsList.find((x) => x.id === id) || (await api(`projects/${id}`));
@@ -320,6 +352,15 @@ async function populateFormFromProject(id) {
     document.getElementById("cfg-contentRoot").value =
       p.contentRoot || "/content/wknd";
     document.getElementById("cfg-pageScope").value = p.pageScope || "";
+
+    const scopeMode = p.scopeMode || "RECURSIVE";
+    const radRec = document.getElementById("cfg-scopeMode-recursive");
+    const radSingle = document.getElementById("cfg-scopeMode-single");
+    if (radRec && radSingle) {
+      radRec.checked = scopeMode !== "SINGLE_PAGE";
+      radSingle.checked = scopeMode === "SINGLE_PAGE";
+    }
+
     document.getElementById("cfg-repoUrl").value = p.edsGitRepoUrl || "";
     document.getElementById("cfg-branch").value = p.edsBranch || "main";
     document.getElementById("cfg-figmaUrl").value = p.figmaUrl || "";
