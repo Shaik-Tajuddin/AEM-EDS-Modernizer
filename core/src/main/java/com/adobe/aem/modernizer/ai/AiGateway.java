@@ -58,6 +58,9 @@ public class AiGateway {
                 "env:GEMINI_API_KEY", "", true);
         registerCloudProvider(new OllamaProvider("http://localhost:11434"), "ollama", "http://localhost:11434",
                 "", "qwen3:8b", true);
+        registerCloudProvider(new OpenAiProvider("tokenrouter", "https://api.tokenrouter.com/v1", "z-ai/glm-5.3-free"),
+                "tokenrouter", "https://api.tokenrouter.com/v1",
+                "sk-qPQo0Pl4HEhffxvWVdsiGVN0cPIxQvoeHcF5aQnGMcYLa11f", "z-ai/glm-5.3-free", true);
     }
 
     private void initBuiltinCapabilities() {
@@ -79,6 +82,9 @@ public class AiGateway {
         capabilityRegistry.add(new ModelCapability("gemini", "gemini-1.5-pro", 1000000)
                 .add(ModelCapability.CAP_CHAT).add(ModelCapability.CAP_STRUCTURED)
                 .add(ModelCapability.CAP_CODE).add(ModelCapability.CAP_VISION));
+        capabilityRegistry.add(new ModelCapability("tokenrouter", "z-ai/glm-5.3-free", 128000)
+                .add(ModelCapability.CAP_CHAT).add(ModelCapability.CAP_STRUCTURED)
+                .add(ModelCapability.CAP_CODE));
     }
 
     private void registerCloudProvider(AiProvider provider, String name, String baseUrl,
@@ -127,7 +133,7 @@ public class AiGateway {
                 register(new AnthropicProvider(base));
                 break;
             case "openai":
-                register(new OpenAiProvider(base));
+                register(new OpenAiProvider("openai", base, ep.getDefaultModel()));
                 break;
             case "gemini":
                 register(new GeminiProvider(base));
@@ -135,8 +141,10 @@ public class AiGateway {
             case "ollama":
                 register(new OllamaProvider(base));
                 break;
+            case "tokenrouter":
             default:
-                LOG.warn("Unknown AI endpoint provider '{}'", name);
+                register(new OpenAiProvider(name, base, ep.getDefaultModel()));
+                break;
         }
         LOG.info("Bound OSGi AI endpoint for {}", name);
     }

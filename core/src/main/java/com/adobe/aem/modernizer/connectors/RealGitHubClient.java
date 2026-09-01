@@ -328,6 +328,13 @@ public class RealGitHubClient implements GitHubClient {
     @Override
     public String createPullRequest(String title, String body, String headBranch, String baseBranch) {
         ensureOwnerRepo();
+        // 1. Check if PR already exists for this branch
+        String existing = findExistingPullRequest(headBranch);
+        if (existing != null && !existing.isBlank()) {
+            LOG.info("Pull request already exists for branch {}: {}", headBranch, existing);
+            return existing;
+        }
+
         try {
             ObjectNode pr = mapper.createObjectNode();
             pr.put("title", title);
@@ -339,8 +346,56 @@ public class RealGitHubClient implements GitHubClient {
             LOG.info("Created PR: {}", url);
             return url;
         } catch (IOException | RuntimeException e) {
+            // Check if GitHub threw a 422 because PR already exists
+            String fallback = findExistingPullRequest(headBranch);
+            if (fallback != null && !fallback.isBlank()) {
+                LOG.info("Resolved existing PR after 422 for branch {}: {}", headBranch, fallback);
+                return fallback;
+            }
             throw new IllegalStateException("Failed to create pull request: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Looks up any existing pull request URL for the given head branch across all PR states.
+     */
+    public String findExistingPullRequest(String headBranch) {
+        if (headBranch == null || headBranch.isBlank()) {
+            return null;
+        }
+        ensureOwnerRepo();
+        try {
+            // Check with owner:headBranch
+            String headFilter = owner + ":" + headBranch.trim();
+            JsonNode resp = get("/repos/" + owner + "/" + repo + "/pulls?head=" + urlEncode(headFilter) + "&state=all");
+            if (resp.isArray() && !resp.isEmpty()) {
+                String htmlUrl = resp.get(0).path("html_url").asText();
+                if (htmlUrl != null && !htmlUrl.isBlank()) {
+                    return htmlUrl;
+                }
+            }
+            // Check with headBranch directly
+            resp = get("/repos/" + owner + "/" + repo + "/pulls?head=" + urlEncode(headBranch.trim()) + "&state=all");
+            if (resp.isArray() && !resp.isEmpty()) {
+                String htmlUrl = resp.get(0).path("html_url").asText();
+                if (htmlUrl != null && !htmlUrl.isBlank()) {
+                    return htmlUrl;
+                }
+            }
+            // Secondary scan over recent open PRs
+            resp = get("/repos/" + owner + "/" + repo + "/pulls?state=open&per_page=30");
+            if (resp.isArray()) {
+                for (JsonNode item : resp) {
+                    String ref = item.path("head").path("ref").asText();
+                    if (headBranch.trim().equalsIgnoreCase(ref)) {
+                        return item.path("html_url").asText();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            LOG.debug("Could not lookup existing pull request for branch {}: {}", headBranch, e.getMessage());
+        }
+        return null;
     }
 
     @Override

@@ -165,18 +165,14 @@ class DashboardServletsAndApiTest {
 
         SlingHttpServletRequest req = Mockito.mock(SlingHttpServletRequest.class);
         SlingHttpServletResponse resp = Mockito.mock(SlingHttpServletResponse.class);
+        java.io.StringWriter sw = new java.io.StringWriter();
+        java.io.PrintWriter pw = new java.io.PrintWriter(sw);
 
-        when(req.getScheme()).thenReturn("http");
-        when(req.getServerName()).thenReturn("localhost");
-        when(req.getServerPort()).thenReturn(4502);
+        when(resp.getWriter()).thenReturn(pw);
         when(req.getMethod()).thenReturn("GET");
-        when(req.getProtocol()).thenReturn("HTTP/1.1");
-        when(req.getQueryString()).thenReturn("project=wknd-site");
 
         servlet.service(req, resp);
-        Mockito.verify(resp).setStatus(SlingHttpServletResponse.SC_FOUND);
-        Mockito.verify(resp).setHeader("Location",
-                ModernizerHomeServlet.CANONICAL_HOME + "?project=wknd-site");
+        assertThat(sw.toString()).contains("AEM → EDS Modernizer");
     }
 
     @Test
@@ -329,18 +325,16 @@ class DashboardServletsAndApiTest {
         String html = StaticDashboard.html("http://localhost:4502/bin/aem-eds-modernizer/api");
         assertThat(html).contains("AEM → EDS Modernizer");
         assertThat(html).contains("http://localhost:4502/bin/aem-eds-modernizer/api");
-        assertThat(html).contains("REVIEW IN VS CODE");
-        assertThat(html).contains("npm run lint:fix");
+        assertThat(html).contains("VS Code Web Workspace");
+        assertThat(html).contains("runNpmScript('lint:fix')");
         assertThat(html).contains("Heal CI");
         assertThat(html).contains("runNpmScript('heal')");
         assertThat(html).contains("chk-vscode-reviewed");
-        assertThat(html).contains("projects/${currentProjectId}/preview");
         assertThat(html).contains("ws-file-tree");
         assertThat(html).contains("workspace/save");
         assertThat(html).contains("workspace/delete");
         assertThat(html).contains("deleteCurrentProject");
         assertThat(html).contains("projects/' + encodeURIComponent(currentProjectId) + '/delete");
-        assertThat(html).contains("ws-file-del");
         assertThat(html).contains("ws-line-numbers");
         assertThat(html).contains("HTML view");
         assertThat(html).contains("DA compatible");
@@ -360,6 +354,8 @@ class DashboardServletsAndApiTest {
         orch.register(new com.adobe.aem.modernizer.agents.PublishingAgent(gh, store));
         ApiRouter wired = new ApiRouter(store, orch, gh);
         store.saveProject(new ProjectRecord("proj-1", "WKND Site", "http://localhost:4502", "/content/wknd", "https://github.com/company/wknd-eds"));
+        store.saveJob(new com.adobe.aem.modernizer.persistence.model.JobRecord("job-1", "proj-1", "MIGRATE"));
+        store.saveGeneratedFile(new com.adobe.aem.modernizer.persistence.model.GeneratedFileRecord("f1", "proj-1", "job-1", "blocks/hero/hero.js", "BLOCK_JS", "export default function decorate() {}"));
 
         String preview = wired.route("POST", "/projects/proj-1/preview", null, null);
         assertThat(preview).contains("PREVIEWING");

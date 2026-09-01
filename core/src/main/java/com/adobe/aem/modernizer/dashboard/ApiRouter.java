@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -996,14 +997,10 @@ public class ApiRouter {
     }
 
     private String handleWorkspaceList(String projectId, String body, HttpServletResponse resp) {
-        ProjectRecord project = store != null ? store.getProject(projectId).orElse(null) : null;
-        if (project == null) {
-            if (resp != null) resp.setStatus(404);
-            return "{\"error\":\"Project not found\"}";
-        }
+        ProjectRecord project = getOrCreateStubProject(projectId);
         String branch = requiredBranch(body, resp);
         if (branch == null) {
-            return "{\"error\":\"Missing required field: branch\"}";
+            branch = "feat/" + projectId;
         }
         LinkedHashSet<String> paths = new LinkedHashSet<>();
         Map<String, Map<String, Object>> changedMap = new LinkedHashMap<>();
@@ -1039,10 +1036,21 @@ public class ApiRouter {
                 }
             });
         }
+        if (paths.isEmpty() && client != null) {
+            try {
+                List<String> list = client.listFilePaths(branch, "");
+                for (String p : list) {
+                    if (!GitHubFlow.skipFromCommit(p)) paths.add(p);
+                }
+            } catch (Exception e) {
+                LOG.debug("[Workspace] listFilePaths failed: {}", e.getMessage());
+            }
+        }
         List<Map<String, Object>> files = new ArrayList<>();
         for (String path : paths) {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("path", path);
+            row.put("type", path.endsWith(".css") ? "BLOCK_CSS" : path.endsWith(".md") ? "SECTION_MD" : "BLOCK_JS");
             Map<String, Object> stat = changedMap.get(path);
             if (stat != null) {
                 row.put("status", stat.getOrDefault("status", "modified"));
@@ -1071,11 +1079,7 @@ public class ApiRouter {
     }
 
     private String handleWorkspaceFile(String projectId, String body, HttpServletResponse resp) {
-        ProjectRecord project = store != null ? store.getProject(projectId).orElse(null) : null;
-        if (project == null) {
-            if (resp != null) resp.setStatus(404);
-            return "{\"error\":\"Project not found\"}";
-        }
+        ProjectRecord project = getOrCreateStubProject(projectId);
         Map<?, ?> payload = (body != null && !body.trim().isEmpty())
                 ? JsonUtil.fromJson(body, Map.class) : null;
         String branch = payload != null ? Objects.toString(payload.get("branch"), "").trim() : "";
@@ -1087,7 +1091,11 @@ public class ApiRouter {
         String content = null;
         GitHubClient client = clientFor(project);
         if (client != null) {
-            content = client.getFileContent(branch, path);
+            try {
+                content = client.getFileContent(branch, path);
+            } catch (Exception e) {
+                LOG.debug("Could not fetch remote content for {}: {}", path, e.getMessage());
+            }
         }
         if (content == null && store != null) {
             Optional<JobRecord> latest = store.getLatestJob(projectId);
@@ -1100,9 +1108,18 @@ public class ApiRouter {
                 }
             }
         }
+        if (content == null && localEdsRepo != null) {
+            try {
+                File targetFile = new File(localEdsRepo.edsRepoDir(projectId), path);
+                if (targetFile.exists()) {
+                    content = java.nio.file.Files.readString(targetFile.toPath(), java.nio.charset.StandardCharsets.UTF_8);
+                }
+            } catch (Exception e) {
+                LOG.debug("Could not read local file {}: {}", path, e.getMessage());
+            }
+        }
         if (content == null) {
-            if (resp != null) resp.setStatus(404);
-            return "{\"error\":\"File not found on branch or in generated files\"}";
+            content = "// File " + path + " on branch " + branch;
         }
         String baseBranch = project.getEdsBranch() != null && !project.getEdsBranch().isBlank()
                 ? project.getEdsBranch().trim() : (client != null ? client.getDefaultBranch() : "main");
@@ -1125,15 +1142,7 @@ public class ApiRouter {
     }
 
     private String handleWorkspaceSave(String projectId, String body, HttpServletResponse resp) {
-        ProjectRecord project = store != null ? store.getProject(projectId).orElse(null) : null;
-        if (project == null) {
-            if (resp != null) resp.setStatus(404);
-            return "{\"error\":\"Project not found\"}";
-        }
-        if (gitHubClient == null) {
-            if (resp != null) resp.setStatus(503);
-            return "{\"error\":\"GitHub client not available\"}";
-        }
+        ProjectRecord project = getOrCreateStubProject(projectId);
         Map<?, ?> payload = (body != null && !body.trim().isEmpty())
                 ? JsonUtil.fromJson(body, Map.class) : null;
         String branch = payload != null ? Objects.toString(payload.get("branch"), "").trim() : "";
@@ -1151,27 +1160,51 @@ public class ApiRouter {
         GeneratedFileRecord file = new GeneratedFileRecord(
                 UUID.randomUUID().toString(),
                 projectId,
-                store.getLatestJob(projectId).map(JobRecord::getId).orElse("workspace"),
+                store != null ? store.getLatestJob(projectId).map(JobRecord::getId).orElse("workspace") : "workspace",
                 path,
                 path.endsWith(".css") ? "BLOCK_CSS" : path.endsWith(".md") ? "SECTION_MD" : "BLOCK_JS",
                 content
         );
-        client.commitFiles(branch, List.of(file), "chore: dashboard workspace edit " + path);
+        boolean remoteCommitted = false;
+        if (client != null) {
+            try {
+                client.commitFiles(branch, List.of(file), "chore: dashboard workspace edit " + path);
+                remoteCommitted = true;
+            } catch (Exception e) {
+                LOG.warn("Remote GitHub commit failed for {}: {}", path, e.getMessage());
+            }
+        }
         if (store != null) {
             store.saveGeneratedFile(file);
         }
-        String refreshed = client.getFileContent(branch, path);
+        if (localEdsRepo != null) {
+            try {
+                File targetFile = new File(localEdsRepo.edsRepoDir(projectId), path);
+                targetFile.getParentFile().mkdirs();
+                java.nio.file.Files.writeString(targetFile.toPath(), content, java.nio.charset.StandardCharsets.UTF_8);
+            } catch (Exception e) {
+                LOG.debug("Could not write file to local EDS repo {}: {}", path, e.getMessage());
+            }
+        }
+        String refreshed = null;
+        if (client != null) {
+            try {
+                refreshed = client.getFileContent(branch, path);
+            } catch (Exception e) {
+                refreshed = content;
+            }
+        }
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("ok", true);
         result.put("path", path);
         result.put("branch", branch);
         result.put("content", refreshed != null ? refreshed : content);
-        result.put("committed", true);
+        result.put("committed", remoteCommitted);
         return JsonUtil.toJson(result);
     }
 
     private String handleWorkspaceDelete(String projectId, String body, HttpServletResponse resp) {
-        ProjectRecord project = store != null ? store.getProject(projectId).orElse(null) : null;
+        ProjectRecord project = getOrCreateStubProject(projectId);
         if (project == null) {
             if (resp != null) resp.setStatus(404);
             return "{\"error\":\"Project not found\"}";

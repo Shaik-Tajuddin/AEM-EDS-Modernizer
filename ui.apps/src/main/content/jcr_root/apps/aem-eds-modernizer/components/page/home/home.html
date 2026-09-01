@@ -215,6 +215,7 @@
                   <option value="geminicode" data-sly-attribute.selected="${model.activeProject.aiProvider == 'geminicode'}">Gemini IDE</option>
                 </optgroup>
                 <optgroup label="Cloud API">
+                  <option value="tokenrouter" data-sly-attribute.selected="${model.activeProject.aiProvider == 'tokenrouter'}">TokenRouter (GLM-5.3)</option>
                   <option value="anthropic" data-sly-attribute.selected="${model.activeProject.aiProvider == 'anthropic' || !model.activeProject.aiProvider}">Anthropic Claude</option>
                   <option value="openai" data-sly-attribute.selected="${model.activeProject.aiProvider == 'openai'}">OpenAI GPT</option>
                   <option value="gemini" data-sly-attribute.selected="${model.activeProject.aiProvider == 'gemini'}">Google Gemini API</option>

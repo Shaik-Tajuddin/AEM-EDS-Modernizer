@@ -137,6 +137,7 @@ function onProviderChange() {
 
   const ideProviders = ["antigravity", "cursor", "claudecode", "geminicode"];
   const cloudKeyRefs = {
+    tokenrouter: "Configured via OSGi (sk-qPQo0Pl4HEhffxvWVdsiGVN0cPIxQvoeHcF5aQnGMcYLa11f)",
     anthropic: "env:ANTHROPIC_API_KEY",
     openai: "env:OPENAI_API_KEY",
     gemini: "env:GEMINI_API_KEY",
@@ -159,13 +160,14 @@ function onProviderChange() {
   if (cloudBanner) cloudBanner.style.display = isCloudApi ? "block" : "none";
   if (isCloudApi) {
     const cloudLabels = {
+      tokenrouter: "TokenRouter API",
       anthropic: "Anthropic Claude",
       openai: "OpenAI GPT",
       gemini: "Google Gemini",
     };
     if (cloudTitle)
       cloudTitle.textContent =
-        (cloudLabels[provider] || "Cloud API") + " — API key required";
+        (cloudLabels[provider] || "Cloud API") + " — API key configured";
     if (cloudKeyRef) cloudKeyRef.textContent = cloudKeyRefs[provider];
   }
   // Local IDE: keep model visible for Ollama chat model; budget still hidden
@@ -177,11 +179,15 @@ function onProviderChange() {
         !modelInput.value ||
         modelInput.value.indexOf("claude") === 0 ||
         modelInput.value.indexOf("gpt") === 0 ||
-        modelInput.value.indexOf("gemini-1") === 0
+        modelInput.value.indexOf("gemini-1") === 0 ||
+        modelInput.value.indexOf("glm") === 0
       ) {
         modelInput.value = "qwen3:8b";
       }
       modelInput.placeholder = "Ollama model (e.g. qwen3:8b)";
+    } else if (provider === "tokenrouter") {
+      modelInput.value = "z-ai/glm-5.3-free";
+      modelInput.placeholder = "z-ai/glm-5.3-free";
     } else if (provider === "anthropic") {
       modelInput.value = "claude-3-5-sonnet-20241022";
       modelInput.placeholder = "model identifier";
@@ -712,8 +718,8 @@ async function runPushToGit() {
     showTab("github");
     return;
   }
-  const btnPublish = document.getElementById("btn-publish");
-  if (btnPublish) btnPublish.disabled = true;
+  const btnPublish = document.getElementById("btn-publish") || document.getElementById("btn-create-pr");
+  if (btnPublish) { btnPublish.disabled = true; btnPublish.textContent = "Opening PR…"; }
   setPipelineStep("vscode", "done");
   setPipelineStep("publish", "active");
   log(
@@ -728,25 +734,28 @@ async function runPushToGit() {
     log(
       "publishing",
       prUrl
-        ? `Pull Request opened: ${prUrl}`
+        ? `Pull Request ready: ${prUrl}`
         : `Publish job finished with state: ${job.state}`,
     );
     setPipelineStep("publish", "done");
     await refreshDashboard();
     const resultEl = document.getElementById("github-pr-result");
     if (resultEl && prUrl) {
-      resultEl.innerHTML = `<a href="${prUrl}" target="_blank" style="font-weight:700; color:var(--accent);">Pull Request opened: ${prUrl}</a>`;
+      resultEl.innerHTML = `<div style="background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); border-radius:6px; padding:10px 14px; margin-top:8px;"><span style="color:#22c55e; font-weight:700;">✅ Pull Request Ready:</span> <a href="${escapeAttr(prUrl)}" target="_blank" style="color:var(--accent); font-weight:700; text-decoration:underline; margin-left:6px;">${escapeHtml(prUrl)}</a></div>`;
     }
     showToast(
       prUrl
-        ? "Pull Request opened against the review branch."
+        ? "Pull Request ready: " + prUrl
         : "Publish job completed.",
     );
   } catch (err) {
     log("error", `Git PR failed: ${err.message}`);
     showToast("Error opening PR: " + err.message);
   } finally {
-    if (btnPublish) btnPublish.disabled = !vscodeReviewConfirmed;
+    if (btnPublish) {
+      btnPublish.disabled = !vscodeReviewConfirmed;
+      btnPublish.textContent = "📤 Open Pull Request";
+    }
   }
 }
 
@@ -859,6 +868,7 @@ function initWorkspaceResizer() {
 }
 
 let currentWsViewMode = "diff";
+let workspaceCurrentBaseContent = null;
 
 function setWsViewMode(mode) {
   currentWsViewMode = mode;
@@ -867,8 +877,12 @@ function setWsViewMode(mode) {
   const btnDiff = document.getElementById("btn-ws-mode-diff");
   const btnEdit = document.getElementById("btn-ws-mode-edit");
   const btnSave = document.getElementById("btn-ws-save-open");
+  const editor = document.getElementById("ws-editor");
 
   if (mode === "diff") {
+    if (editor && workspaceOpenPath) {
+      renderGitDiff(workspaceCurrentBaseContent, editor.value, workspaceOpenPath);
+    }
     if (diffPane) diffPane.style.display = "flex";
     if (editPane) editPane.style.display = "none";
     if (btnSave) btnSave.style.display = "none";
@@ -994,10 +1008,12 @@ async function openWorkspaceFile(path) {
       editor.value = data.content || "";
       editor.readOnly = !!data.readOnly;
     }
+    workspaceCurrentBaseContent = data.baseContent;
     renderGitDiff(data.baseContent, data.content, path);
     syncWsLineNumbers();
   } catch (err) {
     if (editor) editor.value = err.message;
+    workspaceCurrentBaseContent = null;
     renderGitDiff(null, err.message, path);
     syncWsLineNumbers();
   }
@@ -1099,10 +1115,12 @@ async function saveWorkspaceFile() {
   const input = document.getElementById("github-branch-input");
   const branch = (input && input.value.trim()) || `feat/${currentProjectId}`;
   const editor = document.getElementById("ws-editor");
+  const saveBtn = document.getElementById("btn-ws-save-open");
   if (!workspaceOpenPath || !editor) {
     showToast("Open a file first.");
     return;
   }
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Saving…"; }
   try {
     const saved = await api(`projects/${currentProjectId}/workspace/save`, {
       method: "POST",
@@ -1114,13 +1132,17 @@ async function saveWorkspaceFile() {
     });
     if (saved && typeof saved.content === "string") {
       editor.value = saved.content;
-    } else {
-      await openWorkspaceFile(workspaceOpenPath);
     }
+    renderGitDiff(workspaceCurrentBaseContent, editor.value, workspaceOpenPath);
     syncWsLineNumbers();
     showToast("Committed " + workspaceOpenPath + " on " + branch);
+    log("workspace", `Saved ${workspaceOpenPath} on branch ${branch}`);
+    loadWorkspaceFiles(branch);
   } catch (err) {
     showToast("Save failed: " + err.message);
+    log("error", `Workspace save failed: ${err.message}`);
+  } finally {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "💾 Save"; }
   }
 }
 

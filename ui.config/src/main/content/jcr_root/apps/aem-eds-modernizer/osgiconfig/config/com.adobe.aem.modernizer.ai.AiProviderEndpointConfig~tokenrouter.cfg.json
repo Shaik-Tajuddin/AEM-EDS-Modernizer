@@ -1,0 +1,7 @@
+{
+  "providerName": "tokenrouter",
+  "baseUrl": "https://api.tokenrouter.com/v1",
+  "apiKeyRef": "sk-qPQo0Pl4HEhffxvWVdsiGVN0cPIxQvoeHcF5aQnGMcYLa11f",
+  "defaultModel": "z-ai/glm-5.3-free",
+  "enabled": true
+}
