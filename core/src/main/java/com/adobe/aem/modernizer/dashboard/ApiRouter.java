@@ -451,9 +451,10 @@ public class ApiRouter {
         String command = payload != null ? Objects.toString(payload.get("command"), "") : "";
         command = command.trim();
         if (!"lint:fix".equals(command) && !"build:json".equals(command)
+                && !"lint:fix,build:json".equals(command) && !"build".equals(command)
                 && !"install-workflow".equals(command) && !"heal".equals(command)) {
             if (resp != null) resp.setStatus(400);
-            return "{\"error\":\"command must be lint:fix, build:json, heal, or install-workflow\"}";
+            return "{\"error\":\"command must be lint:fix, build:json, lint:fix,build:json, heal, or install-workflow\"}";
         }
 
         String branch = GitHubFlow.featureBranch(project.getId());

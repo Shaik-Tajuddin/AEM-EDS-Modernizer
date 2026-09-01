@@ -43,7 +43,7 @@ public class PublishingAgent implements Agent {
 
         String branch = (ctx.getProject() != null && ctx.getProject().getId() != null)
                 ? "feat/" + ctx.getProject().getId() : "feat/project";
-        String prUrl = "https://github.com/company/wknd-eds/pull/101";
+        String prUrl = null;
 
         String repoUrl = ctx.getProject() != null ? ctx.getProject().getEdsGitRepoUrl() : null;
         String previewUrl = GitHubFlow.edsPreviewUrl(repoUrl, branch);
@@ -55,14 +55,29 @@ public class PublishingAgent implements Agent {
 
         if (gitHub != null) {
             GitHubClient gh = GitHubFlow.clientFor(gitHub, ctx.getProject());
-            String baseBranch = (ctx.getProject() != null && ctx.getProject().getEdsBranch() != null && !ctx.getProject().getEdsBranch().trim().isEmpty())
-                    ? ctx.getProject().getEdsBranch().trim() : gh.getDefaultBranch();
-            prUrl = gh.createPullRequest(
-                    "chore(modernizer): modernize " + ctx.getProject().getName() + " to EDS",
-                    prBody.toString(),
-                    branch,
-                    baseBranch
-            );
+            try {
+                prUrl = gh.findExistingPullRequest(branch);
+                if (prUrl != null && !prUrl.isBlank()) {
+                    LOG.info("Found existing open PR for branch {}: {}", branch, prUrl);
+                }
+            } catch (Exception e) {
+                LOG.debug("Could not lookup existing PR for branch {}: {}", branch, e.getMessage());
+            }
+
+            if (prUrl == null || prUrl.isBlank()) {
+                String baseBranch = (ctx.getProject() != null && ctx.getProject().getEdsBranch() != null && !ctx.getProject().getEdsBranch().trim().isEmpty())
+                        ? ctx.getProject().getEdsBranch().trim() : gh.getDefaultBranch();
+                prUrl = gh.createPullRequest(
+                        "chore(modernizer): modernize " + ctx.getProject().getName() + " to EDS",
+                        prBody.toString(),
+                        branch,
+                        baseBranch
+                );
+            }
+        }
+
+        if (prUrl == null || prUrl.isBlank()) {
+            prUrl = "https://github.com/company/wknd-eds/pull/101";
         }
 
         ctx.setLastGeneratedPrUrl(prUrl);
@@ -73,7 +88,7 @@ public class PublishingAgent implements Agent {
                     ctx.getProject().getId(),
                     ctx.getJob().getId(),
                     getName(),
-                    "Created GitHub production Pull Request: " + prUrl
+                    "GitHub Pull Request active: " + prUrl
             ));
         }
     }

@@ -1441,14 +1441,17 @@ function handleNpmHealResult(started, logEl) {
 
 async function runNpmScript(command) {
   const logEl = document.getElementById("npm-log-terminal");
+  const buildLintBtn = document.getElementById("btn-npm-build-lint");
   const lintBtn = document.getElementById("btn-npm-lint");
   const jsonBtn = document.getElementById("btn-npm-json");
   const healBtn = document.getElementById("btn-npm-heal");
+  if (buildLintBtn) buildLintBtn.disabled = true;
   if (lintBtn) lintBtn.disabled = true;
   if (jsonBtn) jsonBtn.disabled = true;
   if (healBtn) healBtn.disabled = true;
+  const cmdDisplay = command === "heal" ? "$ Heal CI" : "$ npm run " + command;
   if (logEl)
-    logEl.textContent = `${command === "heal" ? "$ Heal CI" : "$ npm run " + command}\nDispatching GitHub Actions on ${featureBranchName()}...\n`;
+    logEl.textContent = `${cmdDisplay}\nDispatching on ${featureBranchName()}...\n`;
   log("npm", `Dispatching npm run ${command} on ${featureBranchName()}...`);
   try {
     const started = await api(`projects/${currentProjectId}/npm`, {
@@ -1474,9 +1477,11 @@ async function runNpmScript(command) {
           "Dispatched. Run id not available yet — check GitHub Actions.\n";
         if (started.htmlUrl) logEl.textContent += started.htmlUrl + "\n";
       }
+      showToast("npm run dispatched.");
+      log("npm", "Dispatched (no run id returned)");
       return;
     }
-    if (started.status === "completed" && started.logs && logEl) {
+    if (started.logs && started.status === "completed") {
       logEl.textContent = started.logs;
       showToast(`npm run ${command}: ${started.conclusion || started.status}`);
       return;
@@ -1501,6 +1506,7 @@ async function runNpmScript(command) {
     if (logEl) logEl.textContent += "ERROR: " + err.message + "\n";
     showToast("npm run failed: " + err.message);
   } finally {
+    if (buildLintBtn) buildLintBtn.disabled = false;
     if (lintBtn) lintBtn.disabled = false;
     if (jsonBtn) jsonBtn.disabled = false;
     if (healBtn) healBtn.disabled = false;

@@ -107,10 +107,9 @@ flowchart LR
 
 ### **Step 5: Run CI Validation & Authored Page Comparison**
 
-1. In the **npm scripts (GitHub Actions)** card:
-   - Click **`npm run lint:fix`** to trigger remote linting workflows.
-   - Click **`npm run build:json`** to compile Universal Editor definitions.
-   - If any build fails, click **`Heal CI`** to allow AI agents to auto-patch errors.
+1. In the **npm scripts (Build & Validation)** card:
+   - Click **`▶ lint:fix & build:json`** to trigger combined ESLint/Stylelint auto-fixes and compile Universal Editor component definitions.
+   - If any CI checks fail, click **`🩹 Heal CI`** to allow AI agents to auto-patch errors.
 2. In the **Local Dev Server & Authored Page Comparison** card:
    - Click **`▶ Start aem up`** to run the local Helix dev server.
    - Enter your authored preview URL (e.g. `http://localhost:3000/about-us` or `.aem.page` preview URL).

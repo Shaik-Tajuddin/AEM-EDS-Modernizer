@@ -326,7 +326,7 @@ class DashboardServletsAndApiTest {
         assertThat(html).contains("AEM → EDS Modernizer");
         assertThat(html).contains("http://localhost:4502/bin/aem-eds-modernizer/api");
         assertThat(html).contains("VS Code Web Workspace");
-        assertThat(html).contains("runNpmScript('lint:fix')");
+        assertThat(html).contains("runNpmScript('lint:fix,build:json')");
         assertThat(html).contains("Heal CI");
         assertThat(html).contains("runNpmScript('heal')");
         assertThat(html).contains("chk-vscode-reviewed");

@@ -68,4 +68,9 @@ public interface GitHubClient {
     default void deleteFile(String branch, String path) {
         throw new UnsupportedOperationException("deleteFile is not supported by this GitHub client");
     }
+
+    /** Looks up existing PR URL for {@code headBranch} if one is already open. */
+    default String findExistingPullRequest(String headBranch) {
+        return null;
+    }
 }
