@@ -139,10 +139,14 @@ public class LocalEdsRepoManager {
 
     /**
      * Runs local healing: {@code npm run lint:fix} then {@code npm run build:json},
-     * commits and pushes any auto-fixed files. {@code ok=true} opens the Create PR gate.
+     * commits and pushes any auto-fixed files to the specified branch. {@code ok=true} opens the Create PR gate.
      */
     public Map<String, Object> runLintAndBuild(File repoDir, String branch) {
         Map<String, Object> status = new LinkedHashMap<>();
+        if (branch != null && !branch.isBlank()) {
+            boolean checkedOut = checkoutBranch(repoDir, branch);
+            status.put("checkout", checkedOut ? "OK" : "FAILED");
+        }
         status.put("lintFix", run(repoDir, Duration.ofMinutes(5), "npm", "run", "lint:fix") ? "OK" : "FAILED");
         status.put("buildJson", run(repoDir, Duration.ofMinutes(5), "npm", "run", "build:json") ? "OK" : "FAILED");
         boolean ok = "OK".equals(status.get("lintFix")) && "OK".equals(status.get("buildJson"));
