@@ -31,7 +31,13 @@ public class MockAemClient implements AemClient {
 
     @Override
     public SiteInventory crawl(String contentRoot, String pageScope) {
-        return MockDataFactory.createWkndInventory(contentRoot, pageScope, pageCount);
+        return crawl(contentRoot, pageScope, "RECURSIVE");
+    }
+
+    @Override
+    public SiteInventory crawl(String contentRoot, String pageScope, String scopeMode) {
+        int count = "SINGLE_PAGE".equalsIgnoreCase(scopeMode) ? 1 : pageCount;
+        return MockDataFactory.createWkndInventory(contentRoot, pageScope, count);
     }
 
     @Override

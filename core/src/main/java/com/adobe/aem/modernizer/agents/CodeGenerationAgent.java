@@ -22,10 +22,17 @@ public class CodeGenerationAgent implements Agent {
 
     private final Store store;
     private final AiGateway ai;
+    private final com.adobe.aem.modernizer.connectors.LocalEdsRepoManager edsRepo;
 
     public CodeGenerationAgent(Store store, AiGateway ai) {
+        this(store, ai, null);
+    }
+
+    public CodeGenerationAgent(Store store, AiGateway ai,
+            com.adobe.aem.modernizer.connectors.LocalEdsRepoManager edsRepo) {
         this.store = store;
         this.ai = ai;
+        this.edsRepo = edsRepo;
     }
 
     @Override
@@ -118,6 +125,20 @@ public class CodeGenerationAgent implements Agent {
                     + "  background-color: var(--color-surface-emphasis, #f0f9ff);\n"
                     + "  border: 1px solid rgba(56, 189, 248, 0.35);\n"
                     + "}\n\n"
+                    // Authorable cssClass / blockId variant selectors — content-driven page styling
+                    + "/* Authorable page-instance overrides (cssClass & blockId from UE model) */\n"
+                    + "." + blockName + ".dark-tone {\n"
+                    + "  background: #0f172a;\n"
+                    + "  color: #e2e8f0;\n"
+                    + "}\n\n"
+                    + "." + blockName + ".compact {\n"
+                    + "  padding: 8px;\n"
+                    + "  margin: 12px auto;\n"
+                    + "}\n\n"
+                    + "/* #<blockId> page-specific anchor overrides */\n"
+                    + "." + blockName + "[id] {\n"
+                    + "  scroll-margin-top: 96px;\n"
+                    + "}\n\n"
                     + "@media (min-width: 768px) {\n"
                     + "  ." + blockName + " {\n"
                     + "    padding: var(--space-m, 24px);\n"
@@ -166,7 +187,13 @@ public class CodeGenerationAgent implements Agent {
             }
 
             if (!ctx.isDryRun()) {
-                writeLocalFile("blocks/" + blockName + "/" + blockName + ".css", cssContent);
+                if (edsRepo != null) {
+                    // Direct output: eds/<projectId>/blocks/<blockName>/<blockName>.css
+                    edsRepo.writeProjectFile(ctx.getProject().getId(),
+                            "blocks/" + blockName + "/" + blockName + ".css", cssContent);
+                } else {
+                    writeLocalFile(ctx, "blocks/" + blockName + "/" + blockName + ".css", cssContent);
+                }
             }
         }
 
@@ -181,32 +208,15 @@ public class CodeGenerationAgent implements Agent {
         }
     }
 
-    private void writeLocalFile(String relPath, String content) {
+    private void writeLocalFile(AgentContext ctx, String relPath, String content) {
+        String projectId = (ctx != null && ctx.getProject() != null) ? ctx.getProject().getId() : "project";
+        java.io.File target = new java.io.File(new java.io.File("D:/eds personal/AEM-EDS-Modernizer/eds", projectId), relPath);
         try {
-            java.io.File target = null;
-            String[] candidateRoots = new String[] {
-                "D:/eds personal/AEM-EDS-Modernizer",
-                "d:/eds personal/AEM-EDS-Modernizer",
-                System.getProperty("user.dir")
-            };
-            for (String root : candidateRoots) {
-                java.io.File dir = new java.io.File(root);
-                if (new java.io.File(dir, "pom.xml").exists() || new java.io.File(dir, "blocks").exists()) {
-                    target = new java.io.File(dir, relPath);
-                    break;
-                }
-            }
-            if (target == null) {
-                target = new java.io.File("D:/eds personal/AEM-EDS-Modernizer", relPath);
-            }
-            java.io.File parent = target.getParentFile();
-            if (parent != null && !parent.exists()) {
-                parent.mkdirs();
-            }
+            target.getParentFile().mkdirs();
             java.nio.file.Files.writeString(target.toPath(), content, java.nio.charset.StandardCharsets.UTF_8);
-            LOG.info("Wrote local block file: {}", target.getAbsolutePath());
+            LOG.info("Wrote local block CSS file in workspace: {}", target.getAbsolutePath());
         } catch (Exception e) {
-            LOG.warn("Could not write local block file {}: {}", relPath, e.getMessage());
+            LOG.warn("Could not write local block CSS file {}: {}", relPath, e.getMessage());
         }
     }
 }

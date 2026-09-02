@@ -23,6 +23,7 @@ public class MockGitHubClient implements GitHubClient {
     private final Set<String> branches = Collections.synchronizedSet(new HashSet<>());
     private final Map<String, List<GeneratedFileRecord>> branchFiles = new ConcurrentHashMap<>();
     private final Map<String, Map<String, Object>> workflowRuns = new ConcurrentHashMap<>();
+    private final Map<String, String> openPrs = new ConcurrentHashMap<>();
     private int commitCount;
     private int prCount;
     private int workflowRunSeq;
@@ -79,8 +80,8 @@ public class MockGitHubClient implements GitHubClient {
                     .addAll(kept);
             if (!kept.isEmpty()) {
                 commitCount++;
+                LOG.info("Committed {} files to branch '{}': {}", kept.size(), branch, commitMessage);
             }
-            LOG.info("Committed {} files to branch '{}': {}", kept.size(), branch, commitMessage);
         }
     }
 
@@ -94,10 +95,19 @@ public class MockGitHubClient implements GitHubClient {
 
     @Override
     public String createPullRequest(String title, String body, String headBranch, String baseBranch) {
+        if (openPrs.containsKey(headBranch)) {
+            return openPrs.get(headBranch);
+        }
         prCount++;
         String prUrl = repoUrl + "/pull/" + (RANDOM.nextInt(900) + 100);
+        openPrs.put(headBranch, prUrl);
         LOG.info("Created mock PR from {} to {}: {}", headBranch, baseBranch, prUrl);
         return prUrl;
+    }
+
+    @Override
+    public String findExistingPullRequest(String headBranch) {
+        return headBranch != null ? openPrs.get(headBranch) : null;
     }
 
     @Override
@@ -159,6 +169,27 @@ public class MockGitHubClient implements GitHubClient {
     public String getWorkflowRunLogs(String runId) {
         Map<String, Object> run = workflowRuns.get(runId);
         return run != null ? String.valueOf(run.getOrDefault("logs", "")) : "";
+    }
+
+    @Override
+    public List<String> listFilePaths(String ref, String pathPrefix) {
+        List<String> out = new ArrayList<>();
+        String prefix = pathPrefix == null ? "" : pathPrefix.replace('\\', '/');
+        List<GeneratedFileRecord> files = branchFiles.get(ref);
+        if (files == null) {
+            return out;
+        }
+        Set<String> seen = new LinkedHashSet<>();
+        for (GeneratedFileRecord file : files) {
+            if (file == null || file.getPath() == null) {
+                continue;
+            }
+            String path = file.getPath().replace('\\', '/');
+            if ((prefix.isEmpty() || path.startsWith(prefix)) && seen.add(path)) {
+                out.add(path);
+            }
+        }
+        return out;
     }
 
     @Override

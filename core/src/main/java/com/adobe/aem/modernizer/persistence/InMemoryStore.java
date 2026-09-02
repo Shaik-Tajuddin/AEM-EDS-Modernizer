@@ -1,7 +1,6 @@
 package com.adobe.aem.modernizer.persistence;
 
 import com.adobe.aem.modernizer.persistence.model.*;
-import org.osgi.service.component.annotations.Component;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -198,6 +197,16 @@ public class InMemoryStore implements Store {
         return getGeneratedFiles(jobId).stream()
                 .filter(f -> f.getPath().equals(path))
                 .findFirst();
+    }
+
+    @Override
+    public boolean deleteGeneratedFile(String jobId, String path) {
+        if (jobId == null || path == null) return false;
+        List<GeneratedFileRecord> files = generatedFiles.get(jobId);
+        if (files != null) {
+            return files.removeIf(f -> path.equals(f.getPath()));
+        }
+        return false;
     }
 
     // Validation Results

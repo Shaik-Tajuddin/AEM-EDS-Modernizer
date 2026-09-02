@@ -19,6 +19,7 @@ public class ProjectRecord {
     private String aemPublishUrl;
     private String contentRoot;
     private String pageScope;
+    private String scopeMode = "RECURSIVE";
     private String edsGitRepoUrl;
     private String edsBranch;
     private String figmaUrl;
@@ -29,6 +30,7 @@ public class ProjectRecord {
     private String aiModel;
     private double maxBudgetUsd;
     private int maxRepairAttempts;
+    private boolean buildDocs = false;
     private long createdAt;
     private long updatedAt;
     private Map<String, Object> properties = new HashMap<>();
@@ -39,6 +41,8 @@ public class ProjectRecord {
         this.maxBudgetUsd = 100.0;
         this.maxRepairAttempts = 5;
         this.authoringStrategy = "UNIVERSAL_EDITOR";
+        this.scopeMode = "RECURSIVE";
+        this.buildDocs = false;
     }
 
     public ProjectRecord(String id, String name, String aemAuthorUrl, String contentRoot, String edsGitRepoUrl) {
@@ -67,6 +71,9 @@ public class ProjectRecord {
 
     public String getPageScope() { return pageScope; }
     public void setPageScope(String pageScope) { this.pageScope = pageScope; }
+
+    public String getScopeMode() { return scopeMode; }
+    public void setScopeMode(String scopeMode) { this.scopeMode = scopeMode; }
 
     public String getEdsGitRepoUrl() { return edsGitRepoUrl; }
     public void setEdsGitRepoUrl(String edsGitRepoUrl) { this.edsGitRepoUrl = edsGitRepoUrl; }
@@ -97,6 +104,10 @@ public class ProjectRecord {
 
     public int getMaxRepairAttempts() { return maxRepairAttempts; }
     public void setMaxRepairAttempts(int maxRepairAttempts) { this.maxRepairAttempts = maxRepairAttempts; }
+
+    public boolean isBuildDocs() { return buildDocs; }
+    public boolean getBuildDocs() { return buildDocs; }
+    public void setBuildDocs(boolean buildDocs) { this.buildDocs = buildDocs; }
 
     public long getCreatedAt() { return createdAt; }
     public void setCreatedAt(long createdAt) { this.createdAt = createdAt; }

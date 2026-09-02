@@ -135,6 +135,8 @@ public class JcrStore extends InMemoryStore {
             setString(node, project, "authoringStrategy");
             setString(node, project, "aiProvider");
             setString(node, project, "aiModel");
+            setString(node, project, "scopeMode");
+            node.setProperty(PROP_PREFIX + "buildDocs", project.isBuildDocs());
             node.setProperty(PROP_PREFIX + "maxBudgetUsd", project.getMaxBudgetUsd());
             node.setProperty(PROP_PREFIX + "maxRepairAttempts", (long) project.getMaxRepairAttempts());
             node.setProperty(PROP_PREFIX + "createdAt", project.getCreatedAt());
@@ -221,8 +223,10 @@ public class JcrStore extends InMemoryStore {
         p.setMarkerProperty(getString(node, "markerProperty"));
         p.setMarkerValue(getString(node, "markerValue"));
         p.setAuthoringStrategy(orDefault(getString(node, "authoringStrategy"), "UNIVERSAL_EDITOR"));
+        p.setScopeMode(orDefault(getString(node, "scopeMode"), "RECURSIVE"));
         p.setAiProvider(getString(node, "aiProvider"));
         p.setAiModel(getString(node, "aiModel"));
+        p.setBuildDocs(node.hasProperty(PROP_PREFIX + "buildDocs") && node.getProperty(PROP_PREFIX + "buildDocs").getBoolean());
         p.setMaxBudgetUsd(node.hasProperty(PROP_PREFIX + "maxBudgetUsd")
                 ? node.getProperty(PROP_PREFIX + "maxBudgetUsd").getDouble() : 100.0);
         p.setMaxRepairAttempts(node.hasProperty(PROP_PREFIX + "maxRepairAttempts")

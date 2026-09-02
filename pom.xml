@@ -34,6 +34,7 @@
         <osgi.compendium.version>7.0.0</osgi.compendium.version>
         <osgi.annotation.version>8.1.0</osgi.annotation.version>
         <sling.api.version>2.27.6</sling.api.version>
+        <sling.event.version>4.2.12</sling.event.version>
         <sling.models.api.version>1.4.2</sling.models.api.version>
         <sling.servlets.annotations.version>1.2.6</sling.servlets.annotations.version>
         <javax.servlet.version>3.0.1</javax.servlet.version>
@@ -51,7 +52,7 @@
         <aem.user>admin</aem.user>
         <aem.password>admin</aem.password>
         <aem.skipSslValidation>true</aem.skipSslValidation>
-        <aem.packageService>/crx/packmgr/service/.json</aem.packageService>
+        <aem.packageService>/crx/packmgr/service.jsp</aem.packageService>
         <skipBundleDeploy>true</skipBundleDeploy>
         <skipPackageDeploy>true</skipPackageDeploy>
     </properties>
@@ -95,6 +96,12 @@
                 <groupId>org.apache.sling</groupId>
                 <artifactId>org.apache.sling.api</artifactId>
                 <version>${sling.api.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.sling</groupId>
+                <artifactId>org.apache.sling.event</artifactId>
+                <version>${sling.event.version}</version>
                 <scope>provided</scope>
             </dependency>
             <dependency>
@@ -292,10 +299,20 @@
                                             <arg value="-F"/>
                                             <arg value="action=install"/>
                                             <arg value="-F"/>
-                                            <arg value="start=true"/>
+                                            <arg value="bundlestart=true"/>
                                             <arg value="-F"/>
                                             <arg value="bundlefile=@${project.build.directory}/${project.build.finalName}.jar"/>
                                             <arg value="${aem.host}/system/console/bundles"/>
+                                        </exec>
+                                        <exec executable="curl" failonerror="false">
+                                            <arg value="-s"/>
+                                            <arg value="-u"/>
+                                            <arg value="${aem.user}:${aem.password}"/>
+                                            <arg value="-X"/>
+                                            <arg value="POST"/>
+                                            <arg value="-d"/>
+                                            <arg value="action=start"/>
+                                            <arg value="${aem.host}/system/console/bundles/com.adobe.aem.modernizer.core"/>
                                         </exec>
                                     </target>
                                 </configuration>

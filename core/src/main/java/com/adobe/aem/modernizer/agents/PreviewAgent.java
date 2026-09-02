@@ -4,7 +4,6 @@ import com.adobe.aem.modernizer.ai.AiGateway;
 import com.adobe.aem.modernizer.connectors.EdsClient;
 import com.adobe.aem.modernizer.connectors.GitHubClient;
 import com.adobe.aem.modernizer.connectors.GitHubFlow;
-import com.adobe.aem.modernizer.connectors.ModernizerNpmWorkflow;
 import com.adobe.aem.modernizer.connectors.PipelineHealLoop;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.GeneratedFileRecord;
@@ -68,28 +67,30 @@ public class PreviewAgent implements Agent {
             GitHubClient gh = GitHubFlow.clientFor(gitHub, ctx.getProject());
             gh.createBranch(branch);
             List<GeneratedFileRecord> files = (store != null) ? store.getGeneratedFiles(ctx.getJob().getId()) : null;
+            if ((files == null || files.isEmpty()) && store != null && ctx.getProject() != null) {
+                for (com.adobe.aem.modernizer.persistence.model.JobRecord j : store.listJobs(ctx.getProject().getId())) {
+                    List<GeneratedFileRecord> jf = store.getGeneratedFiles(j.getId());
+                    if (jf != null && !jf.isEmpty()) {
+                        files = jf;
+                        break;
+                    }
+                }
+            }
             List<GeneratedFileRecord> toCommit = new java.util.ArrayList<>();
+            boolean buildDocs = ctx.getProject() != null && ctx.getProject().isBuildDocs();
             if (files != null) {
                 for (GeneratedFileRecord file : files) {
                     if (!GitHubFlow.skipFromCommit(file.getPath())
-                            && !GitHubFlow.skipLegacyPageMarkdown(file.getPath())) {
+                            && !GitHubFlow.skipLegacyPageMarkdown(file.getPath())
+                            && !GitHubFlow.skipDocFile(file.getPath(), buildDocs)) {
                         toCommit.add(file);
                     }
                 }
             }
-            toCommit.add(new GeneratedFileRecord(
-                    UUID.randomUUID().toString(),
-                    ctx.getProject().getId(),
-                    ctx.getJob().getId(),
-                    GitHubFlow.NPM_WORKFLOW_PATH,
-                    "CONFIG",
-                    ModernizerNpmWorkflow.YAML
-            ));
             if (!toCommit.isEmpty()) {
                 gh.commitFiles(branch, toCommit, "feat: modernizer automated migration preview");
             }
             PipelineHealLoop.restoreFstabFromBase(gh, ctx.getProject(), branch);
-            PipelineHealLoop.start(gh, ctx, store, ai);
         }
 
         String vscodeUrl = GitHubFlow.vscodeUrl(

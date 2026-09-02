@@ -243,7 +243,12 @@ public class Orchestrator {
             throw new ModernizerException("Project cannot be null");
         }
 
-        JobRecord job = resumeOrCreateJob(project, actor, "PUBLISH");
+        String jobId = "job-" + UUID.randomUUID().toString().substring(0, 8);
+        JobRecord job = new JobRecord(jobId, project.getId(), "PUBLISH");
+        job.setActor(actor != null ? actor : "admin");
+        if (store != null) {
+            store.saveJob(job);
+        }
         AgentContext ctx = new AgentContext(project, job);
         ctx.setDryRun(false);
 

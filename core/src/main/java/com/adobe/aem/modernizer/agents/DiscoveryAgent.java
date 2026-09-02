@@ -40,7 +40,8 @@ public class DiscoveryAgent implements Agent {
 
         SiteInventory inventory = null;
         if (aemClient != null) {
-            inventory = aemClient.crawl(ctx.getProject().getContentRoot(), ctx.getProject().getPageScope());
+            String scopeMode = ctx.getProject() != null ? ctx.getProject().getScopeMode() : "RECURSIVE";
+            inventory = aemClient.crawl(ctx.getProject().getContentRoot(), ctx.getProject().getPageScope(), scopeMode);
         }
 
         if (inventory == null) {

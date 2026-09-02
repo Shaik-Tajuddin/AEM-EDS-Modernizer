@@ -75,7 +75,7 @@ public class MockAiProvider implements AiProvider {
                         + "  return `<div class=\"carousel eds-block-carousel\">${franklinBlockRow(options.title || '')}</div>`;\n"
                         + "}\n";
             } else if (blockName.equals("tabs")) {
-                content = "import { checkAndHandleNestedBlocks, replaceBlockRowsPreservingNestedBlocks, getTextFromBlockRow, getHtmlFromBlockRow, franklinBlockRow } from '../../scripts/utilities/block-helpers.js';\n\n"
+                content = "import { checkAndHandleNestedBlocks, replaceBlockRowsPreservingNestedBlocks, getTextFromBlockRow, getHtmlFromRow, franklinBlockRow } from '../../scripts/utilities/block-helpers.js';\n\n"
                         + "export default async function decorate(block) {\n"
                         + "  await checkAndHandleNestedBlocks(block);\n"
                         + "  const rows = [...block.children];\n"
@@ -85,7 +85,7 @@ public class MockAiProvider implements AiProvider {
                         + "  panels.classList.add('tabs-panels');\n"
                         + "  rows.forEach((row, idx) => {\n"
                         + "    const title = getTextFromBlockRow(row.children[0]);\n"
-                        + "    const content = getHtmlFromBlockRow(row.children[1]);\n"
+                        + "    const content = getHtmlFromRow(row.children[1]);\n"
                         + "    const tabBtn = document.createElement('button');\n"
                         + "    tabBtn.classList.add('tab-btn');\n"
                         + "    if (idx === 0) tabBtn.classList.add('active');\n"
@@ -105,12 +105,12 @@ public class MockAiProvider implements AiProvider {
                         + "  return `<div class=\"tabs eds-block-tabs\">${franklinBlockRow(options.title || '')}</div>`;\n"
                         + "}\n";
             } else if (blockName.equals("breadcrumb")) {
-                content = "import { checkAndHandleNestedBlocks, replaceBlockRowsPreservingNestedBlocks, getHtmlFromBlockRow, franklinBlockRow } from '../../scripts/utilities/block-helpers.js';\n\n"
+                content = "import { checkAndHandleNestedBlocks, replaceBlockRowsPreservingNestedBlocks, getHtmlFromRow, franklinBlockRow } from '../../scripts/utilities/block-helpers.js';\n\n"
                         + "export default async function decorate(block) {\n"
                         + "  await checkAndHandleNestedBlocks(block);\n"
                         + "  const nav = document.createElement('nav');\n"
                         + "  nav.classList.add('breadcrumb-nav');\n"
-                        + "  nav.innerHTML = getHtmlFromBlockRow(block.firstElementChild) || '<a href=\"/\">Home</a>';\n"
+                        + "  nav.innerHTML = getHtmlFromRow(block.firstElementChild) || '<a href=\"/\">Home</a>';\n"
                         + "  replaceBlockRowsPreservingNestedBlocks(block, nav);\n"
                         + "}\n\n"
                         + "export function createBlock(options = {}) {\n"
@@ -121,7 +121,7 @@ public class MockAiProvider implements AiProvider {
                         + "  checkAndHandleNestedBlocks,\n"
                         + "  replaceBlockRowsPreservingNestedBlocks,\n"
                         + "  getTextFromBlockRow,\n"
-                        + "  getHtmlFromBlockRow,\n"
+                        + "  getHtmlFromRow,\n"
                         + "  coerceAuthorClasses,\n"
                         + "  escapeHtml,\n"
                         + "  escapeHtmlAttribute,\n"
@@ -132,8 +132,8 @@ public class MockAiProvider implements AiProvider {
                         + "  const rows = [...block.children];\n"
                         + "  return {\n"
                         + "    id: getTextFromBlockRow(rows[0]),\n"
-                        + "    title: getHtmlFromBlockRow(rows[1]),\n"
-                        + "    text: getHtmlFromBlockRow(rows[2]),\n"
+                        + "    title: getHtmlFromRow(rows[1]),\n"
+                        + "    text: getHtmlFromRow(rows[2]),\n"
                         + "  };\n"
                         + "}\n\n"
                         + "export default async function decorate(block) {\n"
@@ -203,6 +203,14 @@ public class MockAiProvider implements AiProvider {
             content = "{\"successful\":true,\"patch\":\"/* verified CREATE_AEM_BLOCK.md standard */\",\"explanation\":\"Validated block structure against CREATE_AEM_BLOCK.md contract.\"}";
         } else if ("figma-intelligence".equalsIgnoreCase(agent) || "figma-analysis".equalsIgnoreCase(agent)) {
             content = "{\"tokens\":{\"--color-primary\":\"#f97316\",\"--font-heading\":\"'Plus Jakarta Sans', sans-serif\"},\"componentPairs\":[{\"figma\":\"Card/Adventure\",\"edsBlock\":\"cards\"}]}";
+        } else if ("ai-page-comparison".equalsIgnoreCase(agent)) {
+            content = "```css\n." + blockName + " {\n  margin: 24px auto;\n}\n```\n\n```js\n// page comparison refinement\n```";
+        } else if ("pipeline-heal".equalsIgnoreCase(agent)) {
+            String marker = "FILE:\n";
+            String original = request.getPrompt() != null && request.getPrompt().contains(marker)
+                    ? request.getPrompt().substring(request.getPrompt().indexOf(marker) + marker.length()).trim()
+                    : "";
+            content = original.isEmpty() ? "/* clean healed code */" : original;
         } else {
             content = "{\"status\":\"OK\",\"message\":\"Processed by AI Provider conforming to CREATE_AEM_BLOCK.md\",\"confidence\":0.96}";
         }

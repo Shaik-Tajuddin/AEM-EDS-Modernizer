@@ -10,7 +10,6 @@ import com.adobe.aem.modernizer.persistence.model.GeneratedFileRecord;
 import com.adobe.aem.modernizer.persistence.model.JobEventRecord;
 import com.adobe.aem.modernizer.persistence.model.JobRecord;
 import com.adobe.aem.modernizer.persistence.model.ProjectRecord;
-import com.adobe.aem.modernizer.persistence.model.RepairAttemptRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,7 +32,7 @@ public final class PipelineHealLoop {
 
     private static final Logger LOG = LoggerFactory.getLogger(PipelineHealLoop.class);
     private static final Pattern FILE_IN_LOG = Pattern.compile(
-            "(blocks/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+\\.(?:js|css)|scripts/[A-Za-z0-9._-]+\\.js|styles/[A-Za-z0-9._-]+\\.css)");
+            "(blocks/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+\\.(?:js|css|json)|scripts/[A-Za-z0-9._-]+\\.js|styles/[A-Za-z0-9._-]+\\.css)");
     private static final long POLL_MS = 8000L;
     private static final long WAIT_MS = 6L * 60L * 1000L;
 
@@ -109,6 +108,11 @@ public final class PipelineHealLoop {
         String branch = GitHubFlow.featureBranch(project.getId());
         int max = project.getMaxRepairAttempts() > 0 ? project.getMaxRepairAttempts() : 5;
         String lastRunId = null;
+        boolean repaired = applyJsonAndSectionFixes(client, ctx, store, branch)
+                || applyJsFixes(client, ctx, store, branch);
+        if (repaired) {
+            record(store, ctx, "Committed UE JSON / generated JS repairs before waiting on CI.");
+        }
         for (int attempt = 1; attempt <= max; attempt++) {
             Map<String, Object> run = waitForCi(client, branch, lastRunId);
             if (isSuccess(run)) {
@@ -124,9 +128,32 @@ public final class PipelineHealLoop {
             }
             lastRunId = run != null ? String.valueOf(run.getOrDefault("runId", "")) : null;
             String logs = run != null ? safeLogs(client, lastRunId) : "";
-            boolean pushed = tryLintFix(client, branch)
+            String kind = PipelineHealRepairs.classifyLogs(logs);
+            record(store, ctx, "CI failure classified as " + kind + ".");
+            boolean committed = applyJsonAndSectionFixes(client, ctx, store, branch)
+                    || applyJsFixes(client, ctx, store, branch)
                     || applyRepairs(client, ctx, store, ai, branch, logs);
-            saveRepair(store, ctx, attempt, logs, pushed);
+            repaired = repaired || committed;
+            if (!blockJsonValid(client, ctx, store, branch)) {
+                record(store, ctx, "Block _*.json is still invalid. Not dispatching the Build workflow until JSON is repaired.");
+                putMeta(job, store, "ciHeal", "stuck");
+                return;
+            }
+            if (!repaired && !committed) {
+                record(store, ctx, "No file repairs were committed. Skipping npm dispatch so CI is not re-run on the same broken files.");
+                putMeta(job, store, "ciHeal", "stuck");
+                return;
+            }
+            record(store, ctx, "Dispatching lint:fix then build:json after file repairs.");
+            boolean linted = tryDispatch(client, branch, "lint:fix");
+            if (linted) {
+                Map<String, Object> afterLint = waitForCi(client, branch, lastRunId);
+                if (afterLint != null && afterLint.get("runId") != null) {
+                    lastRunId = String.valueOf(afterLint.get("runId"));
+                }
+            }
+            tryDispatch(client, branch, "build:json");
+            boolean pushed = true;
             if (!pushed) {
                 record(store, ctx, "No automatic patch could be produced from the CI logs.");
                 putMeta(job, store, "ciHeal", "stuck");
@@ -168,16 +195,155 @@ public final class PipelineHealLoop {
         return last;
     }
 
-    private static boolean tryLintFix(GitHubClient client, String branch) {
+    static boolean applyJsFixes(GitHubClient client, AgentContext ctx, Store store, String branch) {
+        List<GeneratedFileRecord> patched = new ArrayList<>();
+        for (String path : collectRepoPaths(client, ctx, store, branch)) {
+            if (path == null || !path.startsWith("blocks/") || !path.endsWith(".js")
+                    || GitHubFlow.skipFromCommit(path)) {
+                continue;
+            }
+            String content = contentFor(client, store, ctx, branch, path);
+            if (content == null) {
+                continue;
+            }
+            String fixed = PipelineHealRepairs.sanitizeGeneratedJs(content);
+            if (!fixed.equals(content)) {
+                patched.add(file(ctx, path, "BLOCK_JS", fixed));
+            }
+        }
+        if (patched.isEmpty()) {
+            return false;
+        }
+        client.commitFiles(branch, patched, "fix: make generated block JS lint-safe");
+        if (store != null) {
+            for (GeneratedFileRecord file : patched) {
+                store.saveGeneratedFile(file);
+            }
+        }
+        return true;
+    }
+
+    static boolean blockJsonValid(GitHubClient client, AgentContext ctx, Store store, String branch) {
+        boolean saw = false;
+        for (String path : collectRepoPaths(client, ctx, store, branch)) {
+            if (!PipelineHealRepairs.isBlockModelJson(path)) {
+                continue;
+            }
+            saw = true;
+            String content = contentFor(client, store, ctx, branch, path);
+            if (content == null || !PipelineHealRepairs.isValidJson(content)) {
+                return false;
+            }
+        }
+        return saw;
+    }
+
+    private static Set<String> collectRepoPaths(GitHubClient client, AgentContext ctx, Store store, String branch) {
+        Set<String> paths = new LinkedHashSet<>();
+        paths.addAll(client.listFilePaths(branch, "blocks/"));
+        if (paths.isEmpty()) {
+            paths.addAll(client.listFilePaths(branch, ""));
+        }
+        try {
+            String base = ctx.getProject() != null ? ctx.getProject().getEdsBranch() : null;
+            if (base == null || base.isBlank()) {
+                base = client.getRepositoryDefaultBranch();
+            }
+            List<Map<String, Object>> changed = client.listChangedFiles(base, branch);
+            if (changed != null) {
+                for (Map<String, Object> row : changed) {
+                    Object name = row.get("filename");
+                    if (name != null) {
+                        paths.add(String.valueOf(name).replace('\\', '/'));
+                    }
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // listing compare is best-effort
+        }
+        if (store != null && ctx.getJob() != null) {
+            List<GeneratedFileRecord> files = store.getGeneratedFiles(ctx.getJob().getId());
+            if (files != null) {
+                for (GeneratedFileRecord file : files) {
+                    if (file != null && file.getPath() != null) {
+                        paths.add(file.getPath().replace('\\', '/'));
+                    }
+                }
+            }
+        }
+        return paths;
+    }
+
+    private static boolean tryDispatch(GitHubClient client, String branch, String command) {
         try {
             Map<String, String> inputs = new LinkedHashMap<>();
-            inputs.put("command", "lint:fix");
+            inputs.put("command", command);
             client.dispatchWorkflow(branch, GitHubFlow.NPM_WORKFLOW_FILE, inputs);
             return true;
         } catch (RuntimeException e) {
-            LOG.info("lint:fix dispatch skipped: {}", e.getMessage());
+            LOG.info("{} dispatch skipped: {}", command, e.getMessage());
             return false;
         }
+    }
+
+    static boolean applyJsonAndSectionFixes(GitHubClient client, AgentContext ctx, Store store, String branch) {
+        List<GeneratedFileRecord> patched = new ArrayList<>();
+        Set<String> paths = collectRepoPaths(client, ctx, store, branch);
+        Set<String> blockIds = PipelineHealRepairs.collectBlockIds(paths);
+        for (String path : paths) {
+            if (!PipelineHealRepairs.isBlockModelJson(path) || GitHubFlow.skipFromCommit(path)) {
+                continue;
+            }
+            String content = contentFor(client, store, ctx, branch, path);
+            if (content == null) {
+                continue;
+            }
+            String sanitized = PipelineHealRepairs.sanitizeBlockJson(content);
+            if (!sanitized.equals(content)) {
+                patched.add(file(ctx, path, "BLOCK_JSON", sanitized));
+            }
+        }
+
+        String section = client.getFileContent(branch, PipelineHealRepairs.SECTION_FILTER_PATH);
+        if (section == null && store != null && ctx.getJob() != null) {
+            section = contentFor(client, store, ctx, branch, PipelineHealRepairs.SECTION_FILTER_PATH);
+        }
+        if (section != null && !blockIds.isEmpty()) {
+            String merged = PipelineHealRepairs.mergeSectionFilter(section, blockIds);
+            if (!merged.equals(section)) {
+                patched.add(file(ctx, PipelineHealRepairs.SECTION_FILTER_PATH, "CONFIG", merged));
+            }
+        }
+
+        String listJson = client.getFileContent(branch, PipelineHealRepairs.COMPONENT_LIST_PATH);
+        if (listJson != null && !blockIds.isEmpty()) {
+            String mergedList = PipelineHealRepairs.mergeComponentList(listJson, blockIds);
+            if (!mergedList.equals(listJson)) {
+                patched.add(file(ctx, PipelineHealRepairs.COMPONENT_LIST_PATH, "CONFIG", mergedList));
+            }
+        }
+
+        if (patched.isEmpty()) {
+            return false;
+        }
+        client.commitFiles(branch, patched, "fix: sanitize UE JSON and register section blocks");
+        if (store != null) {
+            for (GeneratedFileRecord file : patched) {
+                store.saveGeneratedFile(file);
+            }
+        }
+        return true;
+    }
+
+    private static GeneratedFileRecord file(AgentContext ctx, String path, String type, String content) {
+        return new GeneratedFileRecord(
+                UUID.randomUUID().toString(),
+                ctx.getProject().getId(),
+                ctx.getJob() != null ? ctx.getJob().getId() : "preview",
+                path,
+                type,
+                content
+        );
     }
 
     private static boolean applyRepairs(GitHubClient client, AgentContext ctx, Store store,
@@ -232,15 +398,18 @@ public final class PipelineHealLoop {
             req.setTargetCapability(ModelCapability.CAP_CODE);
             ChatResponse resp = ai.dispatch(req);
             String body = resp != null ? resp.getContent() : null;
-            if (body != null && body.length() > 20 && !body.contains("```")) {
-                return body;
-            }
             if (body != null && body.contains("```")) {
                 int start = body.indexOf('\n', body.indexOf("```"));
                 int end = body.lastIndexOf("```");
                 if (start > 0 && end > start) {
-                    return body.substring(start + 1, end).trim();
+                    body = body.substring(start + 1, end).trim();
                 }
+            }
+            if (body != null && body.length() > 20) {
+                if ((path.endsWith(".css") || path.endsWith(".js")) && body.trim().startsWith("{") && body.contains("\"status\"")) {
+                    return heuristic.equals(content) ? null : heuristic;
+                }
+                return body;
             }
         } catch (RuntimeException e) {
             LOG.warn("AI repair failed for {}: {}", path, e.getMessage());
@@ -337,24 +506,6 @@ public final class PipelineHealLoop {
                 "pipeline-heal",
                 message
         ));
-    }
-
-    private static void saveRepair(Store store, AgentContext ctx, int attempt, String logs, boolean pushed) {
-        if (store == null || ctx.getJob() == null) {
-            return;
-        }
-        RepairAttemptRecord rec = new RepairAttemptRecord(
-                UUID.randomUUID().toString(),
-                ctx.getProject().getId(),
-                ctx.getJob().getId(),
-                "ci-pipeline",
-                attempt,
-                excerpt(logs, 400)
-        );
-        rec.setIssueCategory("CI_FAILURE");
-        rec.setProposedFix(pushed ? "lint:fix and/or log-based file patches" : "no patch produced");
-        rec.setSuccessful(pushed);
-        store.saveRepairAttempt(rec);
     }
 
     private static void putMeta(JobRecord job, Store store, String key, String value) {

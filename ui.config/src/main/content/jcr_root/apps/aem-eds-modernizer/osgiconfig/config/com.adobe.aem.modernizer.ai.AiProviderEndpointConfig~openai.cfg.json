@@ -1,0 +1,7 @@
+{
+  "providerName": "openai",
+  "baseUrl": "https://api.openai.com/v1",
+  "apiKeyRef": "env:OPENAI_API_KEY",
+  "defaultModel": "",
+  "enabled": true
+}

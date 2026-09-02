@@ -1,7 +1,6 @@
 package com.adobe.aem.modernizer.connectors;
 
 import com.adobe.aem.modernizer.persistence.model.SiteInventory;
-import com.adobe.aem.modernizer.util.JsonUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.osgi.service.component.annotations.Component;
@@ -67,63 +66,34 @@ public class RealAemClient implements AemClient {
 
     @Override
     public SiteInventory crawl(String contentRoot, String pageScope) {
+        return crawl(contentRoot, pageScope, "RECURSIVE");
+    }
+
+    @Override
+    public SiteInventory crawl(String contentRoot, String pageScope, String scopeMode) {
         SiteInventory inv = new SiteInventory();
-        String targetPath = (pageScope != null && !pageScope.trim().isEmpty() && !pageScope.endsWith("/*"))
-                ? pageScope.trim()
+        String targetPath = (pageScope != null && !pageScope.trim().isEmpty())
+                ? pageScope.trim().replaceAll("/\\*+$", "")
                 : (contentRoot != null ? contentRoot.trim() : "/content/wknd");
 
         // Normalize path
         targetPath = targetPath.replaceAll("/+$", "").replace(".html", "");
-        LOG.info("RealAemClient crawling live JCR at targetPath: {}", targetPath);
+        String mode = (scopeMode != null && !scopeMode.trim().isEmpty()) ? scopeMode.trim().toUpperCase() : "RECURSIVE";
+        LOG.info("RealAemClient crawling live JCR at targetPath: {}, scopeMode: {}", targetPath, mode);
 
         try {
-            // 1. Fetch 1-level structure to check if there are child pages
-            JsonNode rootJson = fetchJcrJson(targetPath + ".1.json");
-            if (rootJson == null) {
-                LOG.warn("Could not fetch JCR data for path {}, attempting infinity fallback", targetPath);
-                rootJson = fetchJcrJson(targetPath + ".infinity.json");
-            }
-
-            List<String> pagePaths = new ArrayList<>();
-            if (rootJson != null) {
-                // Check if this node itself is a page (has jcr:content or jcr:primaryType == cq:Page)
-                boolean isCurrentNodePage = rootJson.has("jcr:content")
-                        || (rootJson.has("jcr:primaryType") && "cq:Page".equals(rootJson.get("jcr:primaryType").asText()));
-
-                // Check for child cq:Page nodes
-                List<String> childPageNames = new ArrayList<>();
-                Iterator<String> fieldNames = rootJson.fieldNames();
-                while (fieldNames.hasNext()) {
-                    String field = fieldNames.next();
-                    if (field.startsWith("jcr:") || field.startsWith("sling:") || field.equals("jcr:content")) {
-                        continue;
-                    }
-                    JsonNode child = rootJson.get(field);
-                    if (child.isObject()) {
-                        if (child.has("jcr:primaryType") && "cq:Page".equals(child.get("jcr:primaryType").asText())) {
-                            childPageNames.add(field);
-                        } else if (child.has("jcr:content")) {
-                            childPageNames.add(field);
-                        }
-                    }
-                }
-
-                if (childPageNames.isEmpty() && isCurrentNodePage) {
-                    // Leaf Single Page!
-                    LOG.info("Target path {} has no child pages. Discovered as SINGLE PAGE.", targetPath);
-                    pagePaths.add(targetPath);
-                } else {
-                    if (isCurrentNodePage) {
-                        pagePaths.add(targetPath);
-                    }
-                    for (String childName : childPageNames) {
-                        pagePaths.add(targetPath + "/" + childName);
-                    }
-                }
+            // 1. Discover pages based on scopeMode ("SINGLE_PAGE" vs "DIRECT_CHILDREN" vs "RECURSIVE")
+            List<String> pagePaths;
+            if ("SINGLE_PAGE".equals(mode) || "THIS_PAGE".equals(mode) || "SINGLE".equals(mode)) {
+                pagePaths = Collections.singletonList(targetPath);
+            } else if ("DIRECT_CHILDREN".equals(mode) || "SHALLOW".equals(mode) || "1_LEVEL".equals(mode)) {
+                pagePaths = discoverDirectChildPages(targetPath);
+            } else {
+                pagePaths = discoverAllPagePaths(targetPath);
             }
 
             if (pagePaths.isEmpty()) {
-                pagePaths.add(targetPath);
+                pagePaths = Collections.singletonList(targetPath);
             }
 
             // 2. Crawl full component hierarchy for each discovered page
@@ -134,7 +104,11 @@ public class RealAemClient implements AemClient {
             Set<String> distinctTemplates = new LinkedHashSet<>();
 
             for (String pPath : pagePaths) {
-                JsonNode pageJson = fetchJcrJson(pPath + ".infinity.json");
+                JsonNode pageJson = fetchJcrJson(pPath + "/jcr:content.infinity.json");
+                if (pageJson == null) {
+                    pageJson = fetchJcrJson(pPath + ".infinity.json");
+                }
+
                 String title = formatTitleFromPath(pPath);
                 String template = "/conf/wknd/settings/wcm/templates/page";
 
@@ -143,8 +117,10 @@ public class RealAemClient implements AemClient {
 
                 if (pageJson != null) {
                     JsonNode jcrContent = pageJson.has("jcr:content") ? pageJson.get("jcr:content") : pageJson;
-                    if (jcrContent.has("jcr:title")) {
+                    if (jcrContent.has("jcr:title") && !jcrContent.get("jcr:title").asText().isEmpty()) {
                         title = jcrContent.get("jcr:title").asText();
+                    } else if (jcrContent.has("pageTitle") && !jcrContent.get("pageTitle").asText().isEmpty()) {
+                        title = jcrContent.get("pageTitle").asText();
                     }
                     if (jcrContent.has("cq:template")) {
                         template = jcrContent.get("cq:template").asText();
@@ -264,6 +240,118 @@ public class RealAemClient implements AemClient {
             return false;
         }
         return true;
+    }
+
+    private List<String> discoverDirectChildPages(String targetPath) {
+        Set<String> pagePaths = new LinkedHashSet<>();
+        JsonNode rootJson = fetchJcrJson(targetPath + ".1.json");
+        if (rootJson != null) {
+            boolean isCurrentNodePage = rootJson.has("jcr:content")
+                    || (rootJson.has("jcr:primaryType") && "cq:Page".equals(rootJson.get("jcr:primaryType").asText()));
+            if (isCurrentNodePage) {
+                pagePaths.add(targetPath);
+            }
+            Iterator<String> fieldNames = rootJson.fieldNames();
+            while (fieldNames.hasNext()) {
+                String field = fieldNames.next();
+                if (field.startsWith("jcr:") || field.startsWith("sling:") || field.equals("jcr:content")) {
+                    continue;
+                }
+                JsonNode child = rootJson.get(field);
+                if (child.isObject()) {
+                    if (child.has("jcr:primaryType") && "cq:Page".equals(child.get("jcr:primaryType").asText())
+                            || child.has("jcr:content")) {
+                        pagePaths.add(targetPath + "/" + field);
+                    }
+                }
+            }
+        }
+        if (pagePaths.isEmpty()) {
+            pagePaths.add(targetPath);
+        }
+        return new ArrayList<>(pagePaths);
+    }
+
+    private List<String> discoverAllPagePaths(String targetPath) {
+        Set<String> pagePaths = new LinkedHashSet<>();
+
+        // 1. Try AEM QueryBuilder API for fast, indexed recursive cq:Page search
+        try {
+            String qbUrl = authorUrl + "/bin/querybuilder.json?path=" + targetPath + "&path.self=true&type=cq:Page&p.limit=-1";
+            JsonNode qbJson = fetchUrlJson(qbUrl);
+            if (qbJson != null && qbJson.has("hits") && qbJson.get("hits").isArray() && qbJson.get("hits").size() > 0) {
+                for (JsonNode hit : qbJson.get("hits")) {
+                    String p = hit.has("path") ? hit.get("path").asText() : (hit.has("jcr:path") ? hit.get("jcr:path").asText() : null);
+                    if (p != null && !p.isEmpty()) {
+                        pagePaths.add(p);
+                    }
+                }
+                if (!pagePaths.isEmpty()) {
+                    LOG.info("QueryBuilder discovered {} pages under {}", pagePaths.size(), targetPath);
+                    return new ArrayList<>(pagePaths);
+                }
+            }
+        } catch (Exception e) {
+            LOG.warn("QueryBuilder search failed for {}: {}", targetPath, e.getMessage());
+        }
+
+        // 2. Fallback: Recursive JCR tree traversal
+        LOG.info("Falling back to recursive JCR traversal for {}", targetPath);
+        discoverPagesRecursively(targetPath, pagePaths, new HashSet<>());
+        if (pagePaths.isEmpty()) {
+            pagePaths.add(targetPath);
+        }
+        return new ArrayList<>(pagePaths);
+    }
+
+    private void discoverPagesRecursively(String path, Set<String> pagePaths, Set<String> visited) {
+        if (path == null || path.isEmpty() || visited.contains(path)) return;
+        visited.add(path);
+
+        JsonNode json = fetchJcrJson(path + ".1.json");
+        if (json == null) return;
+
+        boolean isPage = json.has("jcr:content")
+                || (json.has("jcr:primaryType") && "cq:Page".equals(json.get("jcr:primaryType").asText()));
+        if (isPage) {
+            pagePaths.add(path);
+        }
+
+        Iterator<String> fieldNames = json.fieldNames();
+        while (fieldNames.hasNext()) {
+            String field = fieldNames.next();
+            if (field.startsWith("jcr:") || field.startsWith("sling:") || field.equals("jcr:content")) {
+                continue;
+            }
+            JsonNode child = json.get(field);
+            if (child.isObject()) {
+                boolean childIsPage = child.has("jcr:content")
+                        || (child.has("jcr:primaryType") && "cq:Page".equals(child.get("jcr:primaryType").asText()));
+                if (childIsPage) {
+                    discoverPagesRecursively(path + "/" + field, pagePaths, visited);
+                }
+            }
+        }
+    }
+
+    private JsonNode fetchUrlJson(String url) {
+        try {
+            String authHeader = "Basic " + Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
+            HttpRequest req = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Authorization", authHeader)
+                    .timeout(Duration.ofSeconds(15))
+                    .GET()
+                    .build();
+
+            HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (resp.statusCode() == 200 && resp.body() != null && resp.body().trim().startsWith("{")) {
+                return MAPPER.readTree(resp.body());
+            }
+        } catch (Exception e) {
+            LOG.debug("Error fetching URL {}: {}", url, e.getMessage());
+        }
+        return null;
     }
 
     private JsonNode fetchJcrJson(String path) {

@@ -19,14 +19,30 @@ import java.util.*;
 public class OpenAiProvider implements AiProvider {
 
     private final HttpClient httpClient;
+    private final String providerName;
     private final String baseUrl;
+    private final String defaultModel;
 
     public OpenAiProvider() {
-        this("https://api.openai.com/v1");
+        this("openai", "https://api.openai.com/v1", "gpt-4o-mini");
     }
 
     public OpenAiProvider(String baseUrl) {
-        this.baseUrl = baseUrl;
+        this("openai", baseUrl, "gpt-4o-mini");
+    }
+
+    public OpenAiProvider(String providerName, String baseUrl) {
+        this(providerName, baseUrl, "gpt-4o-mini");
+    }
+
+    public OpenAiProvider(String providerName, String baseUrl, String defaultModel) {
+        this.providerName = (providerName != null && !providerName.isBlank()) ? providerName.trim().toLowerCase(Locale.ROOT) : "openai";
+        String cleanUrl = baseUrl != null ? baseUrl.trim() : "https://api.openai.com/v1";
+        while (cleanUrl.endsWith("/")) {
+            cleanUrl = cleanUrl.substring(0, cleanUrl.length() - 1);
+        }
+        this.baseUrl = cleanUrl;
+        this.defaultModel = (defaultModel != null && !defaultModel.isBlank()) ? defaultModel.trim() : "gpt-4o-mini";
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(30))
                 .build();
@@ -34,7 +50,7 @@ public class OpenAiProvider implements AiProvider {
 
     @Override
     public String getProviderName() {
-        return "openai";
+        return this.providerName;
     }
 
     @Override
@@ -45,10 +61,10 @@ public class OpenAiProvider implements AiProvider {
     @Override
     public ChatResponse chat(ChatRequest request, String model, String apiKey) {
         if (apiKey == null || apiKey.trim().isEmpty()) {
-            throw new IllegalArgumentException("OpenAI API key is missing");
+            throw new IllegalArgumentException("API key for provider '" + providerName + "' is missing");
         }
 
-        String targetModel = (model != null && !model.isEmpty()) ? model : "gpt-4o-mini";
+        String targetModel = (model != null && !model.isEmpty()) ? model : this.defaultModel;
 
         List<Map<String, String>> messages = new ArrayList<>();
         if (request.getSystemPrompt() != null && !request.getSystemPrompt().isEmpty()) {

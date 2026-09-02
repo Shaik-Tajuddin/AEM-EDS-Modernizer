@@ -87,7 +87,7 @@ class AiAndProvidersTest {
 
         policy.setStrategy("LOCAL_ONLY");
         assertThat(policy.resolveProvider("connection")).isEqualTo("ollama");
-        assertThat(policy.resolveModel("connection")).isEqualTo("llama3");
+        assertThat(policy.resolveModel("connection")).isEqualTo("qwen3:8b");
 
         assertThat(policy.getAgentProviderMap()).isNotEmpty();
         assertThat(policy.getAgentModelMap()).isNotEmpty();

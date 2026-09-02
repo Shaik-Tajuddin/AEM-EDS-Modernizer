@@ -1,3 +1,10 @@
+<!--
+  =============================================================================================
+  CRITICAL SYNC NOTE FOR DEVELOPERS & AI AGENTS:
+  Whenever you modify this file (home.html), clientlib JS (dashboard.js), or CSS (dashboard.css),
+  YOU MUST ALSO UPDATE StaticDashboard.java in the core bundle to maintain 100% full parity!
+  =============================================================================================
+-->
 <!doctype html>
 <html lang="en" data-sly-use.model="com.adobe.aem.modernizer.dashboard.models.ModernizerDashboardModel">
 <head>
@@ -14,7 +21,7 @@
     </a>
     <div class="header-center">
       <label style="font-size:0.8rem; color:var(--text-muted); font-weight:600;">Active Project:</label>
-      <select id="project-select" class="project-selector" onchange="onProjectSelectChange()">
+      <select id="project-select" class="project-selector" onchange="AemEdsDashboard.onProjectSelectChange()">
         <option data-sly-repeat.proj="${model.projects}" value="${proj.id}" selected="${proj.id == model.activeProjectId}">${proj.name || proj.id}</option>
         <option value="new">+ Create New Project...</option>
       </select>
@@ -27,14 +34,13 @@
   <div class="container">
     <div class="actions">
       <div class="actions-left">
-        <button class="btn btn-outline" onclick="showTab('setup')">⚙️ Project Configuration</button>
-        <button id="btn-dryrun" class="btn btn-primary" onclick="runDryRun()">🔍 Run Dry Run</button>
-        <button id="btn-migrate" class="btn btn-primary" onclick="runMigration()" disabled>⚡ Generate & Build Blocks</button>
-        <button id="btn-publish" class="btn btn-accent" onclick="runPushToGit()" disabled>🚀 Commit & Push to Git</button>
+        <button class="btn btn-outline" onclick="AemEdsDashboard.showTab('setup')">⚙️ Project Configuration</button>
+        <button id="btn-dryrun" class="btn btn-primary" onclick="AemEdsDashboard.runDryRun()">🔍 Run Dry Run</button>
+        <button id="btn-migrate" class="btn btn-primary" onclick="AemEdsDashboard.runMigration()" disabled>⚡ Generate & Build Blocks</button>
       </div>
       <div class="actions-right">
-        <button id="btn-delete-project" class="btn btn-danger" title="Delete this project" onclick="deleteCurrentProject()">🗑️ Delete Project</button>
-        <button class="btn btn-outline" onclick="refreshDashboard()">🔄 Refresh</button>
+        <button id="btn-delete-project" class="btn btn-danger" title="Delete this project" onclick="AemEdsDashboard.deleteCurrentProject()">🗑️ Delete Project</button>
+        <button class="btn btn-outline" onclick="AemEdsDashboard.refreshDashboard()">🔄 Refresh</button>
       </div>
     </div>
 
@@ -51,27 +57,32 @@
     <nav class="nav-tabs" aria-label="Dashboard sections">
       <div class="nav-group">
         <div class="nav-group-label">Results</div>
-        <button class="nav-tab active" onclick="showTab('overview')">Overview</button>
-        <button class="nav-tab" onclick="showTab('components')">Components</button>
-        <button class="nav-tab" onclick="showTab('estimate')">Estimates</button>
+        <button class="nav-tab active" onclick="AemEdsDashboard.showTab('overview')">Overview</button>
+        <button class="nav-tab" onclick="AemEdsDashboard.showTab('components')">Components</button>
+        <button class="nav-tab" onclick="AemEdsDashboard.showTab('estimate')">Estimates</button>
       </div>
       <div class="nav-group">
         <div class="nav-group-label">Content</div>
-        <button class="nav-tab" onclick="showTab('pages')">Pages &amp; Scope</button>
-        <button class="nav-tab" onclick="showTab('github')">VS Code &amp; GitHub</button>
+        <button class="nav-tab" onclick="AemEdsDashboard.showTab('pages')">Pages &amp; Scope</button>
+        <button class="nav-tab" onclick="AemEdsDashboard.showTab('github')">VS Code &amp; GitHub</button>
       </div>
       <div class="nav-group">
         <div class="nav-group-label">Ops</div>
-        <button class="nav-tab" onclick="showTab('redirects')">301 Redirects</button>
-        <button class="nav-tab" onclick="showTab('dependencies')">Dependencies</button>
-        <button class="nav-tab" onclick="showTab('rollout')">Rollout</button>
-        <button class="nav-tab" onclick="showTab('repairs')">Self-Repair</button>
-        <button class="nav-tab" onclick="showTab('benchmarks')">Benchmarks</button>
-        <button class="nav-tab" onclick="showTab('chat')">Agent Chat</button>
+        <button class="nav-tab" onclick="AemEdsDashboard.showTab('redirects')">301 Redirects</button>
+        <button class="nav-tab" onclick="AemEdsDashboard.showTab('dependencies')">Dependencies Graph</button>
+        <button class="nav-tab" onclick="AemEdsDashboard.showTab('rollout')">Rollout Stages</button>
+        <button class="nav-tab" onclick="AemEdsDashboard.showTab('repairs')">Self-Repair Log</button>
+        <button class="nav-tab" onclick="AemEdsDashboard.showTab('benchmarks')">Benchmarks</button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">AI &amp; RAG</div>
+        <button class="nav-tab" onclick="AemEdsDashboard.showTab('rag')">Knowledge &amp; RAG</button>
+        <button class="nav-tab" onclick="AemEdsDashboard.showTab('chat')">AI Chat Agent</button>
+        <button class="nav-tab" onclick="AemEdsDashboard.showTab('eval')">RAG Benchmark</button>
       </div>
       <div class="nav-group">
         <div class="nav-group-label">Config</div>
-        <button class="nav-tab" onclick="showTab('setup')">Project Setup</button>
+        <button class="nav-tab" onclick="AemEdsDashboard.showTab('setup')">Project Setup</button>
       </div>
     </nav>
 
@@ -146,6 +157,20 @@
               <label class="form-label">Page / Subtree Scope (Optional)</label>
               <input type="text" id="cfg-pageScope" class="form-control" value="${model.activeProject.pageScope}" placeholder="/content/wknd/us/en or /content/wknd/*">
             </div>
+            <div class="form-group">
+              <label class="form-label">Page Discovery Scope</label>
+              <div style="display:flex; gap:16px; align-items:center; margin-top:6px; flex-wrap:wrap;">
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.88rem; color:var(--text-main);">
+                  <input type="radio" name="cfg-scopeMode" id="cfg-scopeMode-recursive" value="RECURSIVE" checked="${model.activeProject.scopeMode != 'SINGLE_PAGE'}">
+                  <span>🌳 <b>Complete Nested Subtree</b> (All Subpages)</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.88rem; color:var(--text-main);">
+                  <input type="radio" name="cfg-scopeMode" id="cfg-scopeMode-single" value="SINGLE_PAGE" checked="${model.activeProject.scopeMode == 'SINGLE_PAGE'}">
+                  <span>📄 <b>This Page Only</b></span>
+                </label>
+              </div>
+              <div class="form-hint">Toggle between crawling all recursive subpages vs strictly this single page root.</div>
+            </div>
           </div>
 
           <!-- Section 2: Target EDS & Figma -->
@@ -180,6 +205,14 @@
               <label class="form-label">Marker Expected Value</label>
               <input type="text" id="cfg-markerVal" class="form-control" value="${model.activeProject.markerValue}" placeholder="true or *">
             </div>
+            <div class="form-group">
+              <label class="form-label">Documentation & Fixtures</label>
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.88rem; color:var(--text-main); margin-top:6px;">
+                <input type="checkbox" id="cfg-buildDocs" data-sly-attribute.checked="${model.activeProject.buildDocs}">
+                <span>📄 <b>Build Documentation & Page Fixtures (<code>docs/</code>)</b></span>
+              </label>
+              <div class="form-hint">When unchecked (default), <code>docs/migrated-pages</code> and markdown doc files are omitted from Git.</div>
+            </div>
           </div>
 
           <!-- Section 3: AI Engine & Safety Bounds -->
@@ -187,19 +220,33 @@
             <div class="form-section-title">🤖 AI Intelligence & Safety Limits</div>
             <div class="form-group">
               <label class="form-label">AI Provider Preference</label>
-              <select id="cfg-aiProvider" class="form-control" onchange="onProviderChange()">
-                <option value="antigravity">✨ Antigravity IDE Agent (No API Key Needed)</option>
-                <option value="anthropic">Anthropic Claude (API Key Required)</option>
-                <option value="openai">OpenAI (GPT-4o, API Key Required)</option>
-                <option value="gemini">Google Gemini (1.5 Pro, API Key Required)</option>
-                <option value="ollama">Ollama (Local — Slow)</option>
+              <select id="cfg-aiProvider" class="form-control" onchange="AemEdsDashboard.onProviderChange()">
+                <optgroup label="Local IDE">
+                  <option value="antigravity" data-sly-attribute.selected="${model.activeProject.aiProvider == 'antigravity'}">Antigravity IDE</option>
+                  <option value="cursor" data-sly-attribute.selected="${model.activeProject.aiProvider == 'cursor'}">Cursor IDE</option>
+                  <option value="claudecode" data-sly-attribute.selected="${model.activeProject.aiProvider == 'claudecode'}">Claude Code IDE</option>
+                  <option value="geminicode" data-sly-attribute.selected="${model.activeProject.aiProvider == 'geminicode'}">Gemini IDE</option>
+                </optgroup>
+                <optgroup label="Cloud API">
+                  <option value="tokenrouter" data-sly-attribute.selected="${model.activeProject.aiProvider == 'tokenrouter'}">TokenRouter (GLM-5.3)</option>
+                  <option value="anthropic" data-sly-attribute.selected="${model.activeProject.aiProvider == 'anthropic' || !model.activeProject.aiProvider}">Anthropic Claude</option>
+                  <option value="openai" data-sly-attribute.selected="${model.activeProject.aiProvider == 'openai'}">OpenAI GPT</option>
+                  <option value="gemini" data-sly-attribute.selected="${model.activeProject.aiProvider == 'gemini'}">Google Gemini API</option>
+                  <option value="ollama" data-sly-attribute.selected="${model.activeProject.aiProvider == 'ollama'}">Ollama</option>
+                </optgroup>
               </select>
-              <div id="antigravity-banner" style="display:none; margin-top:10px; padding:12px 16px; background:linear-gradient(135deg,#1e1b4b,#312e81); border-radius:8px; border:1px solid #6366f1; color:#e0e7ff; font-size:0.85rem; line-height:1.6;">
-                <strong style="color:#a5b4fc;">✨ Antigravity Mode Active</strong><br>
-                Block generation is handled by the <strong>Antigravity IDE agent</strong>.<br>
-                1. Run a <strong>Dry Run</strong> to discover your components.<br>
-                2. Then tell the agent: <code style="background:#1e1b4b;padding:2px 5px;border-radius:3px;">&quot;Generate EDS blocks for project [id]&quot;</code><br>
-                Antigravity will use <strong>MCP</strong> to fetch real AEM component fields and generate contextually accurate blocks.
+              <div id="ide-agent-banner" style="display:none; margin-top:10px; padding:12px 16px; background:linear-gradient(135deg,#1e1b4b,#312e81); border-radius:8px; border:1px solid #6366f1; color:#e0e7ff; font-size:0.85rem; line-height:1.6;">
+                <strong style="color:#a5b4fc;" id="ide-agent-banner-title">IDE Mode Active</strong><br>
+                Block generation is handed off to your IDE agent.<br>
+                <strong>Agent Chat uses local Ollama</strong> (start Ollama and pull a model, e.g. <code style="background:#1e1b4b;padding:2px 5px;border-radius:3px;">qwen3:8b</code>).<br>
+                1. Run a <strong>Dry Run</strong> to discover components.<br>
+                2. Use <code style="background:#1e1b4b;padding:2px 5px;border-radius:3px;">GET …/components-pending</code> then <code style="background:#1e1b4b;padding:2px 5px;border-radius:3px;">POST …/blocks</code>.
+              </div>
+              <div id="cloud-api-banner" style="display:none; margin-top:10px; padding:10px 14px; background:#1a2332; border-radius:8px; border:1px solid #334155; color:var(--text-muted); font-size:0.8rem; line-height:1.5;">
+                <strong style="color:var(--text);" id="cloud-api-banner-title">Cloud API</strong>
+                — configure the provider API key so calls can authenticate
+                (<code style="background:#0f172a;padding:2px 5px;border-radius:3px;" id="cloud-api-key-ref">env:…_API_KEY</code>
+                via OSGi <code style="background:#0f172a;padding:2px 5px;border-radius:3px;">AiProviderEndpointConfig</code>).
               </div>
             </div>
             <div class="form-group" id="ai-model-group">
@@ -219,9 +266,9 @@
         </div>
 
         <div style="margin-top:24px; display:flex; gap:12px; flex-wrap:wrap;">
-          <button class="btn btn-primary" onclick="saveProjectConfig()">💾 Save & Connect Project</button>
-          <button class="btn btn-outline" onclick="loadWkndPreset()">⚡ Load WKND Site Preset</button>
-          <button class="btn btn-outline" onclick="clearForm()">✨ Clear Form</button>
+          <button class="btn btn-primary" onclick="AemEdsDashboard.saveProjectConfig()">💾 Save & Connect Project</button>
+          <button class="btn btn-outline" onclick="AemEdsDashboard.loadWkndPreset()">⚡ Load WKND Site Preset</button>
+          <button class="btn btn-outline" onclick="AemEdsDashboard.clearForm()">✨ Clear Form</button>
         </div>
       </div>
     </div>
@@ -255,13 +302,13 @@
           <div class="block-detail">
             <div class="block-detail-header">
               <div class="block-file-tabs">
-                <button id="filetab-demo" class="block-file-tab active" onclick="switchBlockFileTab('demo')">HTML view</button>
-                <button id="filetab-da" class="block-file-tab" onclick="switchBlockFileTab('da')">DA compatible</button>
-                <button id="filetab-ue" class="block-file-tab" onclick="switchBlockFileTab('ue')">UE authoring</button>
-                <button id="filetab-json" class="block-file-tab" onclick="switchBlockFileTab('json')">Model (_*.json)</button>
-                <button id="filetab-js" class="block-file-tab" onclick="switchBlockFileTab('js')">Script</button>
-                <button id="filetab-css" class="block-file-tab" onclick="switchBlockFileTab('css')">Style</button>
-                <button id="filetab-readme" class="block-file-tab" onclick="switchBlockFileTab('readme')">README</button>
+                <button id="filetab-demo" class="block-file-tab active" onclick="AemEdsDashboard.switchBlockFileTab('demo')">HTML view</button>
+                <button id="filetab-da" class="block-file-tab" onclick="AemEdsDashboard.switchBlockFileTab('da')">DA compatible</button>
+                <button id="filetab-ue" class="block-file-tab" onclick="AemEdsDashboard.switchBlockFileTab('ue')">UE authoring</button>
+                <button id="filetab-json" class="block-file-tab" onclick="AemEdsDashboard.switchBlockFileTab('json')">Model (_*.json)</button>
+                <button id="filetab-js" class="block-file-tab" onclick="AemEdsDashboard.switchBlockFileTab('js')">Script</button>
+                <button id="filetab-css" class="block-file-tab" onclick="AemEdsDashboard.switchBlockFileTab('css')">Style</button>
+                <button id="filetab-readme" class="block-file-tab" onclick="AemEdsDashboard.switchBlockFileTab('readme')">README</button>
               </div>
               <div style="font-size:0.8rem; color:var(--text-dim);" id="block-file-path">blocks/...</div>
             </div>
@@ -272,7 +319,7 @@
 
             <!-- Code Viewer / Live Preview -->
             <div id="block-view-code" class="code-viewer-container" style="display:none;">
-              <button class="btn-copy" onclick="copyActiveCode()">📋 Copy Code</button>
+              <button class="btn-copy" onclick="AemEdsDashboard.copyActiveCode()">📋 Copy Code</button>
               <pre id="block-code-content" class="code-viewer">// Select a block and file tab</pre>
             </div>
 
@@ -328,10 +375,10 @@
           <div class="block-detail">
             <div class="block-detail-header">
               <div class="block-file-tabs">
-                <button id="pagetab-html" class="block-file-tab active" onclick="switchPageFileTab('html')">HTML view</button>
-                <button id="pagetab-preview" class="block-file-tab" onclick="switchPageFileTab('preview')">DA compatible</button>
-                <button id="pagetab-ue" class="block-file-tab" onclick="switchPageFileTab('ue')">UE authoring</button>
-                <button id="pagetab-source" class="block-file-tab" onclick="switchPageFileTab('source')">Markdown source</button>
+                <button id="pagetab-html" class="block-file-tab active" onclick="AemEdsDashboard.switchPageFileTab('html')">HTML view</button>
+                <button id="pagetab-preview" class="block-file-tab" onclick="AemEdsDashboard.switchPageFileTab('preview')">DA compatible</button>
+                <button id="pagetab-ue" class="block-file-tab" onclick="AemEdsDashboard.switchPageFileTab('ue')">UE authoring</button>
+                <button id="pagetab-source" class="block-file-tab" onclick="AemEdsDashboard.switchPageFileTab('source')">Markdown source</button>
               </div>
               <div style="font-size:0.8rem; color:var(--text-dim);" id="page-preview-path">Select a page to preview</div>
             </div>
@@ -361,6 +408,20 @@
             <div id="page-view-ue" class="preview-frame-container" style="display:none;">
               <div class="preview-card" id="page-ue-rendered" style="background: white; padding: 20px; border-radius: 6px; border: 1px solid #e2e8f0; min-height: 350px;"></div>
             </div>
+
+            <!-- AI Compare & Match AEM Page -->
+            <div id="page-ai-compare" style="margin-top:14px; padding:14px; background:rgba(99,102,241,0.06); border:1px solid rgba(99,102,241,0.35); border-radius:8px;">
+              <div style="font-weight:700; font-size:0.9rem; margin-bottom:8px;">🤖 AI Compare &amp; Match AEM Page</div>
+              <p style="font-size:0.8rem; color:var(--text-muted); margin:0 0 10px;">
+                Compares the source AEM page (author rootpath) against the local EDS render on <code>localhost:3000</code>, then generates matching JS &amp; CSS using the authorable <code>id</code> / <code>classes</code> fields. Requires <b>aem up</b> running (VS Code &amp; GitHub tab).
+              </p>
+              <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+                <input id="ai-compare-eds-path" class="form-control" placeholder="EDS path e.g. /about-us" style="max-width:220px; padding:8px 12px;">
+                <input id="ai-compare-block" class="form-control" placeholder="Block name (optional) e.g. hero" style="max-width:200px; padding:8px 12px;">
+                <button class="btn btn-primary" id="btn-ai-compare" onclick="AemEdsDashboard.runAiCompare()">🔍 Compare &amp; Generate</button>
+              </div>
+              <div id="ai-compare-result" style="font-size:0.8rem; color:var(--text-muted);"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -368,8 +429,38 @@
 
     <!-- Tab: Estimate -->
     <div id="tab-estimate" class="tab-content" style="display:none;">
+      <!-- RAG Savings & Optimization Card (Section 29) -->
+      <div class="card" style="margin-bottom:16px; background:linear-gradient(135deg,rgba(15,23,42,0.8),rgba(2,132,199,0.08)); border:1px solid rgba(56,189,248,0.3);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div class="card-title" style="margin:0; font-size:0.95rem; color:#f8fafc;">⚡ RAG Knowledge Optimization &amp; Savings</div>
+          <span id="stat-rag-savings-badge" class="status-badge" style="background:#0284c7; color:#fff; font-size:0.78rem;">42% Cost Reduction</span>
+        </div>
+        <div class="card-grid-2" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:12px;">
+          <div style="background:rgba(15,23,42,0.6); padding:10px; border-radius:6px; border:1px solid var(--surface-border);">
+            <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">AI Calls Avoided</div>
+            <div id="stat-rag-avoided" style="font-size:1.3rem; font-weight:700; color:#38bdf8; margin-top:2px;">—</div>
+            <div style="font-size:0.72rem; color:var(--text-dim);">via repository RAG</div>
+          </div>
+          <div style="background:rgba(15,23,42,0.6); padding:10px; border-radius:6px; border:1px solid var(--surface-border);">
+            <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Net Cost Saved</div>
+            <div id="stat-rag-saved-cost" style="font-size:1.3rem; font-weight:700; color:#34d399; margin-top:2px;">—</div>
+            <div style="font-size:0.72rem; color:var(--text-dim);">reused mappings</div>
+          </div>
+          <div style="background:rgba(15,23,42,0.6); padding:10px; border-radius:6px; border:1px solid var(--surface-border);">
+            <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Migration Time Saved</div>
+            <div id="stat-rag-saved-time" style="font-size:1.3rem; font-weight:700; color:#a78bfa; margin-top:2px;">—</div>
+            <div style="font-size:0.72rem; color:var(--text-dim);">instant knowledge</div>
+          </div>
+          <div style="background:rgba(15,23,42,0.6); padding:10px; border-radius:6px; border:1px solid var(--surface-border);">
+            <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Historical Hit Rate</div>
+            <div id="stat-rag-hit-rate" style="font-size:1.3rem; font-weight:700; color:#fbbf24; margin-top:2px;">42%</div>
+            <div style="font-size:0.72rem; color:var(--text-dim);">component intelligence</div>
+          </div>
+        </div>
+      </div>
+
       <div class="card">
-        <div class="card-title">Cost &amp; duration derivation</div>
+        <div class="card-title">Cost &amp; duration derivation trail</div>
         <ol id="estimate-trail" class="estimate-list">
           <li class="data-list-empty">Run a Dry Run to compute the estimate trail.</li>
         </ol>
@@ -416,113 +507,382 @@
       </div>
     </div>
 
-    <!-- Tab: Agent Chat -->
+    <!-- Tab: Knowledge & RAG Management -->
+    <div id="tab-rag" class="tab-content" style="display:none;">
+      <div class="card-grid-2" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); gap:16px; margin-bottom:16px;">
+        <!-- Card 1: Repository Sync Controls -->
+        <div class="card" style="margin:0;">
+          <div class="card-title">📚 EDS Knowledge Ingestion &amp; Sync</div>
+          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:12px; line-height:1.4;">
+            Ingests the Edge Delivery Services codebase, markdown documentation, block decorators, and models into the cluster-safe sharded JCR store.
+          </p>
+          <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(15,23,42,0.4); padding:8px 12px; border-radius:6px; border:1px solid var(--surface-border);">
+              <span style="font-size:0.8rem; color:var(--text-muted);">Sync Mode:</span>
+              <span id="rag-sync-mode" class="status-badge" style="font-size:0.75rem;">Local EDS Disk + Remote GitHub</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(15,23,42,0.4); padding:8px 12px; border-radius:6px; border:1px solid var(--surface-border);">
+              <span style="font-size:0.8rem; color:var(--text-muted);">Indexed Documents:</span>
+              <span id="rag-stat-docs" style="font-weight:700; color:#38bdf8;">0 docs</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(15,23,42,0.4); padding:8px 12px; border-radius:6px; border:1px solid var(--surface-border);">
+              <span style="font-size:0.8rem; color:var(--text-muted);">Chunks &amp; Shards:</span>
+              <span id="rag-stat-chunks" style="font-weight:700; color:#34d399;">0 chunks (/var/modernizer/rag)</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(15,23,42,0.4); padding:8px 12px; border-radius:6px; border:1px solid var(--surface-border);">
+              <span style="font-size:0.8rem; color:var(--text-muted);">Last Sync Checkpoint:</span>
+              <span id="rag-stat-checkpoint" style="font-size:0.78rem; color:var(--text-dim);">Never synced</span>
+            </div>
+          </div>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <label style="display:flex; gap:6px; align-items:center; cursor:pointer; font-size:0.8rem; color:var(--text-muted);">
+              <input type="checkbox" id="rag-force-reindex" style="cursor:pointer; accent-color:var(--primary);">
+              <span>Force Reindex (bypass SHA-256 fingerprint check)</span>
+            </label>
+          </div>
+          <div style="margin-top:12px; display:flex; gap:8px;">
+            <button id="btn-sync-rag" class="btn btn-primary" onclick="AemEdsDashboard.syncRagRepository()" style="padding:7px 16px; font-size:0.82rem;">⚡ Sync EDS Repository</button>
+            <button class="btn btn-outline" onclick="AemEdsDashboard.refreshRagStatus()" style="padding:7px 12px; font-size:0.82rem;">🔄 Check Status</button>
+          </div>
+        </div>
+
+        <!-- Card 2: Knowledge Stats & Vectors -->
+        <div class="card" style="margin:0;">
+          <div class="card-title">🧠 Embeddings &amp; Vector Index Status</div>
+          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:12px; line-height:1.4;">
+            Hybrid retrieval combines JCR live node search, keyword token matching, and vector cosine similarity.
+          </p>
+          <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(15,23,42,0.4); padding:8px 12px; border-radius:6px; border:1px solid var(--surface-border);">
+              <span style="font-size:0.8rem; color:var(--text-muted);">Vector Store:</span>
+              <span style="font-size:0.8rem; font-weight:600; color:#c084fc;">AemVectorStore (JCR Persisted + RAM Cache)</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(15,23,42,0.4); padding:8px 12px; border-radius:6px; border:1px solid var(--surface-border);">
+              <span style="font-size:0.8rem; color:var(--text-muted);">Vectors Embedded:</span>
+              <span id="rag-stat-vectors" style="font-weight:700; color:#a78bfa;">0 vectors</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(15,23,42,0.4); padding:8px 12px; border-radius:6px; border:1px solid var(--surface-border);">
+              <span style="font-size:0.8rem; color:var(--text-muted);">Cosine Similarity Speed:</span>
+              <span style="font-size:0.8rem; color:var(--text-dim);">&lt; 15ms in-memory scan</span>
+            </div>
+          </div>
+          <div style="background:rgba(56,189,248,0.05); border:1px solid rgba(56,189,248,0.2); border-radius:6px; padding:10px 12px; font-size:0.8rem; color:#7dd3fc; line-height:1.4;">
+            💡 <b>Zero External DB Dependency:</b> Chunks and vector floats reside directly in Oak JCR under <code>/var/modernizer/rag/projects/{projectId}/</code>, fully compliant with Cloud Manager deployment.
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3: Interactive RAG Search Explorer -->
+      <div class="card">
+        <div class="card-title">🔍 Hybrid Retrieval Search Explorer</div>
+        <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:12px;">
+          Test multi-channel retrieval across live AEM repository nodes, EDS blocks/code, and verified migration decision records.
+        </p>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
+          <input type="text" id="rag-search-input" class="form-control" placeholder="Search knowledge base e.g. 'Hero block authoring', 'fstab mountpoints'..." style="flex:1; min-width:240px; padding:8px 12px;" onkeydown="if(event.key==='Enter')AemEdsDashboard.searchRag()">
+          <select id="rag-search-channel" class="form-control" style="width:170px; padding:8px 10px;">
+            <option value="ALL">All Channels</option>
+            <option value="EDS_DOCS">EDS Code &amp; Docs</option>
+            <option value="AEM_JCR">Live AEM JCR Nodes</option>
+            <option value="MIGRATION_HISTORY">Migration History</option>
+          </select>
+          <button class="btn btn-primary" onclick="AemEdsDashboard.searchRag()" style="padding:8px 16px;">Search 🔎</button>
+        </div>
+        <div id="rag-search-summary" style="font-size:0.8rem; color:var(--text-dim); margin-bottom:10px;"></div>
+        <div id="rag-search-results" style="display:flex; flex-direction:column; gap:10px;">
+          <div style="text-align:center; padding:30px; color:var(--text-dim); font-size:0.85rem;">Enter a query above to test hybrid retrieval.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Agent Chat with Grounding & Action Confirmation -->
     <div id="tab-chat" class="tab-content" style="display:none;">
-      <div class="card chat-card">
-        <div class="card-title">💬 Realtime Agent Chat</div>
-        <div id="chat-messages" class="chat-messages">
-          <div class="chat-msg chat-msg-agent"><div class="chat-bubble">👋 Hi! I'm the Modernizer agent. Ask me about your project, the dry run results, block generation, or anything about the migration.</div></div>
+      <div class="split-layout" style="grid-template-columns: 1fr 340px; gap: 16px;">
+        <!-- Left: Chat Stream -->
+        <div class="card chat-card" style="margin:0;">
+          <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+            <span>💬 RAG-Grounded AI Chat Agent</span>
+            <span id="chat-agent-status" class="status-badge" style="font-size:0.75rem;">● Ready</span>
+          </div>
+
+          <!-- Pending Action Confirmation Banner -->
+          <div id="chat-action-banner" style="display:none; margin-bottom:12px; padding:12px 14px; background:rgba(234,179,8,0.1); border:1px solid rgba(234,179,8,0.4); border-radius:6px;">
+            <div style="font-weight:700; color:#facc15; font-size:0.85rem; margin-bottom:4px;">⚠️ Operator Confirmation Required</div>
+            <div id="chat-action-prompt" style="font-size:0.82rem; color:var(--text-muted); margin-bottom:8px;"></div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-primary btn-sm" onclick="AemEdsDashboard.confirmPendingAction(true)">✅ Confirm Execution</button>
+              <button class="btn btn-outline btn-sm" onclick="AemEdsDashboard.confirmPendingAction(false)">❌ Cancel</button>
+            </div>
+          </div>
+
+          <div id="chat-messages" class="chat-messages" style="height:420px; overflow-y:auto;">
+            <div class="chat-msg chat-msg-agent">
+              <div class="chat-bubble">
+                👋 Hello! I am the AEM Modernizer AI Agent, grounded directly in your EDS repository, live AEM JCR content, and migration history.<br><br>
+                Ask me questions such as:<br>
+                • <i>"How do I author a Hero block in this project?"</i><br>
+                • <i>"Why did migration fail for /content/wknd/en/magazine?"</i><br>
+                • <i>"Run a dry run migration estimate"</i>
+              </div>
+            </div>
+          </div>
+
+          <div class="chat-input-row" style="margin-top:12px;">
+            <input type="text" id="chat-input" class="form-control chat-input" placeholder="Ask a question or propose an action..." onkeydown="if(event.key==='Enter')AemEdsDashboard.sendChat()">
+            <button id="chat-send-btn" class="btn btn-primary" onclick="AemEdsDashboard.sendChat()">Send ➤</button>
+          </div>
+
+          <div class="chat-suggestions" style="margin-top:10px;">
+            <button class="chat-chip" onclick="AemEdsDashboard.quickChat('How do I author a Hero block in this repository?')">🧱 Hero block authoring</button>
+            <button class="chat-chip" onclick="AemEdsDashboard.quickChat('What are the fstab.yaml configuration rules?')">📄 fstab rules</button>
+            <button class="chat-chip" onclick="AemEdsDashboard.quickChat('Why did validation fail on my last run?')">🔍 Diagnostic check</button>
+            <button class="chat-chip" onclick="AemEdsDashboard.quickChat('Run a dry run')">⚡ Run dry run</button>
+          </div>
         </div>
-        <div class="chat-input-row">
-          <input type="text" id="chat-input" class="form-control chat-input" placeholder="Type a message or a command like 'run dry run'..." onkeydown="if(event.key==='Enter')sendChat()">
-          <button id="chat-send-btn" class="btn btn-primary" onclick="sendChat()">Send ➤</button>
+
+        <!-- Right: Citations & Context Inspector -->
+        <div class="card" style="margin:0; display:flex; flex-direction:column;">
+          <div class="card-title" style="font-size:0.9rem;">📑 Grounded Citations &amp; Evidence</div>
+          <div style="margin-bottom:12px;">
+            <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); font-weight:600; margin-bottom:4px;">Confidence Level</div>
+            <div id="chat-confidence-badge" class="status-badge" style="font-size:0.8rem; padding:4px 10px; display:inline-block;">Confidence: N/A</div>
+          </div>
+          <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); font-weight:600; margin-bottom:6px;">Verified Citations</div>
+          <div id="chat-citations-list" style="flex:1; overflow-y:auto; max-height:220px; display:flex; flex-direction:column; gap:8px;">
+            <div style="font-size:0.8rem; color:var(--text-dim); text-align:center; padding:20px 0;">No citations for current message.</div>
+          </div>
+          <div style="margin-top:14px; border-top:1px solid var(--surface-border); padding-top:10px;">
+            <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); font-weight:600; margin-bottom:6px;">Suggested Actions</div>
+            <div id="chat-suggested-actions" style="display:flex; flex-direction:column; gap:6px;">
+              <span style="font-size:0.8rem; color:var(--text-dim);">No active suggestions.</span>
+            </div>
+          </div>
         </div>
-        <div class="chat-suggestions">
-          <button class="chat-chip" onclick="quickChat('Analyze my project setup')">🔎 Analyze my project</button>
-          <button class="chat-chip" onclick="quickChat('Run a dry run')">🔍 Run dry run</button>
-          <button class="chat-chip" onclick="quickChat('Show me the generated blocks')">📦 Show blocks</button>
-          <button class="chat-chip" onclick="quickChat('Show the live events stream')">📡 Show events</button>
-          <button class="chat-chip" onclick="quickChat('What should I migrate next?')">🧭 What\'s next?</button>
+      </div>
+    </div>
+
+    <!-- Tab: RAG Benchmark Evaluation -->
+    <div id="tab-eval" class="tab-content" style="display:none;">
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <div>
+            <div class="card-title" style="margin:0;">🎯 RAG Evaluation &amp; Grounding Benchmark</div>
+            <p style="font-size:0.82rem; color:var(--text-muted); margin-top:4px; margin-bottom:0;">
+              Runs automated test cases evaluating precision, recall, context relevance, groundedness, citation correctness, and latency.
+            </p>
+          </div>
+          <button id="btn-run-rag-eval" class="btn btn-primary" onclick="AemEdsDashboard.runRagEvaluation()" style="padding:8px 18px; font-size:0.84rem;">▶ Run Benchmark Suite</button>
         </div>
+      </div>
+
+      <!-- Evaluation Metric Scorecards -->
+      <div class="card-grid-2" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:16px;">
+        <div class="card metric-panel" style="margin:0; padding:14px; text-align:center;">
+          <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); font-weight:600;">Overall Pass Rate</div>
+          <div id="eval-score-overall" style="font-size:1.8rem; font-weight:700; color:#38bdf8; margin:6px 0;">—</div>
+          <div id="eval-stat-cases" style="font-size:0.75rem; color:var(--text-dim);">0 / 5 test cases</div>
+        </div>
+        <div class="card metric-panel" style="margin:0; padding:14px; text-align:center;">
+          <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); font-weight:600;">Retrieval Precision</div>
+          <div id="eval-score-precision" style="font-size:1.8rem; font-weight:700; color:#34d399; margin:6px 0;">—</div>
+          <div style="font-size:0.75rem; color:var(--text-dim);">Source overlap</div>
+        </div>
+        <div class="card metric-panel" style="margin:0; padding:14px; text-align:center;">
+          <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); font-weight:600;">Groundedness</div>
+          <div id="eval-score-groundedness" style="font-size:1.8rem; font-weight:700; color:#a78bfa; margin:6px 0;">—</div>
+          <div style="font-size:0.75rem; color:var(--text-dim);">Zero hallucination</div>
+        </div>
+        <div class="card metric-panel" style="margin:0; padding:14px; text-align:center;">
+          <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); font-weight:600;">Citation Rate</div>
+          <div id="eval-score-citations" style="font-size:1.8rem; font-weight:700; color:#fbbf24; margin:6px 0;">—</div>
+          <div style="font-size:0.75rem; color:var(--text-dim);">Verifiable file refs</div>
+        </div>
+        <div class="card metric-panel" style="margin:0; padding:14px; text-align:center;">
+          <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); font-weight:600;">Avg Latency</div>
+          <div id="eval-score-latency" style="font-size:1.8rem; font-weight:700; color:#f472b6; margin:6px 0;">—</div>
+          <div style="font-size:0.75rem; color:var(--text-dim);">End-to-end retrieval</div>
+        </div>
+      </div>
+
+      <!-- Test Cases Table -->
+      <div class="card">
+        <div class="card-title">Test Cases Breakdown</div>
+        <table id="table-rag-eval" style="width:100%; border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Test Question</th>
+              <th>Expected Topic</th>
+              <th>Confidence</th>
+              <th>Groundedness</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="table-rag-eval-body">
+            <tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-dim);">Click "Run Benchmark Suite" above to evaluate retrieval accuracy.</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
     <!-- Tab: VS Code & GitHub Checks -->
     <div id="tab-github" class="tab-content" style="display:none;">
-      <!-- Toolbar & Actions Card -->
-      <div class="card" style="margin-bottom: 20px;">
-        <div class="card-title">💻 Remote Branch & VS Code Editor Workspace</div>
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:16px;">
-          Generated files are pushed to the preview branch first (no PR). Review them in vscode.dev, run <code>npm run lint:fix</code> / <code>npm run build:json</code> via GitHub Actions, then confirm to open a Pull Request against this branch.
-        </p>
-        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-          <div style="flex:1; min-width:260px; display:flex; gap:8px; align-items:center;">
-            <label style="font-size:0.85rem; font-weight:600; color:var(--text-muted); white-space:nowrap;">Target Branch:</label>
-            <input id="github-branch-input" type="text" class="form-control" placeholder="e.g. feat/wknd-site" style="padding:8px 12px;">
+      <!-- Grid 1: Local Repo & Dev Server -->
+      <div class="card-grid-2" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:16px; margin-bottom:16px;">
+        <div class="card" style="margin:0; padding:14px;">
+          <div class="card-title" style="font-size:0.9rem; margin-bottom:8px;">🏠 Local EDS Repository & Pre-PR Healing</div>
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px; line-height:1.4;">
+            Cloned at <code>eds/<span id="local-repo-project">project</span></code>. Pre-PR healing (checkout → prune duplicates → lint:fix → build:json → push) runs on preview.
+          </p>
+          <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+            <span id="badge-repo-status" class="status-badge" style="font-size:0.75rem; padding:3px 8px;">● Local repo: unknown</span>
+            <span id="badge-healing-status" class="status-badge" style="font-size:0.75rem; padding:3px 8px;">● Healing: not run</span>
+            <span id="badge-pr-gate" class="status-badge" style="font-size:0.75rem; padding:3px 8px;">🔒 PR gate: locked</span>
           </div>
-          <button id="btn-push-blocks-tab" class="btn btn-primary" onclick="pushBlocksAndOpenVsCode()">🚀 Push Blocks & Open VS Code</button>
-          <button class="btn btn-outline" onclick="checkBranchStatus()">🔎 Check CI & Changed Files</button>
-          <a id="btn-open-vscode-newtab" href="#" target="_blank" class="btn btn-outline" style="display:none;">🔗 Open in New Tab</a>
-          <button class="btn btn-outline" onclick="reloadVsCodeFrame()">🔄 Reload Editor</button>
+        </div>
+
+        <div class="card" style="margin:0; padding:14px;">
+          <div class="card-title" style="font-size:0.9rem; margin-bottom:8px;">🖥️ Local Dev Server &amp; Authored Page Comparison</div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+            <button class="btn btn-sm btn-primary" id="btn-aemup-start" onclick="AemEdsDashboard.aemUpControl('start')" style="padding:4px 10px; font-size:0.75rem;">▶ Start aem up</button>
+            <button class="btn btn-sm btn-outline" id="btn-aemup-stop" onclick="AemEdsDashboard.aemUpControl('stop')" style="padding:4px 8px; font-size:0.75rem;">■ Stop</button>
+            <button class="btn btn-sm btn-outline" id="btn-aemup-status" onclick="AemEdsDashboard.aemUpControl('status')" style="padding:4px 8px; font-size:0.75rem;">🔄 Status</button>
+            <span id="badge-aemup-status" class="status-badge" style="font-size:0.75rem; padding:3px 8px;">● Dev server: stopped</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label style="font-size:0.75rem; font-weight:600; color:var(--text-muted); margin:0;">Authored Page / Preview URL (to compare):</label>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <input id="cfg-devserver-page-url" type="text" class="form-control" placeholder="e.g. http://localhost:3000/about-us or /about-us" style="padding:5px 8px; font-size:0.78rem; flex:1;">
+              <button class="btn btn-sm btn-primary" onclick="AemEdsDashboard.runAiCompareFromDevServer()" style="padding:5px 10px; font-size:0.75rem; white-space:nowrap;">🤖 Compare with AEM</button>
+            </div>
+            <div style="font-size:0.74rem; color:var(--text-dim); line-height:1.3;">
+              Reference Rootpath: <code id="devserver-rootpath-display">/content/wknd</code>
+            </div>
+            <div id="devserver-compare-result" style="font-size:0.76rem; color:var(--text-muted);"></div>
+          </div>
         </div>
       </div>
 
-      <div class="card" style="margin-bottom: 20px;">
-        <div class="card-title">npm scripts (GitHub Actions)</div>
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
-          vscode.dev has no terminal. These buttons dispatch Actions on <code>feat/{projectId}</code> and stream logs here. <code>lint:fix</code> commits auto-fixed files back to the same branch; <code>build:json</code> commits regenerated component JSON.
+      <!-- Grid 2: Remote Branch & npm scripts -->
+      <div class="card-grid-2" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:16px; margin-bottom:16px;">
+        <div class="card" style="margin:0; padding:14px;">
+          <div class="card-title" style="font-size:0.9rem; margin-bottom:8px;">💻 Remote Branch & VS Code Editor Workspace</div>
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px; line-height:1.4;">
+            Pushed to preview branch first. Review in VS Code, then confirm to open PR.
+          </p>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+            <div style="flex:1; min-width:180px; display:flex; gap:6px; align-items:center;">
+              <label style="font-size:0.78rem; font-weight:600; color:var(--text-muted); white-space:nowrap;">Branch:</label>
+              <input id="github-branch-input" type="text" class="form-control" placeholder="feat/wknd-site" style="padding:5px 8px; font-size:0.8rem;">
+            </div>
+            <button id="btn-push-blocks-tab" class="btn btn-primary" onclick="AemEdsDashboard.pushBlocksAndOpenVsCode()" style="padding:5px 12px; font-size:0.78rem;">🚀 Commit, Push Blocks & Open VS Code</button>
+          </div>
+          <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+            <button class="btn btn-outline" onclick="AemEdsDashboard.checkBranchStatus()" style="padding:4px 8px; font-size:0.75rem;">🔎 Check CI & Changes</button>
+            <a id="btn-open-vscode-newtab" href="#" target="_blank" class="btn btn-outline" style="display:none; padding:4px 8px; font-size:0.75rem;">🔗 Open in New Tab</a>
+            <button class="btn btn-outline" onclick="AemEdsDashboard.reloadVsCodeFrame()" style="padding:4px 8px; font-size:0.75rem;">🔄 Reload Editor</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin:0; padding:14px;">
+          <div class="card-title" style="font-size:0.9rem; margin-bottom:8px;">⚙️ npm scripts (Build & Validation)</div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
+            <button class="btn btn-primary btn-sm" id="btn-npm-build-lint" onclick="AemEdsDashboard.runNpmScript('lint:fix,build:json')" style="padding:4px 10px; font-size:0.75rem;" title="Run ESLint / Stylelint auto-fix and compile Universal Editor component JSON models">▶ lint:fix & build:json</button>
+            <button class="btn btn-outline btn-sm" id="btn-npm-heal" onclick="AemEdsDashboard.runNpmScript('heal')" style="padding:4px 8px; font-size:0.75rem;" title="Run automated healing loop">🩹 Heal CI</button>
+          </div>
+          <pre id="npm-log-terminal" class="log-terminal" style="height:110px; padding:8px; font-size:0.75rem; white-space:pre-wrap; margin:0;">No npm run yet. Commit & Push the branch first, then click a script above.</pre>
+        </div>
+      </div>
+
+      <!-- Confirm Review & Open Pull Request Unified Card -->
+      <div class="card" style="margin-bottom: 16px; padding: 14px;">
+        <div class="card-title" style="font-size:0.9rem; margin-bottom:6px;">📤 Confirm Review & Open Pull Request</div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+          Review file changes, ensure GitHub Actions CI passes, and verify your component models in VS Code above before opening the official PR.
         </p>
-        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
-          <button class="btn btn-outline" id="btn-npm-lint" onclick="runNpmScript('lint:fix')">▶ npm run lint:fix</button>
-          <button class="btn btn-outline" id="btn-npm-json" onclick="runNpmScript('build:json')">▶ npm run build:json</button>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; background:rgba(15,23,42,0.4); padding:10px 12px; border-radius:6px; border:1px solid var(--surface-border);">
+          <label style="display:flex; gap:8px; align-items:center; cursor:pointer; font-size:0.84rem; flex:1; min-width:260px;">
+            <input type="checkbox" id="chk-vscode-reviewed" onchange="AemEdsDashboard.onVsCodeReviewToggle()">
+            <span>I have reviewed this branch in VS Code. Enable <b>Create PR</b> to open a Pull Request from this branch (files will not be re-committed).</span>
+          </label>
+          <button id="btn-create-pr" class="btn btn-accent" onclick="AemEdsDashboard.createPullRequest()" style="padding:6px 16px; font-size:0.84rem; white-space:nowrap;" disabled>📤 Open Pull Request</button>
         </div>
-        <pre id="npm-log-terminal" class="log-terminal" style="height:220px; white-space:pre-wrap;">No npm run yet. Push the branch first, then click a script above.</pre>
-      </div>
-
-      <div class="card" style="margin-bottom: 20px;">
-        <div class="card-title">Confirm review</div>
-        <label style="display:flex; gap:10px; align-items:flex-start; cursor:pointer; font-size:0.9rem;">
-          <input type="checkbox" id="chk-vscode-reviewed" onchange="onVsCodeReviewToggle()" style="margin-top:4px;">
-          <span>I have reviewed this branch in VS Code. Enable <b>Commit &amp; Push to Git</b> to open a Pull Request from this branch (files will not be re-committed).</span>
-        </label>
+        <div id="github-pr-result" style="margin-top:8px;"></div>
       </div>
 
       <!-- VS Code Embedded Workspace Frame -->
-      <div class="card" style="margin-bottom: 20px; padding: 12px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding: 0 4px;">
+      <div class="card" style="margin-bottom: 16px; padding: 12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding: 0 4px; cursor:pointer; user-select:none;" onclick="AemEdsDashboard.toggleCardCollapse('vscode-frame-container', 'vscode-frame-arrow')">
           <div class="card-title" style="margin:0; font-size:0.95rem;">⚡ VS Code Web Workspace (<span id="vscode-branch-display">feat/wknd-site</span>)</div>
-          <div style="font-size:0.8rem; color:var(--text-muted);" id="vscode-frame-hint">Branch file editor — vscode.dev opens in a new tab</div>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="font-size:0.8rem; color:var(--text-muted);" id="vscode-frame-hint">Branch file editor — vscode.dev opens in a new tab</div>
+            <span id="vscode-frame-arrow" style="font-size:0.85rem; color:var(--text-muted); transition:transform 0.2s ease;">▼</span>
+          </div>
         </div>
-        <div id="vscode-frame-container" style="position:relative; width:100%; height:720px; background:#1e1e1e; border-radius:6px; overflow:hidden; border:1px solid var(--surface-border);">
+        <div id="vscode-frame-container" style="position:relative; width:100%; height:720px; background:#1e1e1e; border-radius:6px; overflow:hidden; border:1px solid var(--surface-border); margin-top:10px;">
           <div id="vscode-placeholder" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:#94a3b8; text-align:center; padding:20px;">
             <div style="font-size:2.5rem; margin-bottom:12px;">💻</div>
             <div style="font-size:1.1rem; font-weight:600; margin-bottom:6px; color:#f1f5f9;">VS Code Web Workspace Ready</div>
             <p style="max-width:560px; font-size:0.85rem; line-height:1.6; color:#94a3b8; margin-bottom:18px;">
               vscode.dev cannot run inside AEM (it blocks iframes). Load the branch file list here, edit and save to GitHub, or use <b>Open in New Tab</b> for the full vscode.dev editor.
             </p>
-            <button class="btn btn-primary" onclick="loadVsCodeFrame()">⚡ Load branch workspace</button>
+            <button class="btn btn-primary" onclick="AemEdsDashboard.loadVsCodeFrame()">⚡ Load branch workspace</button>
           </div>
           <div id="vscode-workspace" class="ws-layout" style="display:none;">
-            <aside class="ws-sidebar">
-              <div class="ws-tree-title">Branch files</div>
+            <aside class="ws-sidebar" id="ws-sidebar">
+              <div class="ws-tree-title" style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                <div style="display:flex; align-items:center; gap:6px; min-width:0;">
+                  <input type="checkbox" id="ws-select-all-chk" onchange="AemEdsDashboard.toggleSelectAllWorkspaceFiles()" title="Select all files" style="cursor:pointer; accent-color:var(--accent); margin:0;">
+                  <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Branch files</span>
+                  <span id="ws-tree-count" style="font-size:0.72rem; color:var(--text-dim); text-transform:none; font-weight:600;"></span>
+                </div>
+                <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+                  <button type="button" id="btn-ws-new-file" class="btn btn-outline btn-sm" onclick="AemEdsDashboard.createNewWorkspaceFilePrompt()" style="padding:2px 8px; font-size:0.72rem; border-radius:4px; white-space:nowrap;" title="Create a new file in workspace">➕ New File</button>
+                  <button type="button" id="btn-ws-delete-selected" class="btn btn-danger btn-sm" onclick="AemEdsDashboard.deleteSelectedWorkspaceFiles()" style="display:none; padding:2px 8px; font-size:0.72rem; border-radius:4px; white-space:nowrap;" title="Delete selected files">🗑️ Delete (<span id="ws-selected-count">0</span>)</button>
+                </div>
+              </div>
               <ul id="ws-file-tree"></ul>
             </aside>
+            <div id="ws-resizer" class="ws-resizer" title="Drag to resize panel"></div>
             <div class="ws-main">
               <div class="ws-toolbar">
-                <span id="ws-open-path">Select a file</span>
-                <button type="button" class="btn btn-outline" onclick="saveWorkspaceFile()">Save to branch</button>
+                <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                  <span id="ws-open-path" style="font-weight:700; color:#f8fafc; font-family:var(--font-mono); font-size:0.84rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Select a file</span>
+                  <span id="ws-open-diff"></span>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center; flex-shrink:0;">
+                  <div class="ws-view-toggle" style="display:inline-flex; background:rgba(15,23,42,0.8); border:1px solid var(--surface-border); border-radius:6px; padding:2px;">
+                    <button type="button" id="btn-ws-mode-diff" class="btn btn-sm active" onclick="AemEdsDashboard.setWsViewMode('diff')" style="padding:4px 10px; font-size:0.75rem; border-radius:4px;">🔀 Diff View</button>
+                    <button type="button" id="btn-ws-mode-edit" class="btn btn-sm btn-outline" onclick="AemEdsDashboard.setWsViewMode('edit')" style="padding:4px 10px; font-size:0.75rem; border-radius:4px; border:none;">📝 Edit Mode</button>
+                  </div>
+                  <button type="button" id="btn-ws-save-open" class="btn btn-primary" onclick="AemEdsDashboard.saveWorkspaceFile()" style="padding:5px 12px; font-size:0.78rem; display:none;">💾 Save</button>
+                  <button type="button" id="btn-ws-commit-push" class="btn btn-accent" onclick="AemEdsDashboard.pushBlocksAndOpenVsCode()" style="padding:5px 12px; font-size:0.78rem;" title="Commit and push all workspace changes or selected files to branch">🚀 Commit & Push</button>
+                  <button type="button" id="btn-ws-delete-open" class="btn btn-danger" onclick="AemEdsDashboard.deleteWorkspaceFile()" style="padding:5px 12px; font-size:0.78rem;">🗑️ Delete File</button>
+                </div>
               </div>
-              <div class="ws-editor-pane">
+              <!-- Diff View Mode (Git line changes) -->
+              <div id="ws-diff-pane" class="ws-diff-pane">
+                <div id="ws-diff-output" class="ws-diff-output"></div>
+              </div>
+              <!-- Edit View Mode -->
+              <div id="ws-editor-pane" class="ws-editor-pane" style="display:none;">
                 <pre id="ws-line-numbers" class="ws-line-numbers" aria-hidden="true">1</pre>
-                <textarea id="ws-editor" class="ws-editor" spellcheck="false" wrap="off" oninput="syncWsLineNumbers()" onscroll="syncWsLineScroll()"></textarea>
+                <textarea id="ws-editor" class="ws-editor" spellcheck="false" wrap="off" oninput="AemEdsDashboard.syncWsLineNumbers()" onscroll="AemEdsDashboard.syncWsLineScroll()"></textarea>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Branch Changes & CI Status Card -->
+      <!-- Branch Changes & CI Status Card with Expand/Minimise Accordion Arrow -->
       <div class="card" style="margin-bottom: 20px;">
-        <div class="card-title">🔍 Branch File Changes & CI Build Status</div>
-        <div id="github-status-result" style="font-size:0.88rem; color:var(--text-muted);">No branch checked yet. Click "Check CI & Changed Files" above.</div>
-      </div>
-
-      <!-- Pull Request Card -->
-      <div class="card">
-        <div class="card-title">📤 Pull Request</div>
-        <p style="color:var(--text-muted); font-size:0.85rem;">Review file changes, ensure GitHub Actions CI passes, and verify your component models in VS Code above before opening the official PR.</p>
-        <button id="btn-create-pr" class="btn btn-accent" onclick="createPullRequest()">📤 Open Pull Request</button>
-        <div id="github-pr-result" style="margin-top:10px;"></div>
+        <div class="card-title" onclick="AemEdsDashboard.toggleCardCollapse('github-status-body', 'github-status-arrow')" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; user-select:none; margin:0;">
+          <span>🔍 Branch File Changes & CI Build Status</span>
+          <span id="github-status-arrow" style="font-size:0.85rem; color:var(--text-muted); transition:transform 0.2s ease;">▼</span>
+        </div>
+        <div id="github-status-body" style="display:block; margin-top:12px;">
+          <div id="github-status-result" style="font-size:0.88rem; color:var(--text-muted);">No branch checked yet. Click "Check CI & Changed Files" above.</div>
+        </div>
       </div>
     </div>
 

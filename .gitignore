@@ -28,5 +28,7 @@ bin/
 
 # Local analysis reports
 *.csv
-blocks
 .abacusai
+.agents
+eds
+blocks

@@ -190,7 +190,7 @@ Replace `my-block` / `My Block` throughout. Mirror structure from `blocks/conten
 | JSON `component` | Creates row? | Read with |
 |------------------|--------------|-----------|
 | `text` | Yes | `getTextFromBlockRow(rows[N])` |
-| `richtext` | Yes | `getHtmlFromBlockRow(rows[N])` |
+| `richtext` | Yes | `getHtmlFromRow(rows[N])` |
 | `aem-content` | Yes | `getLinkFromRow` / anchor helper |
 | `reference` | Yes | `getImageFromRow` / picture query |
 | `boolean` (name **not** `classes_*`) | Yes | `getBooleanFromRow(rows[N])` |
@@ -237,7 +237,7 @@ import {
   checkAndHandleNestedBlocks,
   replaceBlockRowsPreservingNestedBlocks,
   getTextFromBlockRow,
-  getHtmlFromBlockRow,
+  getHtmlFromRow,
   coerceAuthorClasses,
   escapeHtml,
   escapeHtmlAttribute,
@@ -254,7 +254,7 @@ function extractConfig(block) {
   const rows = [...block.children];
   return {
     id: getTextFromBlockRow(rows[0]),
-    text: getHtmlFromBlockRow(rows[1]),
+    text: getHtmlFromRow(rows[1]),
   };
 }
 
@@ -298,7 +298,7 @@ export function createBlock(options = {}) {
 }
 ```
 
-**Prefer** `getHtmlFromBlockRow` / `getTextFromBlockRow` (nested-safe). Use plain `getHtmlFromRow` / `getTextFromRow` only when the block is never nested.
+**Prefer** `getHtmlFromRow` / `getTextFromBlockRow` (nested-safe). Use plain `getHtmlFromRow` / `getTextFromRow` only when the block is never nested.
 
 **Classes-only blocks** (like `spacer`): decorate may only call `checkAndHandleNestedBlocks`; still export `createBlock`.
 

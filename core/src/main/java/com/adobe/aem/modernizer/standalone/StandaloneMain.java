@@ -13,7 +13,6 @@ import com.adobe.aem.modernizer.mock.*;
 import com.adobe.aem.modernizer.persistence.InMemoryStore;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.services.EstimatorService;
-import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import org.slf4j.Logger;
@@ -73,8 +72,8 @@ public class StandaloneMain {
                 new MsmAnalysisAgent(store),
                 new FigmaAnalysisAgent(figma, store),
                 new MigrationPlannerAgent(store, estimator),
-                new BlockGenerationAgent(store, ai),
-                new CodeGenerationAgent(store, ai),
+                new BlockGenerationAgent(store, ai, new com.adobe.aem.modernizer.connectors.LocalEdsRepoManager()),
+                new CodeGenerationAgent(store, ai, new com.adobe.aem.modernizer.connectors.LocalEdsRepoManager()),
                 new ContentMigrationAgent(store, ai),
                 new AuthoringAgent(store),
                 new PreviewAgent(gh, eds, store, ai),

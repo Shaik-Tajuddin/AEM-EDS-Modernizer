@@ -34,4 +34,12 @@ public class PricingService {
         double completionCost = (completionTokens / 1_000_000.0) * completionRatePerMillion;
         return promptCost + completionCost;
     }
+
+    public double calculateEmbeddingCostUsd(String provider, int embeddingTokens) {
+        if (provider == null || "mock".equalsIgnoreCase(provider) || "ollama".equalsIgnoreCase(provider)) {
+            return 0.0;
+        }
+        double ratePerMillion = 0.02; // OpenAI text-embedding-3-small default
+        return (embeddingTokens / 1_000_000.0) * ratePerMillion;
+    }
 }

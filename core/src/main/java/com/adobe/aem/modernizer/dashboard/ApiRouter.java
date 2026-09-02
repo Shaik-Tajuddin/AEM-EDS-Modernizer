@@ -1,6 +1,7 @@
 package com.adobe.aem.modernizer.dashboard;
 
 import com.adobe.aem.modernizer.ModernizerException;
+import com.adobe.aem.modernizer.agents.MigrationState;
 import com.adobe.aem.modernizer.agents.Orchestrator;
 import com.adobe.aem.modernizer.connectors.GitHubClient;
 import com.adobe.aem.modernizer.connectors.GitHubFlow;
@@ -16,10 +17,10 @@ import org.slf4j.LoggerFactory;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.*;
 
 /**
@@ -36,6 +37,8 @@ public class ApiRouter {
     @Reference private transient com.adobe.aem.modernizer.ai.AiGateway aiGateway;
     @Reference(cardinality = ReferenceCardinality.OPTIONAL)
     private transient GitHubClient gitHubClient;
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL)
+    private transient com.adobe.aem.modernizer.connectors.LocalEdsRepoManager localEdsRepo;
 
     public ApiRouter() {}
 
@@ -157,8 +160,13 @@ public class ApiRouter {
 
                     if ("dryrun".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
                         ProjectRecord p = getOrCreateStubProject(projectId);
+                        // Local EDS repo workflow: clone/update + npm install BEFORE dry run
+                        Map<String, Object> repoStatus = cloneLocalEdsRepo(p);
                         JobRecord job = (orchestrator != null) ? orchestrator.runDryRun(p, "admin") : new JobRecord("job-mock", projectId, "DRY_RUN");
-                        return JsonUtil.toJson(job);
+                        Map<String, Object> result = new LinkedHashMap<>();
+                        result.put("job", job);
+                        result.put("localRepo", repoStatus);
+                        return JsonUtil.toJson(result);
                     }
 
                     if ("migrate".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
@@ -166,16 +174,107 @@ public class ApiRouter {
                         JobRecord job = (orchestrator != null) ? orchestrator.runMigration(p, "admin") : new JobRecord("job-mock", projectId, "MIGRATE");
                         return JsonUtil.toJson(job);
                     }
-
                     if ("preview".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
                         ProjectRecord p = getOrCreateStubProject(projectId);
-                        JobRecord job = (orchestrator != null) ? orchestrator.pushToPreviewBranch(p, "admin") : new JobRecord("job-mock", projectId, "PREVIEW");
-                        return JsonUtil.toJson(job);
+                        Map<?, ?> payload = (body != null && !body.trim().isEmpty())
+                                ? JsonUtil.fromJson(body, Map.class) : null;
+                        List<String> selectivePaths = null;
+                        if (payload != null && payload.get("paths") instanceof List) {
+                            selectivePaths = new ArrayList<>();
+                            for (Object item : (List<?>) payload.get("paths")) {
+                                if (item != null && !item.toString().trim().isEmpty()) {
+                                    selectivePaths.add(item.toString().trim());
+                                }
+                            }
+                        }
+                        String customBranch = payload != null ? Objects.toString(payload.get("branch"), "").trim() : "";
+                        if (!customBranch.isEmpty() && p != null) {
+                            p.setEdsBranch(customBranch);
+                        }
+
+                        // Pre-PR healing: checkout feature branch, prune duplicates, lint+build, push
+                        Map<String, Object> healing = runLocalHealing(p);
+                        JobRecord job;
+                        if (selectivePaths != null && !selectivePaths.isEmpty()) {
+                            job = pushSelectiveFilesToBranch(p, selectivePaths, "admin");
+                        } else {
+                            job = (orchestrator != null) ? orchestrator.pushToPreviewBranch(p, "admin") : new JobRecord("job-mock", projectId, "PREVIEW");
+                        }
+                        boolean ok = Boolean.TRUE.equals(healing.get("ok")) || "OK".equals(healing.get("checkout")) || (job != null && job.getMetadata() != null && job.getMetadata().containsKey("previewUrl"));
+                        if (job != null) {
+                            Map<String, Object> meta = job.getMetadata() != null ? new LinkedHashMap<>(job.getMetadata()) : new LinkedHashMap<>();
+                            meta.put("healingOk", ok);
+                            job.setMetadata(meta);
+                            if (store != null) {
+                                store.saveJob(job);
+                            }
+                        }
+                        Map<String, Object> result = new LinkedHashMap<>();
+                        result.put("job", job);
+                        result.put("healing", healing);
+                        result.put("prReady", ok);
+                        return JsonUtil.toJson(result);
                     }
 
+                    // Local dev server: POST /projects/{id}/aem-up  body: {"action":"start|stop|status"}
+                    if ("aem-up".equalsIgnoreCase(sub)) {
+                        return handleAemUp(projectId, body, resp);
+                    }
+
+                    // AI page comparison: POST /projects/{id}/compare
+                    // body: {"aemPagePath":"/content/wknd/.../about-us","edsPagePath":"/about-us","blockName":"hero"}
+                    if ("compare".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
+                        return handleAiCompare(projectId, body, resp);
+                    }
                     if ("publish".equalsIgnoreCase(sub) && "POST".equalsIgnoreCase(method)) {
                         ProjectRecord p = getOrCreateStubProject(projectId);
-                        JobRecord job = (orchestrator != null) ? orchestrator.openPullRequest(p, "admin") : new JobRecord("job-mock", projectId, "PUBLISH");
+                        Map<?, ?> payload = (body != null && !body.trim().isEmpty())
+                                ? JsonUtil.fromJson(body, Map.class) : null;
+                        String branch = payload != null ? Objects.toString(payload.get("branch"), "") : "";
+                        if (branch.isBlank()) {
+                            branch = GitHubFlow.featureBranch(projectId);
+                        }
+
+                        // Run lint:fix and build:json on the branch before creating/opening the PR
+                        if (localEdsRepo != null) {
+                            try {
+                                java.io.File repo = localEdsRepo.edsRepoDir(projectId);
+                                if (!new java.io.File(repo, ".git").exists()) {
+                                    localEdsRepo.cloneOrUpdate(p);
+                                }
+                                localEdsRepo.runLintAndBuild(repo, branch);
+                            } catch (Exception e) {
+                                LOG.warn("[Publish] Pre-PR lint and build: {}", e.getMessage());
+                            }
+                        }
+
+                        // Check if an existing PR is already open on GitHub for this branch
+                        GitHubClient gh = GitHubFlow.clientFor(gitHubClient, p);
+                        String existingPrUrl = null;
+                        if (gh != null) {
+                            try {
+                                existingPrUrl = gh.findExistingPullRequest(branch);
+                            } catch (Exception e) {
+                                LOG.debug("Could not lookup existing PR: {}", e.getMessage());
+                            }
+                        }
+
+                        JobRecord job;
+                        if (existingPrUrl != null && !existingPrUrl.isBlank()) {
+                            job = new JobRecord("job-" + UUID.randomUUID().toString().substring(0, 8), projectId, "PUBLISH");
+                            job.setState(MigrationState.COMPLETED.name());
+                            Map<String, Object> meta = job.getMetadata();
+                            meta.put("prUrl", existingPrUrl);
+                            meta.put("branch", branch);
+                            meta.put("existing", true);
+                            job.setMetadata(meta);
+                            job.setFinishedAt(System.currentTimeMillis());
+                            if (store != null) {
+                                store.saveJob(job);
+                            }
+                        } else {
+                            job = (orchestrator != null) ? orchestrator.openPullRequest(p, "admin") : new JobRecord("job-mock", projectId, "PUBLISH");
+                        }
                         return JsonUtil.toJson(job);
                     }
 
@@ -319,7 +418,6 @@ public class ApiRouter {
 
         String agent = payload != null ? Objects.toString(payload.get("agent"), "dashboard-assistant") : "dashboard-assistant";
 
-        // Conversation memory: recent turns from the client
         StringBuilder historySb = new StringBuilder();
         if (payload != null && payload.get("history") instanceof List) {
             List<?> history = (List<?>) payload.get("history");
@@ -337,52 +435,15 @@ public class ApiRouter {
             }
         }
 
-        // Build context-aware prompt from project state
-        StringBuilder prompt = new StringBuilder();
-        prompt.append("You are the AEM-to-EDS Modernizer assistant, embedded in the operator dashboard.");
-        prompt.append("\nYou are conversational, proactive and helpful — like a senior migration consultant.");
-        prompt.append("\nGuidelines:");
-        prompt.append("\n- Keep answers concise (2-5 sentences) unless asked for detail.");
-        prompt.append("\n- Reference the actual project state below when relevant.");
-        prompt.append("\n- Suggest concrete next steps in the migration pipeline (Connect → Dry Run → Generate Blocks → Review → Commit & Push).");
-        prompt.append("\n- You can tell the operator to run actions like 'run dry run', 'show blocks', 'show events' — the dashboard executes them locally.");
-        prompt.append("\n\n=== PROJECT CONTEXT ===");
-        prompt.append("\nProject id: ").append(projectId);
-        if (store != null) {
-            Optional<ProjectRecord> p = store.getProject(projectId);
-            p.ifPresent(pr -> prompt.append("\nProject: ").append(pr.getName())
-                    .append("\nAEM Author URL: ").append(pr.getAemAuthorUrl())
-                    .append("\nEDS Git repo: ").append(pr.getEdsGitRepoUrl()));
-            Optional<JobRecord> latest = store.getLatestJob(projectId);
-            latest.ifPresent(j -> prompt.append("\nLatest job: ").append(j.getMode())
-                    .append(" state=").append(j.getState()));
-        }
-        prompt.append("\n\n=== RECENT CONVERSATION ===\n").append(historySb);
-        prompt.append("\n=== CURRENT MESSAGE ===\nOperator: ").append(message);
+        ProjectRecord project = store != null ? store.getProject(projectId).orElse(null) : null;
+        com.adobe.aem.modernizer.ai.chat.ChatAgentRuntime runtime =
+                new com.adobe.aem.modernizer.ai.chat.ChatAgentRuntime(aiGateway, store, orchestrator, gitHubClient);
+        Map<String, Object> agentResult = runtime.handle(projectId, project, message, historySb.toString());
 
-        String reply;
-        String providerName = "mock";
-        String modelName = "mock-general-1";
-        try {
-            if (aiGateway != null) {
-                com.adobe.aem.modernizer.ai.ChatRequest req = new com.adobe.aem.modernizer.ai.ChatRequest(agent, prompt.toString());
-                com.adobe.aem.modernizer.ai.ChatResponse chatRes = aiGateway.dispatch(req);
-                if (chatRes != null && chatRes.getContent() != null) {
-                    reply = chatRes.getContent();
-                    providerName = chatRes.getProvider() != null ? chatRes.getProvider() : providerName;
-                    modelName = chatRes.getModelName() != null ? chatRes.getModelName() : modelName;
-                } else {
-                    reply = "(The agent returned no content.)";
-                }
-            } else {
-                reply = "(AI gateway not available — running in reduced mode.)";
-            }
-        } catch (Exception e) {
-            LOG.warn("[Chat] dispatch failed: {}", e.getMessage());
-            reply = "Sorry, the agent could not process your message: " + e.getMessage();
-        }
+        String reply = Objects.toString(agentResult.get("reply"), "");
+        String providerName = Objects.toString(agentResult.get("provider"), "unknown");
+        String modelName = Objects.toString(agentResult.get("model"), "unknown");
 
-        // Persist both sides of the conversation as job events so it survives refresh (ADR 0013)
         if (store != null) {
             String jobId = store.getLatestJob(projectId).map(JobRecord::getId).orElse("chat-" + projectId);
             store.recordEvent(new JobEventRecord(
@@ -398,6 +459,7 @@ public class ApiRouter {
         result.put("agent", agent);
         result.put("provider", providerName);
         result.put("model", modelName);
+        result.put("steps", agentResult.get("steps"));
         result.put("timestamp", System.currentTimeMillis());
         return JsonUtil.toJson(result);
     }
@@ -416,13 +478,37 @@ public class ApiRouter {
                 ? JsonUtil.fromJson(body, Map.class) : null;
         String command = payload != null ? Objects.toString(payload.get("command"), "") : "";
         command = command.trim();
-        if (!"lint:fix".equals(command) && !"build:json".equals(command) && !"install-workflow".equals(command)) {
+        if (!"lint:fix".equals(command) && !"build:json".equals(command)
+                && !"lint:fix,build:json".equals(command) && !"build".equals(command)
+                && !"install-workflow".equals(command) && !"heal".equals(command)) {
             if (resp != null) resp.setStatus(400);
-            return "{\"error\":\"command must be lint:fix, build:json, or install-workflow\"}";
+            return "{\"error\":\"command must be lint:fix, build:json, lint:fix,build:json, heal, or install-workflow\"}";
         }
 
         String branch = GitHubFlow.featureBranch(project.getId());
         GitHubClient client = GitHubFlow.clientFor(gitHubClient, project);
+
+        if ("heal".equals(command)) {
+            JobRecord job = store != null ? store.getLatestJob(project.getId()).orElse(null) : null;
+            if (job == null) {
+                job = new JobRecord(UUID.randomUUID().toString(), project.getId(), "PREVIEWING");
+                if (store != null) {
+                    store.saveJob(job);
+                }
+            }
+            com.adobe.aem.modernizer.agents.AgentContext ctx =
+                    new com.adobe.aem.modernizer.agents.AgentContext(project, job);
+            com.adobe.aem.modernizer.connectors.PipelineHealLoop.start(client, ctx, store, aiGateway);
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("command", "heal");
+            result.put("branch", branch);
+            result.put("status", client instanceof com.adobe.aem.modernizer.connectors.RealGitHubClient
+                    ? "started" : "completed");
+            if (job.getMetadata() != null && job.getMetadata().get("ciHeal") != null) {
+                result.put("ciHeal", job.getMetadata().get("ciHeal"));
+            }
+            return JsonUtil.toJson(result);
+        }
 
         if ("install-workflow".equals(command)) {
             try {
@@ -438,8 +524,34 @@ public class ApiRouter {
             }
         }
 
+        if ("lint:fix,build:json".equals(command) || "build".equals(command)) {
+            if (localEdsRepo != null) {
+                try {
+                    java.io.File repo = localEdsRepo.edsRepoDir(project.getId());
+                    if (!new java.io.File(repo, ".git").exists()) {
+                        localEdsRepo.cloneOrUpdate(project);
+                    }
+                    Map<String, Object> localRes = localEdsRepo.runLintAndBuild(repo, branch);
+                    Map<String, Object> run = new LinkedHashMap<>(localRes);
+                    run.put("command", command);
+                    run.put("branch", branch);
+                    run.put("status", "completed");
+                    run.put("conclusion", Boolean.TRUE.equals(localRes.get("ok")) ? "success" : "failure");
+                    run.put("logs", "$ npm run lint:fix && npm run build:json on branch " + branch + "\n"
+                            + "► npm run lint:fix -> " + localRes.get("lintFix") + "\n"
+                            + "► npm run build:json -> " + localRes.get("buildJson") + "\n"
+                            + "► Auto-fixed files committed: " + (Boolean.TRUE.equals(localRes.get("dirty")) ? "YES" : "NO (clean)") + "\n"
+                            + "► Push to origin/" + branch + " -> " + localRes.get("push") + "\n"
+                            + "► Status: " + (Boolean.TRUE.equals(localRes.get("ok")) ? "SUCCESS" : "FAILED"));
+                    return JsonUtil.toJson(run);
+                } catch (Exception e) {
+                    LOG.warn("[LocalEdsRepo] local lint & build failed: {}", e.getMessage());
+                }
+            }
+        }
+
         Map<String, String> inputs = new LinkedHashMap<>();
-        inputs.put("command", command);
+        inputs.put("command", "lint:fix,build:json".equals(command) ? "lint:fix" : command);
         try {
             Map<String, Object> run = client.dispatchWorkflow(branch, GitHubFlow.NPM_WORKFLOW_FILE, inputs);
             if (run == null) {
@@ -522,7 +634,8 @@ public class ApiRouter {
         for (String target : targets) {
             try {
                 client.commitFiles(target, Collections.singletonList(yaml),
-                        "chore: add modernizer-npm GitHub Actions workflow");
+                        "chore: fold npm scripts into the Build workflow");
+                GitHubFlow.deleteLegacyNpmWorkflow(client, target);
                 committed = true;
             } catch (RuntimeException e) {
                 last = e;
@@ -536,6 +649,116 @@ public class ApiRouter {
     private static String escapeJson(String raw) {
         if (raw == null) return "";
         return raw.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", " ").replace("\r", " ");
+    }
+
+    /** Clone/update the local eds/<projectId> repo (best-effort, never throws). */
+    private Map<String, Object> cloneLocalEdsRepo(ProjectRecord project) {
+        if (localEdsRepo == null) {
+            Map<String, Object> s = new LinkedHashMap<>();
+            s.put("status", "UNAVAILABLE");
+            return s;
+        }
+        Map<String, Object> status = localEdsRepo.cloneOrUpdate(project);
+        LOG.info("[LocalEdsRepo] dry-run clone/update for {}: {}", project.getId(), status.get("status"));
+        return status;
+    }
+
+    /**
+     * Pre-PR automated healing: checkout feat/<projectId>, prune duplicate blocks,
+     * npm run lint:fix + build:json, commit and push. Records healingOk on the latest job
+     * so the Create PR gate can open.
+     */
+    private Map<String, Object> runLocalHealing(ProjectRecord project) {
+        Map<String, Object> healing = new LinkedHashMap<>();
+        healing.put("ok", false);
+        if (localEdsRepo == null) {
+            healing.put("status", "UNAVAILABLE");
+            healing.put("reason", "LocalEdsRepoManager not bound — falling back to GitHub-only flow");
+            // Without a local repo manager we do not block the legacy flow
+            healing.put("ok", true);
+            markHealingOk(project.getId(), true);
+            return healing;
+        }
+        try {
+            java.io.File repo = localEdsRepo.edsRepoDir(project.getId());
+            String branch = GitHubFlow.featureBranch(project.getId());
+            if (!new java.io.File(repo, ".git").exists()) {
+                localEdsRepo.cloneOrUpdate(project);
+            }
+            healing.put("checkout", localEdsRepo.checkoutBranch(repo, branch) ? "OK" : "SKIPPED");
+            healing.put("prunedBlocks", localEdsRepo.pruneDuplicateBlocks(repo));
+            healing.putAll(localEdsRepo.runLintAndBuild(repo, branch));
+        } catch (Exception e) {
+            LOG.warn("[LocalEdsRepo] healing failed: {}", e.getMessage());
+            healing.put("error", e.getMessage());
+        }
+        boolean ok = Boolean.TRUE.equals(healing.get("ok"));
+        healing.put("ok", ok);
+        markHealingOk(project.getId(), ok);
+        return healing;
+    }
+
+    private void markHealingOk(String projectId, boolean ok) {
+        if (store == null) return;
+        try {
+            Optional<JobRecord> latest = store.getLatestJob(projectId);
+            if (latest.isPresent()) {
+                JobRecord job = latest.get();
+                Map<String, Object> meta = new LinkedHashMap<>(job.getMetadata());
+                meta.put("healingOk", ok);
+                job.setMetadata(meta);
+                store.saveJob(job);
+            }
+        } catch (Exception e) {
+            LOG.debug("[LocalEdsRepo] could not persist healingOk: {}", e.getMessage());
+        }
+    }
+
+    /** Local dev server control: {"action":"start"|"stop"|"status"}. */
+    private String handleAemUp(String projectId, String body, HttpServletResponse resp) {
+        if (localEdsRepo == null) {
+            if (resp != null) resp.setStatus(503);
+            return "{\"error\":\"LocalEdsRepoManager not available\"}";
+        }
+        Map<?, ?> payload = (body != null && !body.trim().isEmpty()) ? JsonUtil.fromJson(body, Map.class) : null;
+        String action = payload != null ? Objects.toString(payload.get("action"), "status") : "status";
+        java.io.File repo = localEdsRepo.edsRepoDir(projectId);
+        Map<String, Object> result;
+        switch (action.toLowerCase()) {
+            case "start":
+                result = localEdsRepo.startAemUpDevServer(repo, projectId);
+                break;
+            case "stop":
+                result = localEdsRepo.stopAemUpDevServer(projectId);
+                break;
+            default:
+                result = localEdsRepo.devServerStatus(projectId);
+        }
+        result.put("action", action);
+        return JsonUtil.toJson(result);
+    }
+
+    /** AI compare & match: AEM source page vs local EDS render (aem up). */
+    private String handleAiCompare(String projectId, String body, HttpServletResponse resp) {
+        ProjectRecord project = store != null ? store.getProject(projectId).orElse(null) : null;
+        if (project == null) {
+            if (resp != null) resp.setStatus(404);
+            return "{\"error\":\"Project not found\"}";
+        }
+        Map<?, ?> payload = (body != null && !body.trim().isEmpty()) ? JsonUtil.fromJson(body, Map.class) : null;
+        String aemPagePath = payload != null ? Objects.toString(payload.get("aemPagePath"), null) : null;
+        if (aemPagePath == null || aemPagePath.isBlank()) {
+            aemPagePath = project.getContentRoot();
+        }
+        String edsPagePath = payload != null ? Objects.toString(payload.get("edsPagePath"), "") : "";
+        String blockName = payload != null ? Objects.toString(payload.get("blockName"), null) : null;
+
+        String jobId = store != null ? store.getLatestJob(projectId).map(JobRecord::getId)
+                .orElse("compare-" + projectId) : "compare-" + projectId;
+        com.adobe.aem.modernizer.agents.AiPageComparisonAgent agent =
+                new com.adobe.aem.modernizer.agents.AiPageComparisonAgent(store, aiGateway, localEdsRepo);
+        Map<String, Object> report = agent.compareAndRefine(project, jobId, aemPagePath.trim(), edsPagePath.trim(), blockName);
+        return JsonUtil.toJson(report);
     }
 
     /**
@@ -588,7 +811,13 @@ public class ApiRouter {
         List<Map<String, Object>> changedFiles;
         Map<String, Object> latestRun;
         try {
-            changedFiles = client.listChangedFiles(baseBranch, branch);
+            List<Map<String, Object>> allChanged = client.listChangedFiles(baseBranch, branch);
+            changedFiles = new ArrayList<>();
+            for (Map<String, Object> f : allChanged) {
+                if (!"removed".equalsIgnoreCase(String.valueOf(f.get("status")))) {
+                    changedFiles.add(f);
+                }
+            }
         } catch (Exception e) {
             LOG.warn("[BranchStatus] listChangedFiles failed for '{}': {}", branch, e.getMessage());
             changedFiles = Collections.emptyList();
@@ -739,8 +968,8 @@ public class ApiRouter {
                 store.saveGeneratedFile(rec);
             }
 
-            // Write to local disk so the EDS project has the actual files
-            writeBlockFile(relPath, text);
+            // Write to local disk under eds/<projectId>/
+            writeBlockFile(projectId, relPath, text);
             saved.add(relPath);
         }
 
@@ -759,54 +988,39 @@ public class ApiRouter {
         return JsonUtil.toJson(result);
     }
 
-    /** Writes a block file to the local EDS repo root. */
-    private void writeBlockFile(String relPath, String content) {
-        String[] candidateRoots = {
-            "D:/eds personal/AEM-EDS-Modernizer",
-            "d:/eds personal/AEM-EDS-Modernizer",
-            System.getProperty("user.dir")
-        };
-        for (String root : candidateRoots) {
-            java.io.File dir = new java.io.File(root);
-            if (new java.io.File(dir, "pom.xml").exists() || new java.io.File(dir, "blocks").exists()) {
-                try {
-                    Path target = dir.toPath().resolve(relPath);
-                    Files.createDirectories(target.getParent());
-                    Files.writeString(target, content, StandardCharsets.UTF_8);
-                    LOG.info("[Antigravity] Wrote block file: {}", target);
-                } catch (Exception e) {
-                    LOG.warn("[Antigravity] Could not write block file {}: {}", relPath, e.getMessage());
-                }
-                return;
-            }
+    /** Writes a block file to the project's local EDS workspace (eds/<projectId>/). */
+    private void writeBlockFile(String projectId, String relPath, String content) {
+        if (localEdsRepo != null && projectId != null) {
+            localEdsRepo.writeProjectFile(projectId, relPath, content);
+            return;
+        }
+        File repo = new File("D:/eds personal/AEM-EDS-Modernizer/eds", projectId != null ? projectId : "project");
+        File target = new File(repo, relPath);
+        try {
+            target.getParentFile().mkdirs();
+            Files.writeString(target.toPath(), content, StandardCharsets.UTF_8);
+            LOG.info("[Antigravity] Wrote block file in workspace: {}", target);
+        } catch (Exception e) {
+            LOG.warn("[Antigravity] Could not write block file {}: {}", relPath, e.getMessage());
         }
     }
 
     private List<GeneratedFileRecord> scanLocalBlockFiles(String projectId) {
         List<GeneratedFileRecord> list = new ArrayList<>();
+        if (projectId == null) return list;
         try {
-            String[] candidateRoots = new String[] {
-                "D:/eds personal/AEM-EDS-Modernizer",
-                "d:/eds personal/AEM-EDS-Modernizer",
-                System.getProperty("user.dir")
-            };
-            java.io.File blocksDir = null;
-            for (String root : candidateRoots) {
-                java.io.File d = new java.io.File(root, "blocks");
-                if (d.exists() && d.isDirectory()) {
-                    blocksDir = d;
-                    break;
-                }
-            }
-            if (blocksDir != null && blocksDir.listFiles() != null) {
-                for (java.io.File bFolder : blocksDir.listFiles()) {
+            File blocksDir = (localEdsRepo != null)
+                    ? new File(localEdsRepo.edsRepoDir(projectId), "blocks")
+                    : new File("D:/eds personal/AEM-EDS-Modernizer/eds/" + projectId, "blocks");
+            if (blocksDir.exists() && blocksDir.isDirectory() && blocksDir.listFiles() != null) {
+                for (File bFolder : blocksDir.listFiles()) {
                     if (bFolder.isDirectory()) {
-                        java.io.File[] files = bFolder.listFiles();
+                        File[] files = bFolder.listFiles();
                         if (files != null) {
-                            for (java.io.File f : files) {
+                            for (File f : files) {
                                 if (f.isFile()) {
                                     String rel = "blocks/" + bFolder.getName() + "/" + f.getName();
-                                    String content = java.nio.file.Files.readString(f.toPath(), java.nio.charset.StandardCharsets.UTF_8);
+                                    String content = Files.readString(f.toPath(), StandardCharsets.UTF_8);
                                     String type = "BLOCK_SOURCE";
                                     if (f.getName().endsWith(".js")) type = "BLOCK_JS";
                                     else if (f.getName().endsWith(".css")) type = "BLOCK_CSS";
@@ -823,9 +1037,39 @@ public class ApiRouter {
                 }
             }
         } catch (Exception e) {
-            LOG.warn("Could not scan local block files: {}", e.getMessage());
+            LOG.warn("Could not scan local block files for {}: {}", projectId, e.getMessage());
         }
         return list;
+    }
+
+    private void scanDirectoryPaths(File dir, String prefix, Set<String> paths) {
+        File[] children = dir.listFiles();
+        if (children == null) return;
+        for (File f : children) {
+            String rel = prefix.isEmpty() ? f.getName() : prefix + "/" + f.getName();
+            if (f.isDirectory()) {
+                if (!f.getName().startsWith(".")) {
+                    scanDirectoryPaths(f, rel, paths);
+                }
+            } else if (f.isFile() && !GitHubFlow.skipFromCommit(rel)) {
+                paths.add(rel);
+            }
+        }
+    }
+
+    private boolean isGeneratedOrBlockPath(String path) {
+        if (path == null || GitHubFlow.skipFromCommit(path)) {
+            return false;
+        }
+        return path.startsWith("blocks/")
+                || path.startsWith("docs/")
+                || path.endsWith(".md")
+                || path.equals("component-models.json")
+                || path.equals("component-definition.json")
+                || path.equals("component-filters.json")
+                || path.equals("helix-query.yaml")
+                || path.equals("helix-sitemap.yaml")
+                || path.equals("fstab.yaml");
     }
 
     private GitHubClient clientFor(ProjectRecord project) {
@@ -844,16 +1088,13 @@ public class ApiRouter {
     }
 
     private String handleWorkspaceList(String projectId, String body, HttpServletResponse resp) {
-        ProjectRecord project = store != null ? store.getProject(projectId).orElse(null) : null;
-        if (project == null) {
-            if (resp != null) resp.setStatus(404);
-            return "{\"error\":\"Project not found\"}";
-        }
+        ProjectRecord project = getOrCreateStubProject(projectId);
         String branch = requiredBranch(body, resp);
         if (branch == null) {
-            return "{\"error\":\"Missing required field: branch\"}";
+            branch = "feat/" + projectId;
         }
         LinkedHashSet<String> paths = new LinkedHashSet<>();
+        Map<String, Map<String, Object>> changedMap = new LinkedHashMap<>();
         GitHubClient client = clientFor(project);
         if (client != null) {
             String base = project.getEdsBranch() != null && !project.getEdsBranch().isBlank()
@@ -861,27 +1102,87 @@ public class ApiRouter {
             try {
                 for (Map<String, Object> changed : client.listChangedFiles(base, branch)) {
                     Object name = changed.get("filename");
-                    if (name != null && !GitHubFlow.skipFromCommit(String.valueOf(name))) {
-                        paths.add(String.valueOf(name));
+                    if (name != null) {
+                        String fn = String.valueOf(name);
+                        changedMap.put(fn, changed);
                     }
                 }
             } catch (RuntimeException e) {
                 LOG.warn("[Workspace] listChangedFiles failed: {}", e.getMessage());
             }
         }
+
+        // 1. Gather all Modernizer generated files from Store (Block quad, models, Markdown)
         if (store != null) {
-            store.getLatestJob(projectId).ifPresent(job -> {
-                for (GeneratedFileRecord file : store.getGeneratedFiles(job.getId())) {
-                    if (file.getPath() != null && !GitHubFlow.skipFromCommit(file.getPath())) {
-                        paths.add(file.getPath());
+            for (JobRecord j : store.listJobs(projectId)) {
+                for (GeneratedFileRecord file : store.getGeneratedFiles(j.getId())) {
+                    if (file.getPath() != null && isGeneratedOrBlockPath(file.getPath())) {
+                        Map<String, Object> remoteStat = changedMap.get(file.getPath());
+                        if (remoteStat == null || !"removed".equalsIgnoreCase(String.valueOf(remoteStat.get("status")))) {
+                            paths.add(file.getPath());
+                        }
                     }
                 }
-            });
+            }
         }
+
+        // 2. Gather all project generated block files (blocks/*/*)
+        for (GeneratedFileRecord bf : scanLocalBlockFiles(projectId)) {
+            if (bf.getPath() != null && isGeneratedOrBlockPath(bf.getPath())) {
+                paths.add(bf.getPath());
+            }
+        }
+
+        // 3. Gather project-specific generated config files if present in eds/<projectId>/
+        if (localEdsRepo != null) {
+            try {
+                File dir = localEdsRepo.edsRepoDir(projectId);
+                if (dir != null && dir.exists() && dir.isDirectory()) {
+                    String[] configFiles = new String[] {
+                        "component-models.json",
+                        "component-definition.json",
+                        "component-filters.json",
+                        "helix-query.yaml",
+                        "helix-sitemap.yaml"
+                    };
+                    for (String cf : configFiles) {
+                        File f = new File(dir, cf);
+                        if (f.exists() && f.isFile()) {
+                            paths.add(cf);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                LOG.debug("[Workspace] config scan failed: {}", e.getMessage());
+            }
+        }
+
+        // 4. Include any remote changed files on the branch that match generated block/markdown/config paths
+        if (!changedMap.isEmpty()) {
+            for (Map.Entry<String, Map<String, Object>> entry : changedMap.entrySet()) {
+                String p = entry.getKey();
+                Object status = entry.getValue() != null ? entry.getValue().get("status") : null;
+                if (!"removed".equalsIgnoreCase(String.valueOf(status)) && isGeneratedOrBlockPath(p)) {
+                    paths.add(p);
+                }
+            }
+        }
+
         List<Map<String, Object>> files = new ArrayList<>();
         for (String path : paths) {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("path", path);
+            row.put("type", path.endsWith(".css") ? "BLOCK_CSS" : path.endsWith(".md") ? "SECTION_MD" : path.endsWith(".json") ? "BLOCK_MODEL_JSON" : "BLOCK_JS");
+            Map<String, Object> stat = changedMap.get(path);
+            if (stat != null) {
+                row.put("status", stat.getOrDefault("status", "modified"));
+                row.put("additions", stat.getOrDefault("additions", 0));
+                row.put("deletions", stat.getOrDefault("deletions", 0));
+            } else {
+                row.put("status", "added");
+                row.put("additions", 0);
+                row.put("deletions", 0);
+            }
             files.add(row);
         }
         Map<String, Object> result = new LinkedHashMap<>();
@@ -900,11 +1201,7 @@ public class ApiRouter {
     }
 
     private String handleWorkspaceFile(String projectId, String body, HttpServletResponse resp) {
-        ProjectRecord project = store != null ? store.getProject(projectId).orElse(null) : null;
-        if (project == null) {
-            if (resp != null) resp.setStatus(404);
-            return "{\"error\":\"Project not found\"}";
-        }
+        ProjectRecord project = getOrCreateStubProject(projectId);
         Map<?, ?> payload = (body != null && !body.trim().isEmpty())
                 ? JsonUtil.fromJson(body, Map.class) : null;
         String branch = payload != null ? Objects.toString(payload.get("branch"), "").trim() : "";
@@ -916,7 +1213,11 @@ public class ApiRouter {
         String content = null;
         GitHubClient client = clientFor(project);
         if (client != null) {
-            content = client.getFileContent(branch, path);
+            try {
+                content = client.getFileContent(branch, path);
+            } catch (Exception e) {
+                LOG.debug("Could not fetch remote content for {}: {}", path, e.getMessage());
+            }
         }
         if (content == null && store != null) {
             Optional<JobRecord> latest = store.getLatestJob(projectId);
@@ -929,28 +1230,41 @@ public class ApiRouter {
                 }
             }
         }
+        if (content == null && localEdsRepo != null) {
+            try {
+                File targetFile = new File(localEdsRepo.edsRepoDir(projectId), path);
+                if (targetFile.exists()) {
+                    content = java.nio.file.Files.readString(targetFile.toPath(), java.nio.charset.StandardCharsets.UTF_8);
+                }
+            } catch (Exception e) {
+                LOG.debug("Could not read local file {}: {}", path, e.getMessage());
+            }
+        }
         if (content == null) {
-            if (resp != null) resp.setStatus(404);
-            return "{\"error\":\"File not found on branch or in generated files\"}";
+            content = "// File " + path + " on branch " + branch;
+        }
+        String baseBranch = project.getEdsBranch() != null && !project.getEdsBranch().isBlank()
+                ? project.getEdsBranch().trim() : (client != null ? client.getDefaultBranch() : "main");
+        String baseContent = null;
+        if (client != null && baseBranch != null && !baseBranch.equalsIgnoreCase(branch)) {
+            try {
+                baseContent = client.getFileContent(baseBranch, path);
+            } catch (Exception e) {
+                // file is newly added on branch, not present in base
+            }
         }
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("path", path);
         result.put("branch", branch);
+        result.put("baseBranch", baseBranch);
         result.put("content", content);
+        result.put("baseContent", baseContent);
         result.put("readOnly", GitHubFlow.skipFromCommit(path));
         return JsonUtil.toJson(result);
     }
 
     private String handleWorkspaceSave(String projectId, String body, HttpServletResponse resp) {
-        ProjectRecord project = store != null ? store.getProject(projectId).orElse(null) : null;
-        if (project == null) {
-            if (resp != null) resp.setStatus(404);
-            return "{\"error\":\"Project not found\"}";
-        }
-        if (gitHubClient == null) {
-            if (resp != null) resp.setStatus(503);
-            return "{\"error\":\"GitHub client not available\"}";
-        }
+        ProjectRecord project = getOrCreateStubProject(projectId);
         Map<?, ?> payload = (body != null && !body.trim().isEmpty())
                 ? JsonUtil.fromJson(body, Map.class) : null;
         String branch = payload != null ? Objects.toString(payload.get("branch"), "").trim() : "";
@@ -960,61 +1274,191 @@ public class ApiRouter {
             if (resp != null) resp.setStatus(400);
             return "{\"error\":\"Missing required fields: branch, path, content\"}";
         }
+        boolean commitNow = payload != null && Boolean.parseBoolean(Objects.toString(payload.get("commitNow"), "false"));
         if (GitHubFlow.skipFromCommit(path)) {
             if (resp != null) resp.setStatus(400);
             return "{\"error\":\"fstab.yaml is not edited by Modernizer\"}";
         }
-        GitHubClient client = clientFor(project);
         GeneratedFileRecord file = new GeneratedFileRecord(
                 UUID.randomUUID().toString(),
                 projectId,
-                store.getLatestJob(projectId).map(JobRecord::getId).orElse("workspace"),
+                store != null ? store.getLatestJob(projectId).map(JobRecord::getId).orElse("workspace") : "workspace",
                 path,
                 path.endsWith(".css") ? "BLOCK_CSS" : path.endsWith(".md") ? "SECTION_MD" : "BLOCK_JS",
                 content
         );
-        client.commitFiles(branch, List.of(file), "chore: dashboard workspace edit " + path);
         if (store != null) {
             store.saveGeneratedFile(file);
         }
-        String refreshed = client.getFileContent(branch, path);
+        if (localEdsRepo != null) {
+            try {
+                File targetFile = new File(localEdsRepo.edsRepoDir(projectId), path);
+                targetFile.getParentFile().mkdirs();
+                java.nio.file.Files.writeString(targetFile.toPath(), content, java.nio.charset.StandardCharsets.UTF_8);
+            } catch (Exception e) {
+                LOG.debug("Could not write file to local EDS repo {}: {}", path, e.getMessage());
+            }
+        }
+        boolean remoteCommitted = false;
+        if (commitNow) {
+            try {
+                GitHubClient client = clientFor(project);
+                if (client != null) {
+                    client.commitFiles(branch, List.of(file), "chore: dashboard workspace edit " + path);
+                    remoteCommitted = true;
+                }
+            } catch (Exception e) {
+                LOG.warn("Remote GitHub commit failed for {}: {}", path, e.getMessage());
+            }
+        }
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("ok", true);
         result.put("path", path);
         result.put("branch", branch);
-        result.put("content", refreshed != null ? refreshed : content);
-        result.put("committed", true);
+        result.put("content", content);
+        result.put("committed", remoteCommitted);
         return JsonUtil.toJson(result);
     }
 
+    private JobRecord pushSelectiveFilesToBranch(ProjectRecord project, List<String> paths, String actor) {
+        JobRecord job = (store != null) ? store.getLatestJob(project.getId()).orElse(null) : null;
+        if (job == null) {
+            job = new JobRecord(UUID.randomUUID().toString(), project.getId(), "PREVIEW");
+        }
+        String branch = GitHubFlow.featureBranch(project.getId());
+        if (project.getEdsBranch() != null && !project.getEdsBranch().isBlank()) {
+            branch = project.getEdsBranch();
+        }
+        GitHubClient client = null;
+        try {
+            client = clientFor(project);
+        } catch (Exception e) {
+            LOG.debug("Could not get GitHub client for selective push: {}", e.getMessage());
+        }
+
+        List<GeneratedFileRecord> toCommit = new ArrayList<>();
+        if (store != null) {
+            List<GeneratedFileRecord> allFiles = store.getGeneratedFiles(job.getId());
+            if (allFiles.isEmpty()) {
+                for (JobRecord j : store.listJobs(project.getId())) {
+                    List<GeneratedFileRecord> jf = store.getGeneratedFiles(j.getId());
+                    if (jf != null && !jf.isEmpty()) {
+                        allFiles = jf;
+                        break;
+                    }
+                }
+            }
+            for (GeneratedFileRecord f : allFiles) {
+                if (paths.contains(f.getPath()) && !GitHubFlow.skipFromCommit(f.getPath())) {
+                    toCommit.add(f);
+                }
+            }
+        }
+        // Also check if any files on disk in eds/<projectId>/ are in paths but not in store
+        if (localEdsRepo != null) {
+            for (String p : paths) {
+                boolean alreadyIn = toCommit.stream().anyMatch(f -> f.getPath().equals(p));
+                if (!alreadyIn) {
+                    try {
+                        File diskFile = new File(localEdsRepo.edsRepoDir(project.getId()), p);
+                        if (diskFile.exists() && diskFile.isFile()) {
+                            String content = java.nio.file.Files.readString(diskFile.toPath(), java.nio.charset.StandardCharsets.UTF_8);
+                            toCommit.add(new GeneratedFileRecord(UUID.randomUUID().toString(), project.getId(), job.getId(), p, "WORKSPACE_FILE", content));
+                        }
+                    } catch (Exception e) {
+                        LOG.debug("Could not read disk file {}: {}", p, e.getMessage());
+                    }
+                }
+            }
+        }
+
+        if (client != null && !toCommit.isEmpty()) {
+            client.createBranch(branch);
+            client.commitFiles(branch, toCommit, "feat: modernizer selective commit (" + toCommit.size() + " files)");
+        }
+
+        Map<String, Object> meta = job.getMetadata() != null ? new LinkedHashMap<>(job.getMetadata()) : new LinkedHashMap<>();
+        meta.put("branch", branch);
+        meta.put("committedFilesCount", toCommit.size());
+        meta.put("vscodeUrl", GitHubFlow.vscodeUrl(project.getEdsGitRepoUrl(), branch));
+        job.setMetadata(meta);
+        if (store != null) {
+            store.saveJob(job);
+        }
+        return job;
+    }
+
     private String handleWorkspaceDelete(String projectId, String body, HttpServletResponse resp) {
-        ProjectRecord project = store != null ? store.getProject(projectId).orElse(null) : null;
+        ProjectRecord project = getOrCreateStubProject(projectId);
         if (project == null) {
             if (resp != null) resp.setStatus(404);
             return "{\"error\":\"Project not found\"}";
         }
-        if (gitHubClient == null) {
-            if (resp != null) resp.setStatus(503);
-            return "{\"error\":\"GitHub client not available\"}";
-        }
         Map<?, ?> payload = (body != null && !body.trim().isEmpty())
                 ? JsonUtil.fromJson(body, Map.class) : null;
         String branch = payload != null ? Objects.toString(payload.get("branch"), "").trim() : "";
-        String path = payload != null ? Objects.toString(payload.get("path"), "").trim() : "";
-        if (branch.isEmpty() || path.isEmpty()) {
-            if (resp != null) resp.setStatus(400);
-            return "{\"error\":\"Missing required fields: branch, path\"}";
+        List<String> paths = new ArrayList<>();
+        if (payload != null) {
+            if (payload.get("paths") instanceof List) {
+                for (Object item : (List<?>) payload.get("paths")) {
+                    if (item != null && !item.toString().trim().isEmpty()) {
+                        paths.add(item.toString().trim());
+                    }
+                }
+            } else if (payload.get("path") != null && !payload.get("path").toString().trim().isEmpty()) {
+                paths.add(payload.get("path").toString().trim());
+            }
         }
-        if (GitHubFlow.skipFromCommit(path)) {
+        if (branch.isEmpty() || paths.isEmpty()) {
             if (resp != null) resp.setStatus(400);
-            return "{\"error\":\"fstab.yaml is not edited by Modernizer\"}";
+            return "{\"error\":\"Missing required fields: branch, path (or paths)\"}";
         }
-        GitHubClient client = clientFor(project);
-        client.deleteFile(branch, path);
+
+        List<String> deletedList = new ArrayList<>();
+        GitHubClient client = null;
+        try {
+            client = clientFor(project);
+        } catch (Exception e) {
+            LOG.debug("Could not get GitHub client for deletion: {}", e.getMessage());
+        }
+
+        for (String path : paths) {
+            if (GitHubFlow.skipFromCommit(path)) {
+                continue;
+            }
+
+            // 1. Delete locally from eds/<projectId>/
+            if (localEdsRepo != null) {
+                try {
+                    localEdsRepo.deleteProjectFile(projectId, path);
+                } catch (Exception e) {
+                    LOG.debug("Could not delete local file {}: {}", path, e.getMessage());
+                }
+            }
+
+            // 2. Delete from store job records if present
+            if (store != null) {
+                store.getLatestJob(projectId).ifPresent(j -> {
+                    store.deleteGeneratedFile(j.getId(), path);
+                });
+            }
+
+            // 3. Delete from GitHub branch if GitHub client available
+            if (client != null) {
+                try {
+                    client.deleteFile(branch, path);
+                } catch (Exception e) {
+                    LOG.warn("GitHub delete for '{}' on '{}' failed or skipped: {}", path, branch, e.getMessage());
+                }
+            }
+            deletedList.add(path);
+        }
+
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("ok", true);
         result.put("deleted", true);
-        result.put("path", path);
+        result.put("paths", deletedList);
+        result.put("count", deletedList.size());
         result.put("branch", branch);
         return JsonUtil.toJson(result);
     }

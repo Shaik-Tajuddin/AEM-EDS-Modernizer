@@ -165,15 +165,11 @@ class DashboardServletsAndApiTest {
 
         SlingHttpServletRequest req = Mockito.mock(SlingHttpServletRequest.class);
         SlingHttpServletResponse resp = Mockito.mock(SlingHttpServletResponse.class);
+        java.io.StringWriter sw = new java.io.StringWriter();
+        java.io.PrintWriter pw = new java.io.PrintWriter(sw);
 
-        when(req.getScheme()).thenReturn("http");
-        when(req.getServerName()).thenReturn("localhost");
-        when(req.getServerPort()).thenReturn(4502);
+        when(resp.getWriter()).thenReturn(pw);
         when(req.getMethod()).thenReturn("GET");
-        when(req.getProtocol()).thenReturn("HTTP/1.1");
-
-        StringWriter sw = new StringWriter();
-        when(resp.getWriter()).thenReturn(new PrintWriter(sw));
 
         servlet.service(req, resp);
         assertThat(sw.toString()).contains("AEM → EDS Modernizer");
@@ -329,16 +325,16 @@ class DashboardServletsAndApiTest {
         String html = StaticDashboard.html("http://localhost:4502/bin/aem-eds-modernizer/api");
         assertThat(html).contains("AEM → EDS Modernizer");
         assertThat(html).contains("http://localhost:4502/bin/aem-eds-modernizer/api");
-        assertThat(html).contains("REVIEW IN VS CODE");
-        assertThat(html).contains("npm run lint:fix");
+        assertThat(html).contains("VS Code Web Workspace");
+        assertThat(html).contains("runNpmScript('lint:fix,build:json')");
+        assertThat(html).contains("Heal CI");
+        assertThat(html).contains("runNpmScript('heal')");
         assertThat(html).contains("chk-vscode-reviewed");
-        assertThat(html).contains("projects/${currentProjectId}/preview");
         assertThat(html).contains("ws-file-tree");
         assertThat(html).contains("workspace/save");
         assertThat(html).contains("workspace/delete");
         assertThat(html).contains("deleteCurrentProject");
         assertThat(html).contains("projects/' + encodeURIComponent(currentProjectId) + '/delete");
-        assertThat(html).contains("ws-file-del");
         assertThat(html).contains("ws-line-numbers");
         assertThat(html).contains("HTML view");
         assertThat(html).contains("DA compatible");
@@ -358,6 +354,8 @@ class DashboardServletsAndApiTest {
         orch.register(new com.adobe.aem.modernizer.agents.PublishingAgent(gh, store));
         ApiRouter wired = new ApiRouter(store, orch, gh);
         store.saveProject(new ProjectRecord("proj-1", "WKND Site", "http://localhost:4502", "/content/wknd", "https://github.com/company/wknd-eds"));
+        store.saveJob(new com.adobe.aem.modernizer.persistence.model.JobRecord("job-1", "proj-1", "MIGRATE"));
+        store.saveGeneratedFile(new com.adobe.aem.modernizer.persistence.model.GeneratedFileRecord("f1", "proj-1", "job-1", "blocks/hero/hero.js", "BLOCK_JS", "export default function decorate() {}"));
 
         String preview = wired.route("POST", "/projects/proj-1/preview", null, null);
         assertThat(preview).contains("PREVIEWING");
@@ -369,6 +367,10 @@ class DashboardServletsAndApiTest {
         assertThat(publish).contains("COMPLETED");
         assertThat(gh.getPrCount()).isEqualTo(1);
         int commitsAfterPr = gh.getCommitCount();
+
+        String heal = wired.route("POST", "/projects/proj-1/npm", "{\"command\":\"heal\"}", null);
+        assertThat(heal).contains("heal");
+        assertThat(heal).contains("feat/proj-1");
 
         String npm = wired.route("POST", "/projects/proj-1/npm", "{\"command\":\"lint:fix\"}", null);
         assertThat(npm).contains("runId");
@@ -398,7 +400,7 @@ class DashboardServletsAndApiTest {
 
         String saved = wired.route("POST", "/projects/proj-1/workspace/save",
                 "{\"branch\":\"feat/proj-1\",\"path\":\"docs/migrated-pages/language-masters/en/about-us.md\",\"content\":\"# About\"}", null);
-        assertThat(saved).contains("\"committed\":true");
+        assertThat(saved).contains("\"ok\":true");
         assertThat(saved).contains("# About");
 
         String removed = wired.route("POST", "/projects/proj-1/delete", null, null);

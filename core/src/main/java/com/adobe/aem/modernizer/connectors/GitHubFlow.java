@@ -7,8 +7,9 @@ import com.adobe.aem.modernizer.persistence.model.ProjectRecord;
  */
 public final class GitHubFlow {
 
-    public static final String NPM_WORKFLOW_FILE = "modernizer-npm.yml";
+    public static final String NPM_WORKFLOW_FILE = "main.yaml";
     public static final String NPM_WORKFLOW_PATH = ".github/workflows/" + NPM_WORKFLOW_FILE;
+    public static final String LEGACY_NPM_WORKFLOW_PATH = ".github/workflows/modernizer-npm.yml";
     public static final String FSTAB_PATH = "fstab.yaml";
 
     public static boolean skipFromCommit(String path) {
@@ -31,11 +32,19 @@ public final class GitHubFlow {
         if (normalized.startsWith("docs/migrated-pages/")) {
             return false;
         }
-        if (normalized.startsWith("blocks/") || normalized.startsWith(".github/")
-                || normalized.equalsIgnoreCase("README.md")) {
+        return normalized.startsWith("language-masters/") || normalized.startsWith("content/");
+    }
+
+    /** Skips docs/ files if buildDocs is false in project configuration. */
+    public static boolean skipDocFile(String path, boolean buildDocs) {
+        if (buildDocs) {
             return false;
         }
-        return normalized.startsWith("language-masters/") || normalized.startsWith("content/");
+        if (path == null || path.isBlank()) {
+            return false;
+        }
+        String normalized = path.replace('\\', '/').replaceFirst("^/+", "");
+        return normalized.startsWith("docs/") || normalized.equalsIgnoreCase("docs");
     }
 
     private GitHubFlow() {}
@@ -61,6 +70,23 @@ public final class GitHubFlow {
         String ownerRepo = cleaned.substring("https://github.com/".length());
         String ref = (branch == null || branch.isBlank()) ? "main" : branch.trim();
         return "https://vscode.dev/github/" + ownerRepo + "/tree/" + encodeBranchSegments(ref);
+    }
+
+    public static String edsPreviewUrl(String repoUrl, String branch) {
+        String cleaned = normalizeRepoUrl(repoUrl);
+        if (cleaned == null) {
+            return null;
+        }
+        String ownerRepo = cleaned.substring("https://github.com/".length());
+        String[] parts = ownerRepo.split("/");
+        if (parts.length < 2) {
+            return null;
+        }
+        String owner = parts[0].toLowerCase().trim();
+        String repo = parts[1].toLowerCase().trim();
+        String ref = (branch == null || branch.isBlank()) ? "main" : branch.trim();
+        String sanitizedBranch = ref.replace('/', '-').replace('_', '-').toLowerCase();
+        return "https://" + sanitizedBranch + "--" + repo + "--" + owner + ".aem.page/";
     }
 
     public static String normalizeRepoUrl(String repoUrl) {
@@ -94,5 +120,19 @@ public final class GitHubFlow {
             out.append(java.net.URLEncoder.encode(parts[i], java.nio.charset.StandardCharsets.UTF_8).replace("+", "%20"));
         }
         return out.toString();
+    }
+
+    /** Removes the leftover standalone npm workflow after it was folded into {@code main.yaml}. */
+    public static void deleteLegacyNpmWorkflow(GitHubClient client, String branch) {
+        if (client == null || branch == null || branch.isBlank()) {
+            return;
+        }
+        try {
+            if (client.getFileContent(branch, LEGACY_NPM_WORKFLOW_PATH) != null) {
+                client.deleteFile(branch, LEGACY_NPM_WORKFLOW_PATH);
+            }
+        } catch (RuntimeException ignored) {
+            // Best-effort cleanup when the file is already gone or the token cannot delete it.
+        }
     }
 }

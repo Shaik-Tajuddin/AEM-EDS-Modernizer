@@ -26,7 +26,6 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Real GitHub REST / Git Data API implementation of {@link GitHubClient}.
@@ -328,6 +327,13 @@ public class RealGitHubClient implements GitHubClient {
     @Override
     public String createPullRequest(String title, String body, String headBranch, String baseBranch) {
         ensureOwnerRepo();
+        // 1. Check if PR already exists for this branch
+        String existing = findExistingPullRequest(headBranch);
+        if (existing != null && !existing.isBlank()) {
+            LOG.info("Pull request already exists for branch {}: {}", headBranch, existing);
+            return existing;
+        }
+
         try {
             ObjectNode pr = mapper.createObjectNode();
             pr.put("title", title);
@@ -339,8 +345,56 @@ public class RealGitHubClient implements GitHubClient {
             LOG.info("Created PR: {}", url);
             return url;
         } catch (IOException | RuntimeException e) {
+            // Check if GitHub threw a 422 because PR already exists
+            String fallback = findExistingPullRequest(headBranch);
+            if (fallback != null && !fallback.isBlank()) {
+                LOG.info("Resolved existing PR after 422 for branch {}: {}", headBranch, fallback);
+                return fallback;
+            }
             throw new IllegalStateException("Failed to create pull request: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Looks up any existing open pull request URL for the given head branch.
+     */
+    public String findExistingPullRequest(String headBranch) {
+        if (headBranch == null || headBranch.isBlank()) {
+            return null;
+        }
+        ensureOwnerRepo();
+        try {
+            // Check with owner:headBranch for open PRs
+            String headFilter = owner + ":" + headBranch.trim();
+            JsonNode resp = get("/repos/" + owner + "/" + repo + "/pulls?head=" + urlEncode(headFilter) + "&state=open");
+            if (resp.isArray()) {
+                for (JsonNode item : resp) {
+                    String ref = item.path("head").path("ref").asText();
+                    if (headBranch.trim().equalsIgnoreCase(ref)) {
+                        String htmlUrl = item.path("html_url").asText();
+                        if (htmlUrl != null && !htmlUrl.isBlank()) {
+                            return htmlUrl;
+                        }
+                    }
+                }
+            }
+            // Secondary scan over recent open PRs (handles any org/user prefix mismatches)
+            resp = get("/repos/" + owner + "/" + repo + "/pulls?state=open&per_page=30");
+            if (resp.isArray()) {
+                for (JsonNode item : resp) {
+                    String ref = item.path("head").path("ref").asText();
+                    if (headBranch.trim().equalsIgnoreCase(ref)) {
+                        String htmlUrl = item.path("html_url").asText();
+                        if (htmlUrl != null && !htmlUrl.isBlank()) {
+                            return htmlUrl;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            LOG.debug("Could not lookup existing pull request for branch {}: {}", headBranch, e.getMessage());
+        }
+        return null;
     }
 
     @Override
@@ -359,6 +413,7 @@ public class RealGitHubClient implements GitHubClient {
                     entry.put("status", f.path("status").asText());
                     entry.put("additions", f.path("additions").asInt(0));
                     entry.put("deletions", f.path("deletions").asInt(0));
+                    entry.put("patch", f.path("patch").asText(""));
                     result.add(entry);
                 }
             }
@@ -508,6 +563,101 @@ public class RealGitHubClient implements GitHubClient {
     }
 
     @Override
+    public List<String> listFilePaths(String ref, String pathPrefix) {
+        ensureOwnerRepo();
+        List<String> out = new ArrayList<>();
+        String prefix = pathPrefix == null ? "" : pathPrefix.replace('\\', '/');
+        try {
+            String branch = (ref == null || ref.isBlank()) ? defaultBranch : ref.trim();
+            String commitSha = getBranchHeadSha(branch);
+            String treeSha = getCommitTreeSha(commitSha);
+            JsonNode tree = get("/repos/" + owner + "/" + repo + "/git/trees/"
+                    + urlEncode(treeSha) + "?recursive=1");
+            JsonNode items = tree.path("tree");
+            if (items.isArray()) {
+                for (JsonNode item : items) {
+                    if (!"blob".equals(item.path("type").asText())) {
+                        continue;
+                    }
+                    String path = item.path("path").asText("");
+                    if (!path.isBlank() && (prefix.isEmpty() || path.startsWith(prefix))) {
+                        out.add(path);
+                    }
+                }
+            }
+        } catch (IOException | RuntimeException e) {
+            LOG.warn("Could not list files on '{}': {}", ref, e.getMessage());
+        }
+        if (out.isEmpty() && prefix.startsWith("blocks")) {
+            out.addAll(listViaContents(ref, prefix.endsWith("/") ? prefix.substring(0, prefix.length() - 1) : prefix));
+        }
+        return out;
+    }
+
+    private List<String> listViaContents(String ref, String dir) {
+        List<String> out = new ArrayList<>();
+        try {
+            String encodedPath = java.net.URLEncoder.encode(dir.replace('\\', '/').replaceFirst("^/+", ""),
+                    StandardCharsets.UTF_8).replace("+", "%20").replace("%2F", "/");
+            String q = (ref == null || ref.isBlank()) ? "" : ("?ref=" + urlEncode(ref.trim()));
+            JsonNode node = get("/repos/" + owner + "/" + repo + "/contents/" + encodedPath + q);
+            if (!node.isArray()) {
+                return out;
+            }
+            for (JsonNode item : node) {
+                String path = item.path("path").asText("");
+                String type = item.path("type").asText("");
+                if ("file".equals(type) && !path.isBlank()) {
+                    out.add(path);
+                } else if ("dir".equals(type) && !path.isBlank()) {
+                    out.addAll(listViaContents(ref, path));
+                }
+            }
+        } catch (IOException | RuntimeException e) {
+            LOG.warn("Could not list directory '{}' on '{}': {}", dir, ref, e.getMessage());
+        }
+        return out;
+    }
+
+    @Override
+    public void deleteFile(String branch, String path) {
+        String cleanPath = normalizePath(path);
+        if (cleanPath == null) return;
+        ensureOwnerRepo();
+        try {
+            String encodedPath = java.net.URLEncoder.encode(cleanPath.replaceFirst("^/+", ""),
+                    StandardCharsets.UTF_8).replace("+", "%20").replace("%2F", "/");
+            String targetBranch = (branch == null || branch.isBlank()) ? defaultBranch : branch.trim();
+            String getUrl = "/repos/" + owner + "/" + repo + "/contents/" + encodedPath + "?ref=" + urlEncode(targetBranch);
+
+            JsonNode fileNode;
+            try {
+                fileNode = get(getUrl);
+            } catch (IOException e) {
+                if (e.getMessage() != null && e.getMessage().contains("404")) {
+                    LOG.info("File '{}' not found on branch '{}' in GitHub; skipping remote delete", cleanPath, targetBranch);
+                    return;
+                }
+                throw e;
+            }
+            String sha = fileNode.path("sha").asText("");
+            if (sha.isBlank()) {
+                LOG.info("Could not resolve SHA for file '{}' on branch '{}'; skipping delete", cleanPath, targetBranch);
+                return;
+            }
+            ObjectNode del = mapper.createObjectNode();
+            del.put("message", "chore: delete " + cleanPath + " via Modernizer workspace");
+            del.put("sha", sha);
+            del.put("branch", targetBranch);
+            deleteJson("/repos/" + owner + "/" + repo + "/contents/" + encodedPath, del);
+            LOG.info("Deleted '{}' on branch '{}'", cleanPath, targetBranch);
+        } catch (Exception e) {
+            LOG.warn("Failed to delete file '{}' on branch '{}': {}", cleanPath, branch, e.getMessage());
+            throw new RuntimeException("Could not delete file " + cleanPath + ": " + e.getMessage(), e);
+        }
+    }
+
+    @Override
     public String getFileContent(String ref, String path) {
         ensureOwnerRepo();
         if (path == null || path.isBlank()) {
@@ -526,35 +676,6 @@ public class RealGitHubClient implements GitHubClient {
         } catch (IOException | RuntimeException e) {
             LOG.warn("Could not read '{}' on '{}': {}", path, ref, e.getMessage());
             return null;
-        }
-    }
-
-    @Override
-    public void deleteFile(String branch, String path) {
-        ensureOwnerRepo();
-        String normalized = normalizePath(path);
-        if (normalized == null || GitHubFlow.skipFromCommit(normalized)) {
-            throw new IllegalArgumentException("Cannot delete this path");
-        }
-        try {
-            String encodedPath = java.net.URLEncoder.encode(normalized, StandardCharsets.UTF_8)
-                    .replace("+", "%20").replace("%2F", "/");
-            String q = (branch == null || branch.isBlank()) ? "" : ("?ref=" + urlEncode(branch.trim()));
-            JsonNode node = get("/repos/" + owner + "/" + repo + "/contents/" + encodedPath + q);
-            String sha = node.path("sha").asText();
-            if (sha == null || sha.isBlank()) {
-                throw new IllegalStateException("No blob sha for " + normalized);
-            }
-            ObjectNode body = mapper.createObjectNode();
-            body.put("message", "chore: remove unused " + normalized);
-            body.put("sha", sha);
-            if (branch != null && !branch.isBlank()) {
-                body.put("branch", branch.trim());
-            }
-            deleteJson("/repos/" + owner + "/" + repo + "/contents/" + encodedPath, body);
-            LOG.info("Deleted '{}' from branch '{}'", normalized, branch);
-        } catch (IOException | RuntimeException e) {
-            throw new IllegalStateException("Failed to delete '" + normalized + "': " + e.getMessage(), e);
         }
     }
 

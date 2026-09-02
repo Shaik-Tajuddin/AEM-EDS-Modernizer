@@ -1,0 +1,7 @@
+{
+  "providerName": "gemini",
+  "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+  "apiKeyRef": "env:GEMINI_API_KEY",
+  "defaultModel": "",
+  "enabled": true
+}
