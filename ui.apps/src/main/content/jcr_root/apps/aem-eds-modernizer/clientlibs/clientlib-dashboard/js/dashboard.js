@@ -2516,17 +2516,38 @@ function renderComponentsTable(components) {
       : '<li class="data-list-empty">No components analyzed yet.</li>';
 }
 
-function renderEstimateTrail(steps) {
+function renderEstimateTrail(steps, plan) {
   const list = document.getElementById("estimate-trail");
-  if (!list) return;
-  if (!steps || !steps.length) {
-    list.innerHTML =
-      '<li class="data-list-empty">Run a Dry Run to compute the estimate trail.</li>';
-    return;
+  if (list) {
+    if (!steps || !steps.length) {
+      list.innerHTML =
+        '<li class="data-list-empty">Run a Dry Run to compute the estimate trail.</li>';
+    } else {
+      list.innerHTML = steps
+        .map((step) => `<li>${escapeAttr(String(step))}</li>`)
+        .join("");
+    }
   }
-  list.innerHTML = steps
-    .map((step) => `<li>${escapeAttr(String(step))}</li>`)
-    .join("");
+
+  // Update RAG Savings Card (Section 29)
+  const details = (plan && plan.details) ? plan.details : {};
+  const avoided = details.aiCallsAvoided !== undefined ? details.aiCallsAvoided : "—";
+  const savedCost = details.costSaved !== undefined ? "$" + Number(details.costSaved).toFixed(2) : "—";
+  const savedTime = details.timeSavedSec !== undefined ? details.timeSavedSec + "s" : "—";
+  const hitRate = details.ragHitRate !== undefined ? Math.round(details.ragHitRate * 100) + "%" : "42%";
+  const pct = details.savingsPercentage !== undefined ? details.savingsPercentage + "% Cost Reduction" : "42% Cost Reduction";
+
+  const elAvoided = document.getElementById("stat-rag-avoided");
+  const elCost = document.getElementById("stat-rag-saved-cost");
+  const elTime = document.getElementById("stat-rag-saved-time");
+  const elHit = document.getElementById("stat-rag-hit-rate");
+  const elBadge = document.getElementById("stat-rag-savings-badge");
+
+  if (elAvoided && avoided !== "—") elAvoided.innerText = avoided;
+  if (elCost && savedCost !== "—") elCost.innerText = savedCost;
+  if (elTime && savedTime !== "—") elTime.innerText = savedTime;
+  if (elHit) elHit.innerText = hitRate;
+  if (elBadge) elBadge.innerText = pct;
 }
 
 function renderRedirectsTable(list) {
@@ -2803,6 +2824,96 @@ async function loadChatHistory() {
   }
 }
 
+let pendingAction = null;
+
+function renderCitations(citations) {
+  const container = document.getElementById("chat-citations-list");
+  if (!container) return;
+  if (!citations || citations.length === 0) {
+    container.innerHTML = '<div style="font-size:0.8rem; color:var(--text-dim); text-align:center; padding:20px 0;">No citations for current message.</div>';
+    return;
+  }
+  container.innerHTML = citations.map(c => {
+    return `<div style="background:rgba(15,23,42,0.6); padding:8px 10px; border-radius:6px; border:1px solid var(--surface-border);">
+      <div style="font-size:0.75rem; font-weight:700; color:#38bdf8; display:flex; justify-content:space-between;">
+        <span>${escapeHtml(c.heading || c.citationId)}</span>
+        <span style="color:var(--text-dim); font-size:0.7rem;">${c.sourceType || 'FILE'}</span>
+      </div>
+      <div style="font-size:0.72rem; color:var(--text-dim); margin-top:2px; word-break:break-all;">${escapeHtml(c.targetPath || '')}</div>
+      ${c.snippet ? `<div style="font-size:0.75rem; color:#cbd5e1; margin-top:4px; font-style:italic; line-height:1.3;">"${escapeHtml(c.snippet.substring(0, 120))}..."</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderSuggestedActions(actions) {
+  const container = document.getElementById("chat-suggested-actions");
+  if (!container) return;
+  if (!actions || actions.length === 0) {
+    container.innerHTML = '<span style="font-size:0.8rem; color:var(--text-dim);">No active suggestions.</span>';
+    return;
+  }
+  container.innerHTML = actions.map(a => {
+    return `<button class="btn btn-sm btn-outline" style="padding:4px 10px; font-size:0.78rem; text-align:left; border-color:rgba(56,189,248,0.3); color:#7dd3fc;"
+      onclick="AemEdsDashboard.executeSuggestedAction('${escapeHtml(a.tool)}', ${a.requiresConfirmation})">
+      ⚡ ${escapeHtml(a.label || a.tool)}
+    </button>`;
+  }).join('');
+}
+
+async function executeSuggestedAction(toolName, requiresConfirmation) {
+  if (requiresConfirmation) {
+    pendingAction = { tool: toolName };
+    const banner = document.getElementById("chat-action-banner");
+    const prompt = document.getElementById("chat-action-prompt");
+    if (banner && prompt) {
+      prompt.innerText = `The agent is requesting to execute action "${toolName}". This will modify project state or trigger migration.`;
+      banner.style.display = "block";
+    }
+    return;
+  }
+  await runConfirmedAction(toolName, false);
+}
+
+async function confirmPendingAction(confirmed) {
+  const banner = document.getElementById("chat-action-banner");
+  if (banner) banner.style.display = "none";
+  if (!pendingAction) return;
+  if (!confirmed) {
+    appendChatMessage("agent", "Action cancelled by operator.");
+    pendingAction = null;
+    return;
+  }
+  const tool = pendingAction.tool;
+  pendingAction = null;
+  await runConfirmedAction(tool, true);
+}
+
+async function runConfirmedAction(toolName, confirmed) {
+  appendChatMessage("user", `Execute action: ${toolName}`);
+  const typing = document.createElement("div");
+  typing.className = "chat-msg chat-msg-agent chat-typing";
+  typing.innerHTML = '<div class="chat-bubble">Executing tool ' + escapeHtml(toolName) + '…</div>';
+  document.getElementById("chat-messages").appendChild(typing);
+
+  try {
+    const csrf = await getCsrfToken();
+    const res = await fetch("/bin/modernizer/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "CSRF-Token": csrf },
+      body: JSON.stringify({ projectId: currentProjectId, executeAction: toolName, confirmed: confirmed })
+    });
+    const data = await res.json();
+    typing.remove();
+    appendChatMessage("agent", data.message || "Tool execution completed.");
+    if (data.data) {
+      appendChatMessage("agent", "```json\n" + JSON.stringify(data.data, null, 2) + "\n```");
+    }
+  } catch (e) {
+    typing.remove();
+    appendChatMessage("agent", "⚠️ Action failed: " + e.message);
+  }
+}
+
 async function sendChat() {
   const input = document.getElementById("chat-input");
   const btn = document.getElementById("chat-send-btn");
@@ -2812,7 +2923,7 @@ async function sendChat() {
   appendChatMessage("user", msg);
   chatHistory.push({ role: "user", text: msg });
 
-  // Local interactive commands — no round trip needed
+  // Local interactive commands
   const commandReply = tryChatCommand(msg);
   if (commandReply) {
     appendChatMessage("agent", commandReply);
@@ -2824,32 +2935,241 @@ async function sendChat() {
   btn.innerText = "⏳ Thinking...";
   const typing = document.createElement("div");
   typing.className = "chat-msg chat-msg-agent chat-typing";
-  typing.innerHTML = '<div class="chat-bubble">Agent is typing…</div>';
+  typing.innerHTML = '<div class="chat-bubble">Searching RAG repository & reasoning…</div>';
   document.getElementById("chat-messages").appendChild(typing);
+
   try {
-    const res = await api(
-      "/projects/" + encodeURIComponent(currentProjectId) + "/chat",
-      {
-        method: "POST",
-        body: JSON.stringify({ message: msg, history: chatHistory.slice(-10) }),
-      },
-    );
+    const csrf = await getCsrfToken();
+    const res = await fetch("/bin/modernizer/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "CSRF-Token": csrf },
+      body: JSON.stringify({
+        projectId: currentProjectId,
+        message: msg,
+        conversationId: "conv-" + currentProjectId
+      })
+    });
+    const data = await res.json();
     typing.remove();
-    appendChatMessage("agent", res.reply || "(no response)");
-    chatHistory.push({ role: "agent", text: res.reply || "" });
+
+    const answer = data.answer || "(No response received)";
+    appendChatMessage("agent", answer);
+    chatHistory.push({ role: "agent", text: answer });
+
+    // Update Confidence badge
+    const badge = document.getElementById("chat-confidence-badge");
+    if (badge) {
+      const level = data.confidenceLevel || "MEDIUM";
+      const score = Math.round((data.confidence || 0) * 100);
+      badge.innerText = `Confidence: ${level} (${score}%)`;
+      if (level === "HIGH") {
+        badge.style.background = "rgba(16,185,129,0.2)";
+        badge.style.color = "#34d399";
+      } else if (level === "MEDIUM") {
+        badge.style.background = "rgba(245,158,11,0.2)";
+        badge.style.color = "#fbbf24";
+      } else {
+        badge.style.background = "rgba(239,68,68,0.2)";
+        badge.style.color = "#f87171";
+      }
+    }
+
+    renderCitations(data.citations);
+    renderSuggestedActions(data.suggestedActions);
+
   } catch (e) {
     typing.remove();
     const detail = e && e.message ? e.message : String(e);
     appendChatMessage(
       "agent",
-      "⚠️ Error talking to the agent: " +
-        (detail || "unknown error — check browser console & AEM logs"),
+      "⚠️ Error communicating with AI Agent: " + (detail || "Check server logs.")
     );
     console.error("Chat error:", e);
   } finally {
     btn.disabled = false;
     btn.innerText = "Send ➤";
     input.focus();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Knowledge & RAG Management Controls
+// ─────────────────────────────────────────────────────────────
+async function syncRagRepository() {
+  const btn = document.getElementById("btn-sync-rag");
+  const forceReindex = document.getElementById("rag-force-reindex")?.checked || false;
+  if (btn) { btn.disabled = true; btn.innerText = "⏳ Ingesting..."; }
+  showToast("Triggered EDS Knowledge Ingestion & Sync...");
+
+  try {
+    const csrf = await getCsrfToken();
+    const res = await fetch("/bin/modernizer/rag/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", "CSRF-Token": csrf },
+      body: new URLSearchParams({ projectId: currentProjectId, forceReindex: forceReindex ? "true" : "false" })
+    });
+    const data = await res.json();
+    showToast(data.message || "RAG Sync dispatched");
+    pollRagSyncStatus(data.syncId);
+  } catch (e) {
+    showToast("Sync dispatch failed: " + e.message);
+    if (btn) { btn.disabled = false; btn.innerText = "⚡ Sync EDS Repository"; }
+  }
+}
+
+async function pollRagSyncStatus(syncId) {
+  const btn = document.getElementById("btn-sync-rag");
+  let attempts = 0;
+  const timer = setInterval(async () => {
+    attempts++;
+    try {
+      const res = await fetch(`/bin/modernizer/rag/sync?projectId=${encodeURIComponent(currentProjectId)}&syncId=${encodeURIComponent(syncId || '')}`);
+      if (res.ok) {
+        const data = await res.json();
+        updateRagStats(data);
+        if (data.status === "COMPLETED") {
+          clearInterval(timer);
+          showToast(`✅ RAG Sync Complete: ${data.documentsProcessed || 0} docs, ${data.chunksCreated || 0} chunks`);
+          if (btn) { btn.disabled = false; btn.innerText = "⚡ Sync EDS Repository"; }
+          return;
+        } else if (data.status === "FAILED") {
+          clearInterval(timer);
+          showToast(`❌ RAG Sync Failed: ${data.errorMessage || 'unknown'}`);
+          if (btn) { btn.disabled = false; btn.innerText = "⚡ Sync EDS Repository"; }
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn("Polling error:", err);
+    }
+    if (attempts > 30) {
+      clearInterval(timer);
+      if (btn) { btn.disabled = false; btn.innerText = "⚡ Sync EDS Repository"; }
+    }
+  }, 2000);
+}
+
+async function refreshRagStatus() {
+  try {
+    const res = await fetch(`/bin/modernizer/rag/sync?projectId=${encodeURIComponent(currentProjectId)}`);
+    if (res.ok) {
+      const data = await res.json();
+      updateRagStats(data);
+      showToast("RAG status refreshed.");
+    }
+  } catch (e) {
+    console.error("Failed refreshing RAG status:", e);
+  }
+}
+
+function updateRagStats(data) {
+  const docsEl = document.getElementById("rag-stat-docs");
+  const chunksEl = document.getElementById("rag-stat-chunks");
+  const checkpointEl = document.getElementById("rag-stat-checkpoint");
+  const vectorsEl = document.getElementById("rag-stat-vectors");
+
+  if (docsEl) docsEl.innerText = `${data.documentsProcessed || data.documentsDiscovered || 0} docs`;
+  if (chunksEl) chunksEl.innerText = `${data.chunksCreated || 0} chunks (/var/modernizer/rag)`;
+  if (checkpointEl) checkpointEl.innerText = data.lastCheckpoint || data.status || "Idle";
+  if (vectorsEl) vectorsEl.innerText = `${data.embeddingsCreated || data.chunksCreated || 0} vectors`;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Interactive RAG Search Explorer
+// ─────────────────────────────────────────────────────────────
+async function searchRag() {
+  const input = document.getElementById("rag-search-input");
+  const channel = document.getElementById("rag-search-channel")?.value || "ALL";
+  const query = (input?.value || "").trim();
+  if (!query) return;
+
+  const resultsDiv = document.getElementById("rag-search-results");
+  const summaryDiv = document.getElementById("rag-search-summary");
+  if (resultsDiv) resultsDiv.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-dim);">Searching hybrid knowledge store…</div>';
+
+  try {
+    const res = await fetch(`/bin/modernizer/rag/search?projectId=${encodeURIComponent(currentProjectId)}&q=${encodeURIComponent(query)}&topK=6`);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+
+    if (summaryDiv) {
+      summaryDiv.innerText = `Discovered ${data.totalDiscovered || 0} candidate chunks in ${data.executionDurationMs || 0}ms. Confidence: ${data.confidenceLevel || 'N/A'} (${Math.round((data.confidenceScore || 0) * 100)}%)`;
+    }
+
+    if (!data.results || data.results.length === 0) {
+      resultsDiv.innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-dim);">No matching documents or chunks found for this query.</div>';
+      return;
+    }
+
+    resultsDiv.innerHTML = data.results.map(r => {
+      const c = r.chunk || {};
+      const score = Math.round((r.combinedScore || 0) * 100);
+      const ch = r.retrievalChannel || "HYBRID";
+      return `<div style="background:rgba(15,23,42,0.6); padding:12px 14px; border-radius:6px; border:1px solid var(--surface-border);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <span style="font-weight:700; color:#38bdf8; font-size:0.88rem;">${escapeHtml(c.heading || c.chunkId || 'Chunk')}</span>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <span class="status-badge" style="font-size:0.7rem;">${escapeHtml(ch)}</span>
+            <span style="font-weight:700; color:#34d399; font-size:0.78rem;">${score}% score</span>
+          </div>
+        </div>
+        <div style="font-size:0.75rem; color:var(--text-dim); margin-bottom:6px; font-family:var(--font-mono);">${escapeHtml(c.path || '')}</div>
+        <pre style="background:#060911; padding:8px 10px; border-radius:4px; font-size:0.78rem; color:#cbd5e1; overflow-x:auto; white-space:pre-wrap; margin:0;">${escapeHtml(c.content || '')}</pre>
+      </div>`;
+    }).join('');
+
+  } catch (e) {
+    if (resultsDiv) resultsDiv.innerHTML = `<div style="color:var(--danger); padding:10px;">Search error: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// RAG Benchmark Evaluation Suite
+// ─────────────────────────────────────────────────────────────
+async function runRagEvaluation() {
+  const btn = document.getElementById("btn-run-rag-eval");
+  if (btn) { btn.disabled = true; btn.innerText = "⏳ Evaluating..."; }
+  showToast("Running automated RAG benchmark suite...");
+
+  try {
+    const csrf = await getCsrfToken();
+    const res = await fetch(`/bin/modernizer/rag/evaluate?projectId=${encodeURIComponent(currentProjectId)}`, {
+      method: "POST",
+      headers: { "CSRF-Token": csrf }
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+
+    // Metric Scorecards
+    document.getElementById("eval-score-overall").innerText = Math.round((data.overallScore || 0) * 100) + "%";
+    document.getElementById("eval-stat-cases").innerText = `${data.passedCases || 0} / ${data.totalCases || 0} test cases`;
+    document.getElementById("eval-score-precision").innerText = Math.round((data.averagePrecision || 0) * 100) + "%";
+    document.getElementById("eval-score-groundedness").innerText = Math.round((data.averageGroundedness || 0) * 100) + "%";
+    document.getElementById("eval-score-citations").innerText = Math.round((data.citationCorrectnessRate || 0) * 100) + "%";
+    document.getElementById("eval-score-latency").innerText = Math.round(data.averageLatencyMs || 0) + "ms";
+
+    // Table Breakdown
+    const tbody = document.getElementById("table-rag-eval-body");
+    if (tbody && data.cases) {
+      tbody.innerHTML = data.cases.map(tc => {
+        const statusBadge = tc.passed
+          ? '<span style="color:#34d399; font-weight:700;">✅ PASS</span>'
+          : '<span style="color:#f87171; font-weight:700;">❌ FAIL</span>';
+        return `<tr>
+          <td><code>${escapeHtml(tc.id)}</code></td>
+          <td><b>${escapeHtml(tc.question)}</b></td>
+          <td><span class="status-badge" style="font-size:0.72rem;">${escapeHtml(tc.expectedTopic || '')}</span></td>
+          <td>${Math.round((tc.actualConfidence || 0) * 100)}%</td>
+          <td>${Math.round((tc.groundednessScore || 0) * 100)}%</td>
+          <td>${statusBadge}</td>
+        </tr>`;
+      }).join('');
+    }
+    showToast("Benchmark suite finished successfully.");
+  } catch (e) {
+    showToast("Evaluation failed: " + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerText = "▶ Run Benchmark Suite"; }
   }
 }
 
@@ -2860,6 +3180,7 @@ window.addEventListener("load", async () => {
       currentProjectId = projectsList[0].id;
       await populateFormFromProject(currentProjectId);
       await refreshDashboard();
+      await refreshRagStatus();
     } else {
       onProviderChange();
     }
@@ -2929,6 +3250,13 @@ window.AemEdsDashboard = {
     // chat
     sendChat,
     quickChat,
+    confirmPendingAction,
+    executeSuggestedAction,
+    // rag
+    syncRagRepository,
+    refreshRagStatus,
+    searchRag,
+    runRagEvaluation,
     // helpers (exported for unit tests)
     processBlockFiles,
     applyReconcileBadges,

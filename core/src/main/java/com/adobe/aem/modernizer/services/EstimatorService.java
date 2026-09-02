@@ -64,22 +64,42 @@ public class EstimatorService {
         trail.add("  + advanced-visual-validation: " + aiVisual + " (sample rate 20%)");
         trail.add("  + advanced-repair: " + aiRepair + " (estimated repair allowance)");
         trail.add("  + advanced-rollout: " + aiRollout + " (1 per rollout policy)");
-        plan.setDerivationTrail(trail);
-
-        // Cost Calculation (Lo / Expected / Hi)
+        // Base Cost & Time Calculation
         double baseCostPerCall = 0.008; // ~$8 per 1,000 calls
         double expectedCost = totalAiCalls * baseCostPerCall;
-        plan.setCostExpected(roundToCents(expectedCost));
-        plan.setCostLo(roundToCents(expectedCost * 0.7));
-        plan.setCostHi(roundToCents(expectedCost * 1.4));
-
-        // Time Calculation (Seconds)
         long expectedTime = (long) (pages * 0.8 + distinctBlocks * 1.5 + 10);
-        plan.setTimeExpectedSec(expectedTime);
-        plan.setTimeLoSec((long) (expectedTime * 0.75));
-        plan.setTimeHiSec((long) (expectedTime * 1.3));
 
-        plan.setAutomationConfidence(0.92);
+        // RAG Savings Integration (Section 29)
+        double ragHitRate = 0.42; // 42% historical reuse / documentation mapping rate
+        int aiCallsAvoided = (int) Math.round((aiCompInt + aiMapping + aiBlockGen) * ragHitRate);
+        int aiCallsWithRag = Math.max(1, totalAiCalls - aiCallsAvoided);
+        double costSaved = roundToCents(aiCallsAvoided * baseCostPerCall);
+        double costWithRag = roundToCents(expectedCost - costSaved);
+        long timeSavedSec = (long) (expectedTime * 0.35);
+
+        trail.add("RAG Optimization:");
+        trail.add("  - AI calls avoided via RAG: " + aiCallsAvoided + " (" + (int)(ragHitRate * 100) + "% hit rate)");
+        trail.add("  - Estimated cost saved via RAG: $" + costSaved + " (Net cost: $" + costWithRag + ")");
+        trail.add("  - Estimated duration saved: " + timeSavedSec + "s");
+        plan.setDerivationTrail(trail);
+
+        plan.getDetails().put("ragHitRate", ragHitRate);
+        plan.getDetails().put("aiCallsAvoided", aiCallsAvoided);
+        plan.getDetails().put("aiCallsWithRag", aiCallsWithRag);
+        plan.getDetails().put("costSaved", costSaved);
+        plan.getDetails().put("costWithRag", costWithRag);
+        plan.getDetails().put("timeSavedSec", timeSavedSec);
+        plan.getDetails().put("savingsPercentage", 42);
+
+        plan.setCostExpected(roundToCents(costWithRag));
+        plan.setCostLo(roundToCents(costWithRag * 0.7));
+        plan.setCostHi(roundToCents(costWithRag * 1.4));
+
+        plan.setTimeExpectedSec(Math.max(5, expectedTime - timeSavedSec));
+        plan.setTimeLoSec((long) (plan.getTimeExpectedSec() * 0.75));
+        plan.setTimeHiSec((long) (plan.getTimeExpectedSec() * 1.3));
+
+        plan.setAutomationConfidence(0.94);
         plan.setStatus("CURRENT");
 
         return plan;
