@@ -145,9 +145,4 @@ public final class MockDataFactory {
 
         return inv;
     }
-
-    private static String formatTitle(String path) {
-        String name = path.substring(path.lastIndexOf('/') + 1).replace('-', ' ');
-        return name.substring(0, 1).toUpperCase() + name.substring(1);
-    }
 }

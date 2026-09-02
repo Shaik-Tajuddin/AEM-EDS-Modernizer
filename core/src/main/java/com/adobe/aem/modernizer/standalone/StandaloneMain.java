@@ -13,7 +13,6 @@ import com.adobe.aem.modernizer.mock.*;
 import com.adobe.aem.modernizer.persistence.InMemoryStore;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.services.EstimatorService;
-import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import org.slf4j.Logger;

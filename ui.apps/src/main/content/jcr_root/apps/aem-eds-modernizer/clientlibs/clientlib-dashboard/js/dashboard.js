@@ -259,6 +259,7 @@ async function saveProjectConfig() {
     figmaUrl: document.getElementById("cfg-figmaUrl").value.trim(),
     markerProperty: document.getElementById("cfg-markerProp").value.trim(),
     markerValue: document.getElementById("cfg-markerVal").value.trim(),
+    buildDocs: document.getElementById("cfg-buildDocs") ? document.getElementById("cfg-buildDocs").checked : false,
     authoringStrategy: document.getElementById("cfg-authoringStrategy").value,
     aiProvider: document.getElementById("cfg-aiProvider").value,
     aiModel: document.getElementById("cfg-aiModel").value.trim(),
@@ -423,6 +424,8 @@ async function populateFormFromProject(id) {
     document.getElementById("cfg-markerProp").value =
       p.markerProperty || "edsModernize";
     document.getElementById("cfg-markerVal").value = p.markerValue || "true";
+    const chkDocs = document.getElementById("cfg-buildDocs");
+    if (chkDocs) chkDocs.checked = !!p.buildDocs;
     document.getElementById("cfg-authoringStrategy").value =
       p.authoringStrategy || "UNIVERSAL_EDITOR";
     document.getElementById("cfg-aiProvider").value =
@@ -2201,14 +2204,6 @@ function daFromMarkdownClient(markdown, title, aemPath) {
     ["source-path", aemPath || ""],
   ]);
   return `<body>\n<header></header>\n<main>\n<div>\n${inner}\n</div>\n</main>\n<footer></footer>\n</body>`;
-}
-
-function buildDaDocument(markdown) {
-  return daFromMarkdownClient(
-    markdown,
-    (markdown.match(/^#\s+(.+)$/m) || [])[1] || "",
-    activePagePath,
-  );
 }
 
 function renderPageUeGuide(markdown) {

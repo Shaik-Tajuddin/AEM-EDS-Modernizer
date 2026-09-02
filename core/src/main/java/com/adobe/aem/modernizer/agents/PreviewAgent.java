@@ -4,7 +4,6 @@ import com.adobe.aem.modernizer.ai.AiGateway;
 import com.adobe.aem.modernizer.connectors.EdsClient;
 import com.adobe.aem.modernizer.connectors.GitHubClient;
 import com.adobe.aem.modernizer.connectors.GitHubFlow;
-import com.adobe.aem.modernizer.connectors.ModernizerNpmWorkflow;
 import com.adobe.aem.modernizer.connectors.PipelineHealLoop;
 import com.adobe.aem.modernizer.persistence.Store;
 import com.adobe.aem.modernizer.persistence.model.GeneratedFileRecord;
@@ -78,10 +77,12 @@ public class PreviewAgent implements Agent {
                 }
             }
             List<GeneratedFileRecord> toCommit = new java.util.ArrayList<>();
+            boolean buildDocs = ctx.getProject() != null && ctx.getProject().isBuildDocs();
             if (files != null) {
                 for (GeneratedFileRecord file : files) {
                     if (!GitHubFlow.skipFromCommit(file.getPath())
-                            && !GitHubFlow.skipLegacyPageMarkdown(file.getPath())) {
+                            && !GitHubFlow.skipLegacyPageMarkdown(file.getPath())
+                            && !GitHubFlow.skipDocFile(file.getPath(), buildDocs)) {
                         toCommit.add(file);
                     }
                 }

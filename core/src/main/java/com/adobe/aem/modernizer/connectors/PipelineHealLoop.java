@@ -10,7 +10,6 @@ import com.adobe.aem.modernizer.persistence.model.GeneratedFileRecord;
 import com.adobe.aem.modernizer.persistence.model.JobEventRecord;
 import com.adobe.aem.modernizer.persistence.model.JobRecord;
 import com.adobe.aem.modernizer.persistence.model.ProjectRecord;
-import com.adobe.aem.modernizer.persistence.model.RepairAttemptRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -507,26 +506,6 @@ public final class PipelineHealLoop {
                 "pipeline-heal",
                 message
         ));
-    }
-
-    private static void saveRepair(Store store, AgentContext ctx, int attempt, String logs, boolean pushed) {
-        if (store == null || ctx.getJob() == null) {
-            return;
-        }
-        RepairAttemptRecord rec = new RepairAttemptRecord(
-                UUID.randomUUID().toString(),
-                ctx.getProject().getId(),
-                ctx.getJob().getId(),
-                "ci-pipeline",
-                attempt,
-                excerpt(logs, 400)
-        );
-        rec.setIssueCategory("CI_FAILURE");
-        rec.setProposedFix(pushed
-                ? "sanitize UE JSON, section filter, lint:fix, build:json, and/or log patches"
-                : "no patch produced");
-        rec.setSuccessful(pushed);
-        store.saveRepairAttempt(rec);
     }
 
     private static void putMeta(JobRecord job, Store store, String key, String value) {

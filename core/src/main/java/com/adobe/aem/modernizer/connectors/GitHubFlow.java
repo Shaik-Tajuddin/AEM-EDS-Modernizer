@@ -32,11 +32,19 @@ public final class GitHubFlow {
         if (normalized.startsWith("docs/migrated-pages/")) {
             return false;
         }
-        if (normalized.startsWith("blocks/") || normalized.startsWith(".github/")
-                || normalized.equalsIgnoreCase("README.md")) {
+        return normalized.startsWith("language-masters/") || normalized.startsWith("content/");
+    }
+
+    /** Skips docs/ files if buildDocs is false in project configuration. */
+    public static boolean skipDocFile(String path, boolean buildDocs) {
+        if (buildDocs) {
             return false;
         }
-        return normalized.startsWith("language-masters/") || normalized.startsWith("content/");
+        if (path == null || path.isBlank()) {
+            return false;
+        }
+        String normalized = path.replace('\\', '/').replaceFirst("^/+", "");
+        return normalized.startsWith("docs/") || normalized.equalsIgnoreCase("docs");
     }
 
     private GitHubFlow() {}

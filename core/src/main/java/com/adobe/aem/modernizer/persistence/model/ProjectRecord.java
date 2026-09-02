@@ -30,6 +30,7 @@ public class ProjectRecord {
     private String aiModel;
     private double maxBudgetUsd;
     private int maxRepairAttempts;
+    private boolean buildDocs = false;
     private long createdAt;
     private long updatedAt;
     private Map<String, Object> properties = new HashMap<>();
@@ -41,6 +42,7 @@ public class ProjectRecord {
         this.maxRepairAttempts = 5;
         this.authoringStrategy = "UNIVERSAL_EDITOR";
         this.scopeMode = "RECURSIVE";
+        this.buildDocs = false;
     }
 
     public ProjectRecord(String id, String name, String aemAuthorUrl, String contentRoot, String edsGitRepoUrl) {
@@ -102,6 +104,10 @@ public class ProjectRecord {
 
     public int getMaxRepairAttempts() { return maxRepairAttempts; }
     public void setMaxRepairAttempts(int maxRepairAttempts) { this.maxRepairAttempts = maxRepairAttempts; }
+
+    public boolean isBuildDocs() { return buildDocs; }
+    public boolean getBuildDocs() { return buildDocs; }
+    public void setBuildDocs(boolean buildDocs) { this.buildDocs = buildDocs; }
 
     public long getCreatedAt() { return createdAt; }
     public void setCreatedAt(long createdAt) { this.createdAt = createdAt; }

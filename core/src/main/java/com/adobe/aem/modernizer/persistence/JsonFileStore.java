@@ -12,7 +12,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Disk-backed Store (ADR 0013): all state is kept in memory for speed but every
@@ -27,7 +26,6 @@ public class JsonFileStore extends InMemoryStore {
     private static final Logger LOG = LoggerFactory.getLogger(JsonFileStore.class);
     private static final String SNAPSHOT_FILE = "aem-eds-modernizer-store.json";
 
-    private final transient Map<String, Object> lock = new ConcurrentHashMap<>();
     private transient Path snapshotPath;
 
     @Activate

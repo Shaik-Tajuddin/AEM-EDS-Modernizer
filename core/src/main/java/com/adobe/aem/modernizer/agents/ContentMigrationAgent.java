@@ -93,6 +93,9 @@ public class ContentMigrationAgent implements Agent {
 
             String daHtml = DaDocumentBuilder.fromMarkdown(markdown, pageTitle, page.getPath());
 
+            boolean buildDocs = ctx.getProject() != null && ctx.getProject().isBuildDocs();
+            boolean virtualDiffOnly = ctx.isDryRun() || !buildDocs;
+
             GeneratedFileRecord file = new GeneratedFileRecord(
                     UUID.randomUUID().toString(),
                     ctx.getProject().getId(),
@@ -102,7 +105,7 @@ public class ContentMigrationAgent implements Agent {
                     markdown
             );
             file.setSourcePath(page.getPath());
-            file.setVirtualDiffOnly(ctx.isDryRun());
+            file.setVirtualDiffOnly(virtualDiffOnly);
 
             if (store != null) {
                 store.saveGeneratedFile(file);
@@ -116,7 +119,7 @@ public class ContentMigrationAgent implements Agent {
                         daHtml
                 );
                 daFile.setSourcePath(page.getPath());
-                daFile.setVirtualDiffOnly(ctx.isDryRun());
+                daFile.setVirtualDiffOnly(virtualDiffOnly);
                 store.saveGeneratedFile(daFile);
             }
         }

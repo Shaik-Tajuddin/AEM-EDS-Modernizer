@@ -323,6 +323,14 @@ public final class StaticDashboard {
                 + "              <label class=\"form-label\">Marker Expected Value</label>\n"
                 + "              <input type=\"text\" id=\"cfg-markerVal\" class=\"form-control\" value=\"true\" placeholder=\"true or *\">\n"
                 + "            </div>\n"
+                + "            <div class=\"form-group\">\n"
+                + "              <label class=\"form-label\">Documentation & Fixtures</label>\n"
+                + "              <label style=\"display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.88rem;\">\n"
+                + "                <input type=\"checkbox\" id=\"cfg-buildDocs\">\n"
+                + "                <span>📄 Build Documentation & Page Fixtures (<code>docs/</code>)</span>\n"
+                + "              </label>\n"
+                + "              <div class=\"form-hint\">When unchecked (default), docs/migrated-pages and markdown doc files are omitted from Git.</div>\n"
+                + "            </div>\n"
                 + "          </div>\n"
                 + "\n"
                 + "          <!-- Section 3: AI Engine & Safety Bounds -->\n"
@@ -746,6 +754,7 @@ public final class StaticDashboard {
                 + "        figmaUrl: document.getElementById('cfg-figmaUrl').value.trim(),\n"
                 + "        markerProperty: document.getElementById('cfg-markerProp').value.trim(),\n"
                 + "        markerValue: document.getElementById('cfg-markerVal').value.trim(),\n"
+                + "        buildDocs: document.getElementById('cfg-buildDocs') ? document.getElementById('cfg-buildDocs').checked : false,\n"
                 + "        authoringStrategy: document.getElementById('cfg-authoringStrategy').value,\n"
                 + "        aiProvider: document.getElementById('cfg-aiProvider').value,\n"
                 + "        aiModel: document.getElementById('cfg-aiModel').value.trim(),\n"
@@ -837,6 +846,7 @@ public final class StaticDashboard {
                 + "        document.getElementById('cfg-figmaUrl').value = p.figmaUrl || '';\n"
                 + "        document.getElementById('cfg-markerProp').value = p.markerProperty || 'edsModernize';\n"
                 + "        document.getElementById('cfg-markerVal').value = p.markerValue || 'true';\n"
+                + "        if (document.getElementById('cfg-buildDocs')) document.getElementById('cfg-buildDocs').checked = !!p.buildDocs;\n"
                 + "        document.getElementById('cfg-authoringStrategy').value = p.authoringStrategy || 'UNIVERSAL_EDITOR';\n"
                 + "        document.getElementById('cfg-aiProvider').value = p.aiProvider || 'anthropic';\n"
                 + "        document.getElementById('cfg-aiModel').value = p.aiModel || 'claude-3-5-sonnet-20241022';\n"
@@ -1638,10 +1648,5 @@ public final class StaticDashboard {
                 + "  </script>\n"
                 + "</body>\n"
                 + "</html>\n";
-    }
-
-    /** Breaks javac's 64KB string-constant folding for this generated page. */
-    private static String runtimeJoin() {
-        return new String();
     }
 }

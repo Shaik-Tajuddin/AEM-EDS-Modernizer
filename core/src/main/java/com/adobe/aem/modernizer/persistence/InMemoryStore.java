@@ -1,7 +1,6 @@
 package com.adobe.aem.modernizer.persistence;
 
 import com.adobe.aem.modernizer.persistence.model.*;
-import org.osgi.service.component.annotations.Component;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;

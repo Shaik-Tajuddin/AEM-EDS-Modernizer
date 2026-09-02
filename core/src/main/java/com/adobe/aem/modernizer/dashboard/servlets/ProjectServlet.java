@@ -8,8 +8,6 @@ import org.apache.sling.api.servlets.SlingAllMethodsServlet;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.servlet.Servlet;
 import java.io.BufferedReader;
@@ -28,7 +26,6 @@ import java.io.IOException;
 })
 public class ProjectServlet extends SlingAllMethodsServlet {
 
-    private static final Logger LOG = LoggerFactory.getLogger(ProjectServlet.class);
     private final transient ApiRouter router;
     private final transient Store store;
 

@@ -200,6 +200,14 @@
               <label class="form-label">Marker Expected Value</label>
               <input type="text" id="cfg-markerVal" class="form-control" value="${model.activeProject.markerValue}" placeholder="true or *">
             </div>
+            <div class="form-group">
+              <label class="form-label">Documentation & Fixtures</label>
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.88rem; color:var(--text-main); margin-top:6px;">
+                <input type="checkbox" id="cfg-buildDocs" data-sly-attribute.checked="${model.activeProject.buildDocs}">
+                <span>📄 <b>Build Documentation & Page Fixtures (<code>docs/</code>)</b></span>
+              </label>
+              <div class="form-hint">When unchecked (default), <code>docs/migrated-pages</code> and markdown doc files are omitted from Git.</div>
+            </div>
           </div>
 
           <!-- Section 3: AI Engine & Safety Bounds -->

@@ -22,6 +22,10 @@ class PersistenceAndModelsTest {
         proj.setFigmaUrl("https://figma.com/file/123");
         proj.setProperties(Collections.singletonMap("env", "prod"));
         assertThat(proj.getProperties()).containsEntry("env", "prod");
+        assertThat(proj.isBuildDocs()).isFalse();
+        proj.setBuildDocs(true);
+        assertThat(proj.isBuildDocs()).isTrue();
+        assertThat(proj.getBuildDocs()).isTrue();
 
         store.saveProject(proj);
         assertThat(store.getProject("p-1")).isPresent();

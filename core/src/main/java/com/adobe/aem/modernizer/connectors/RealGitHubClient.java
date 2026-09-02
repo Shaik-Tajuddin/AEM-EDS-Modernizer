@@ -26,7 +26,6 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Real GitHub REST / Git Data API implementation of {@link GitHubClient}.
@@ -357,7 +356,7 @@ public class RealGitHubClient implements GitHubClient {
     }
 
     /**
-     * Looks up any existing pull request URL for the given head branch across all PR states.
+     * Looks up any existing open pull request URL for the given head branch.
      */
     public String findExistingPullRequest(String headBranch) {
         if (headBranch == null || headBranch.isBlank()) {
@@ -365,30 +364,30 @@ public class RealGitHubClient implements GitHubClient {
         }
         ensureOwnerRepo();
         try {
-            // Check with owner:headBranch
+            // Check with owner:headBranch for open PRs
             String headFilter = owner + ":" + headBranch.trim();
-            JsonNode resp = get("/repos/" + owner + "/" + repo + "/pulls?head=" + urlEncode(headFilter) + "&state=all");
-            if (resp.isArray() && !resp.isEmpty()) {
-                String htmlUrl = resp.get(0).path("html_url").asText();
-                if (htmlUrl != null && !htmlUrl.isBlank()) {
-                    return htmlUrl;
+            JsonNode resp = get("/repos/" + owner + "/" + repo + "/pulls?head=" + urlEncode(headFilter) + "&state=open");
+            if (resp.isArray()) {
+                for (JsonNode item : resp) {
+                    String ref = item.path("head").path("ref").asText();
+                    if (headBranch.trim().equalsIgnoreCase(ref)) {
+                        String htmlUrl = item.path("html_url").asText();
+                        if (htmlUrl != null && !htmlUrl.isBlank()) {
+                            return htmlUrl;
+                        }
+                    }
                 }
             }
-            // Check with headBranch directly
-            resp = get("/repos/" + owner + "/" + repo + "/pulls?head=" + urlEncode(headBranch.trim()) + "&state=all");
-            if (resp.isArray() && !resp.isEmpty()) {
-                String htmlUrl = resp.get(0).path("html_url").asText();
-                if (htmlUrl != null && !htmlUrl.isBlank()) {
-                    return htmlUrl;
-                }
-            }
-            // Secondary scan over recent open PRs
+            // Secondary scan over recent open PRs (handles any org/user prefix mismatches)
             resp = get("/repos/" + owner + "/" + repo + "/pulls?state=open&per_page=30");
             if (resp.isArray()) {
                 for (JsonNode item : resp) {
                     String ref = item.path("head").path("ref").asText();
                     if (headBranch.trim().equalsIgnoreCase(ref)) {
-                        return item.path("html_url").asText();
+                        String htmlUrl = item.path("html_url").asText();
+                        if (htmlUrl != null && !htmlUrl.isBlank()) {
+                            return htmlUrl;
+                        }
                     }
                 }
             }
@@ -630,7 +629,7 @@ public class RealGitHubClient implements GitHubClient {
                     StandardCharsets.UTF_8).replace("+", "%20").replace("%2F", "/");
             String targetBranch = (branch == null || branch.isBlank()) ? defaultBranch : branch.trim();
             String getUrl = "/repos/" + owner + "/" + repo + "/contents/" + encodedPath + "?ref=" + urlEncode(targetBranch);
-            
+
             JsonNode fileNode;
             try {
                 fileNode = get(getUrl);

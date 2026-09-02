@@ -1,7 +1,6 @@
 package com.adobe.aem.modernizer.connectors;
 
 import com.adobe.aem.modernizer.persistence.model.SiteInventory;
-import com.adobe.aem.modernizer.util.JsonUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.osgi.service.component.annotations.Component;

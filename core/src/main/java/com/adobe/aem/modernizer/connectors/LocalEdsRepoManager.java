@@ -272,7 +272,9 @@ public class LocalEdsRepoManager {
             ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.directory(dir);
             pb.redirectErrorStream(true);
-            pb.redirectOutput(ProcessBuilder.Redirect.to(new File(dir, ".modernizer-last-cmd.log")));
+            File logFile = File.createTempFile("modernizer-last-cmd-", ".log");
+            logFile.deleteOnExit();
+            pb.redirectOutput(ProcessBuilder.Redirect.to(logFile));
             Process p = pb.start();
             if (!p.waitFor(timeout.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS)) {
                 p.destroyForcibly();

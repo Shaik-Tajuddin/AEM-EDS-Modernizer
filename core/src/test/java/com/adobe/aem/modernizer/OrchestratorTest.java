@@ -102,6 +102,7 @@ class OrchestratorTest {
 
     @Test
     void testMigrationCompletesSuccessfully() throws Exception {
+        project.setBuildDocs(true);
         JobRecord job = orchestrator.runMigration(project, "tester");
 
         assertThat(job).isNotNull();
@@ -143,6 +144,19 @@ class OrchestratorTest {
         assertThat(pushJob.getMetadata()).containsKey("prUrl");
         assertThat(gitHub.getPrCount()).isEqualTo(prsAfterMigrate + 1);
         assertThat(gitHub.getCommitCount()).isGreaterThan(commitsAfterMigrate);
+    }
+
+    @Test
+    void testMigrationSkipsDocsByDefault() throws Exception {
+        assertThat(project.isBuildDocs()).isFalse();
+        JobRecord job = orchestrator.runMigration(project, "tester");
+        assertThat(job).isNotNull();
+        orchestrator.pushToPreviewBranch(project, "tester");
+
+        // Verify committed files on branch do not contain docs/
+        assertThat(gitHub.listChangedFiles("main", "feat/test-wknd"))
+                .extracting(row -> String.valueOf(row.get("filename")))
+                .noneMatch(path -> path.startsWith("docs/"));
     }
 
     @Test

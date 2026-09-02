@@ -85,10 +85,9 @@ public class BlockGenerationAgent implements Agent {
 
             BlockReconcileHelper.Action action = BlockReconcileHelper.decide(blockName, existingEdsBlocks, null);
             decisions.add(new BlockReconcileHelper.Decision(blockName, comp.getResourceType(), action));
-            if (action == BlockReconcileHelper.Action.LEAVE) {
-                LOG.info("Loading existing EDS block '{}' into migration files", blockName);
-                loadExistingLocalBlockFiles(ctx, blockName);
-                continue;
+            boolean isExistingBlock = (action == BlockReconcileHelper.Action.LEAVE);
+            if (isExistingBlock) {
+                LOG.info("Preserving existing implementation for block '{}' while ensuring documentation and fixtures", blockName);
             }
 
             String titleCase = Character.toUpperCase(blockName.charAt(0)) + blockName.substring(1).replace('-', ' ');
@@ -218,8 +217,11 @@ public class BlockGenerationAgent implements Agent {
             }
             jsBuilder.append("</div>`;\n")
                     .append("}\n");
-
             String jsContent = jsBuilder.toString();
+            String existingJs = isExistingBlock ? readExistingLocalBlockFile(ctx, blockName, blockName + ".js") : null;
+            if (existingJs != null && !existingJs.isBlank()) {
+                jsContent = existingJs;
+            }
 
             // 2. _<block-name>.json (Universal Editor Model)
             StringBuilder jsonBuilder = new StringBuilder();
@@ -339,6 +341,11 @@ public class BlockGenerationAgent implements Agent {
                     + "." + blockName + "." + blockName + "-tone-emphasis ." + blockName + "-text p {\n"
                     + "  color: #cbd5e1;\n"
                     + "}\n";
+
+            String existingCss = isExistingBlock ? readExistingLocalBlockFile(ctx, blockName, blockName + ".css") : null;
+            if (existingCss != null && !existingCss.isBlank()) {
+                cssContent = existingCss;
+            }
 
             // 3. <block-name>-example.html (HTML Demo before & after decoration)
             StringBuilder htmlBuilder = new StringBuilder();
@@ -497,19 +504,21 @@ public class BlockGenerationAgent implements Agent {
                         + "### Task:\n"
                         + "Build the complete Edge Delivery Services JavaScript decoration code `decorate(block)` and `createBlock(options)` for the `" + blockName + "` component.";
 
-                ChatRequest req = new ChatRequest(getName(), aiPrompt);
-                req.setTargetCapability(ModelCapability.CAP_CODE);
-                req.setPreferredProvider(ctx.getProject().getAiProvider());
-                req.setPreferredModel(ctx.getProject().getAiModel());
-                req.setProjectId(ctx.getProject().getId());
-                req.setJobId(ctx.getJob().getId());
-                try {
-                    ChatResponse resp = ai.dispatch(req);
-                    if (resp.getContent() != null && (resp.getContent().contains("decorate") || resp.getContent().contains("export default"))) {
-                        jsContent = resp.getContent();
+                if (ai != null && (!isExistingBlock || existingJs == null) && (ctx.getProject() != null && ctx.getProject().getAiProvider() != null && !ctx.getProject().getAiProvider().equalsIgnoreCase("mock"))) {
+                    ChatRequest req = new ChatRequest(getName(), aiPrompt);
+                    req.setTargetCapability(ModelCapability.CAP_CODE);
+                    req.setPreferredProvider(ctx.getProject().getAiProvider());
+                    req.setPreferredModel(ctx.getProject().getAiModel());
+                    req.setProjectId(ctx.getProject().getId());
+                    req.setJobId(ctx.getJob().getId());
+                    try {
+                        ChatResponse resp = ai.dispatch(req);
+                        if (resp.getContent() != null && (resp.getContent().contains("decorate") || resp.getContent().contains("export default"))) {
+                            jsContent = resp.getContent();
+                        }
+                    } catch (Exception e) {
+                        LOG.debug("AI generation fallback for block {}: {}", blockName, e.getMessage());
                     }
-                } catch (Exception e) {
-                    LOG.debug("AI generation fallback for block {}: {}", blockName, e.getMessage());
                 }
             }
 
@@ -549,14 +558,22 @@ public class BlockGenerationAgent implements Agent {
                 String projectId = ctx.getProject().getId();
                 String base = "blocks/" + blockName;
                 if (edsRepo != null) {
-                    edsRepo.writeProjectFile(projectId, base + "/" + blockName + ".js", jsContent);
-                    edsRepo.writeProjectFile(projectId, base + "/" + blockName + ".css", cssContent);
+                    if (!isExistingBlock || existingJs == null) {
+                        edsRepo.writeProjectFile(projectId, base + "/" + blockName + ".js", jsContent);
+                    }
+                    if (!isExistingBlock || existingCss == null) {
+                        edsRepo.writeProjectFile(projectId, base + "/" + blockName + ".css", cssContent);
+                    }
                     edsRepo.writeProjectFile(projectId, base + "/_" + blockName + ".json", jsonContent);
                     edsRepo.writeProjectFile(projectId, base + "/" + blockName + "-example.html", htmlContent);
                     edsRepo.writeProjectFile(projectId, base + "/README.md", readmeContent);
                 } else {
-                    writeLocalFile(ctx, base + "/" + blockName + ".js", jsContent);
-                    writeLocalFile(ctx, base + "/" + blockName + ".css", cssContent);
+                    if (!isExistingBlock || existingJs == null) {
+                        writeLocalFile(ctx, base + "/" + blockName + ".js", jsContent);
+                    }
+                    if (!isExistingBlock || existingCss == null) {
+                        writeLocalFile(ctx, base + "/" + blockName + ".css", cssContent);
+                    }
                     writeLocalFile(ctx, base + "/_" + blockName + ".json", jsonContent);
                     writeLocalFile(ctx, base + "/" + blockName + "-example.html", htmlContent);
                     writeLocalFile(ctx, base + "/README.md", readmeContent);
@@ -573,6 +590,21 @@ public class BlockGenerationAgent implements Agent {
                     BlockReconcileHelper.summarize(decisions)
             ));
         }
+    }
+
+    private String readExistingLocalBlockFile(AgentContext ctx, String blockName, String fileName) {
+        if (ctx == null || ctx.getProject() == null) return null;
+        String projectId = ctx.getProject().getId();
+        java.io.File repoDir = (edsRepo != null) ? edsRepo.edsRepoDir(projectId) : new java.io.File("D:/eds personal/AEM-EDS-Modernizer/eds", projectId);
+        java.io.File target = new java.io.File(repoDir, "blocks/" + blockName + "/" + fileName);
+        if (target.isFile()) {
+            try {
+                return java.nio.file.Files.readString(target.toPath(), java.nio.charset.StandardCharsets.UTF_8);
+            } catch (Exception e) {
+                LOG.debug("Could not read local block file {}: {}", target.getAbsolutePath(), e.getMessage());
+            }
+        }
+        return null;
     }
 
     private void loadExistingLocalBlockFiles(AgentContext ctx, String blockName) {
