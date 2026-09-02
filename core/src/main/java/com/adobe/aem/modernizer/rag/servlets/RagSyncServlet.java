@@ -109,30 +109,45 @@ public class RagSyncServlet extends SlingAllMethodsServlet {
         String branch = "main";
         String localPath = null;
 
-        StringBuilder sb = new StringBuilder();
-        try (BufferedReader reader = request.getReader()) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                sb.append(line);
+        // NOTE: For form-encoded POSTs, Sling has already consumed the request
+        // body to parse parameters — calling getReader() here would throw
+        // "Request Data has already been read". Only attempt to read a raw
+        // JSON body when the client actually sent one.
+        String contentType = request.getContentType();
+        if (contentType != null && contentType.toLowerCase().contains("application/json")) {
+            StringBuilder sb = new StringBuilder();
+            try (BufferedReader reader = request.getReader()) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line);
+                }
             }
-        }
-        String body = sb.toString();
-
-        if (!body.isBlank()) {
-            try {
-                JsonNode json = MAPPER.readTree(body);
-                if (json.has("projectId")) projectId = json.get("projectId").asText();
-                if (json.has("forceReindex")) forceReindex = json.get("forceReindex").asBoolean();
-                if (json.has("repoUrl")) repoUrl = json.get("repoUrl").asText();
-                if (json.has("branch")) branch = json.get("branch").asText();
-                if (json.has("localPath")) localPath = json.get("localPath").asText();
-            } catch (Exception e) {
-                LOG.debug("Could not parse sync POST body as JSON, reading query params", e);
+            String body = sb.toString();
+            if (!body.isBlank()) {
+                try {
+                    JsonNode json = MAPPER.readTree(body);
+                    if (json.has("projectId")) projectId = json.get("projectId").asText();
+                    if (json.has("forceReindex")) forceReindex = json.get("forceReindex").asBoolean();
+                    if (json.has("repoUrl")) repoUrl = json.get("repoUrl").asText();
+                    if (json.has("branch")) branch = json.get("branch").asText();
+                    if (json.has("localPath")) localPath = json.get("localPath").asText();
+                } catch (Exception e) {
+                    LOG.debug("Could not parse sync POST body as JSON, reading query params", e);
+                }
             }
         }
 
         if (request.getParameter("projectId") != null) {
             projectId = request.getParameter("projectId");
+        }
+        if (request.getParameter("repoUrl") != null) {
+            repoUrl = request.getParameter("repoUrl");
+        }
+        if (request.getParameter("branch") != null) {
+            branch = request.getParameter("branch");
+        }
+        if (request.getParameter("localPath") != null) {
+            localPath = request.getParameter("localPath");
         }
         if ("true".equalsIgnoreCase(request.getParameter("forceReindex"))) {
             forceReindex = true;

@@ -3008,7 +3008,13 @@ async function syncRagRepository() {
       headers: { "Content-Type": "application/x-www-form-urlencoded", "CSRF-Token": csrf },
       body: new URLSearchParams({ projectId: currentProjectId, forceReindex: forceReindex ? "true" : "false" })
     });
-    const data = await res.json();
+    if (!res.ok) {
+      throw new Error("Sync endpoint returned HTTP " + res.status + " — check AEM logs");
+    }
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); }
+    catch (e) { throw new Error("Sync endpoint returned non-JSON response: " + text.slice(0, 120)); }
     showToast(data.message || "RAG Sync dispatched");
     pollRagSyncStatus(data.syncId);
   } catch (e) {
